@@ -119,6 +119,8 @@ npm run typecheck
 
 ## Contributing
 
+This project is **AI-native** — large contributions should be agent-written. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full policy (it's worth a read).
+
 See [`STATUS.md`](./STATUS.md) for current build status, file map, what's implemented vs stubbed, and what to work on next.
 
 See [`REQUIREMENTS.md`](./REQUIREMENTS.md) for the full design spec and architecture decisions.
