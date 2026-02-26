@@ -11,7 +11,7 @@ interface VapiClient {
   on(event: 'volume-level', listener: (volume: number) => void): void
   on(event: 'message', listener: (message: VapiMessage) => void): void
   on(event: 'error', listener: (error: unknown) => void): void
-  off(event: string, listener: (...args: unknown[]) => void): void
+  removeListener(event: string, listener: (...args: unknown[]) => void): void
 }
 
 interface VapiMessage {
@@ -117,13 +117,13 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
       client.on('error', onError)
 
       return () => {
-        client.off('call-start', onCallStart as () => void)
-        client.off('call-end', onCallEnd as () => void)
-        client.off('speech-start', onSpeechStart as () => void)
-        client.off('speech-end', onSpeechEnd as () => void)
-        client.off('volume-level', onVolumeLevel as (...args: unknown[]) => void)
-        client.off('message', onMessage as (...args: unknown[]) => void)
-        client.off('error', onError as (...args: unknown[]) => void)
+        client.removeListener('call-start', onCallStart as () => void)
+        client.removeListener('call-end', onCallEnd as () => void)
+        client.removeListener('speech-start', onSpeechStart as () => void)
+        client.removeListener('speech-end', onSpeechEnd as () => void)
+        client.removeListener('volume-level', onVolumeLevel as (...args: unknown[]) => void)
+        client.removeListener('message', onMessage as (...args: unknown[]) => void)
+        client.removeListener('error', onError as (...args: unknown[]) => void)
       }
     },
   }

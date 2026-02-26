@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Vapi from '@vapi-ai/web'
 import { VoiceOrb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
@@ -20,6 +20,9 @@ const THEMES: OrbTheme[] = ['debug', 'circle', 'bars', 'jarvis']
 const vapi = VAPI_PUBLIC_KEY ? new Vapi(VAPI_PUBLIC_KEY) : null
 const adapter = vapi ? createVapiAdapter(vapi) : undefined
 
+// Surface raw Vapi errors to the console so we can diagnose issues
+// (UI also captures them via setLastError below)
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [theme, setTheme] = useState<OrbTheme>('debug')
@@ -27,17 +30,32 @@ export default function App() {
   const [sandboxVolume, setSandboxVolume] = useState(0)
   const [liveMode, setLiveMode] = useState(!!adapter)
   const [connected, setConnected] = useState(false)
+  const [lastError, setLastError] = useState<string | null>(null)
 
   // In live mode, adapter drives state. In sandbox mode, we pass state/volume manually.
   const orbProps = liveMode && adapter
     ? { adapter }
     : { state: sandboxState, volume: sandboxVolume }
 
+  useEffect(() => {
+    if (!vapi) return
+    const handler = (e: unknown) => {
+      const msg = typeof e === 'object' && e !== null
+        ? JSON.stringify(e, null, 2)
+        : String(e)
+      console.error('[orb-ui demo] Vapi error:', msg)
+      setLastError(msg)
+    }
+    vapi.on('error', handler)
+    return () => { vapi.removeListener('error', handler) }
+  }, [])
+
   const handleStart = useCallback(async () => {
     if (!vapi || !VAPI_ASSISTANT_ID) {
       console.warn('[orb-ui demo] No VAPI_PUBLIC_KEY or VAPI_ASSISTANT_ID — running in sandbox mode only.')
       return
     }
+    setLastError(null)
     setConnected(true)
     // Per adapter docs: Vapi has no 'connecting' event, so set it manually here.
     // The adapter will take over once call-start fires.
@@ -182,6 +200,17 @@ export default function App() {
               {connected
                 ? '🟢 Connected to Vapi — speaking to Riley. Click Stop in the orb to end the call.'
                 : '⚪ Click the orb to start a live call with Riley.'}
+            </div>
+          )}
+
+          {/* Error display */}
+          {lastError && (
+            <div style={{
+              background: '#1a0000', border: '1px solid #5a0000', borderRadius: 6,
+              padding: '10px 14px', fontSize: 11, color: '#ff6b6b', fontFamily: 'monospace',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+            }}>
+              <strong>Vapi Error:</strong>{'\n'}{lastError}
             </div>
           )}
 
