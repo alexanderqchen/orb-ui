@@ -56,8 +56,7 @@ cd8cc93  docs: add STATUS.md, update README with contributing section
 
 ## Build Order (what to do next, in order)
 
-1. **Theme research** — Survey existing voice AI UIs (OpenAI, Anthropic, ElevenLabs, etc.) → `docs/voice-ui-research.md`. Use findings to finalize visual design for circle, bars, jarvis.
-2. **`circle` theme** — Simple CSS circle. Pulse on idle, scale+glow on speaking/listening, rotate-dash on thinking.
+1. **`circle` theme** — Simple CSS circle. Pulse on idle, scale+glow on speaking/listening, rotate-dash on thinking.
 3. **`bars` theme** — Three vertical bars, animate height/opacity with volume.
 4. **ElevenLabs adapter** — `onModeChange({ mode })` maps to speaking/listening; infer thinking from mode gap.
 5. **Pipecat adapter** — WebRTC-based; map `botStartedSpeaking` / `botStoppedSpeaking` / `userStartedSpeaking`.
@@ -93,8 +92,6 @@ orb-ui/
 │   │   └── bland/index.ts            # 🚧 Stub
 │   └── index.ts                      # Public API: exports VoiceOrb + types
 ├── demo/                             # Vite app — wired to Vapi, tested live
-├── docs/                             # Research and design docs
-│   └── voice-ui-research.md          # 🚧 In progress — voice AI UI survey
 ├── REQUIREMENTS.md                   # Full design spec and decisions
 ├── STATUS.md                         # ← you are here
 ├── README.md                         # Human-facing docs (npm / GitHub)
@@ -146,7 +143,6 @@ interface OrbAdapter {
 - **Controlled props override adapter** — If both `state` prop and `adapter` are provided, the prop wins.
 - **`thinking` state inference** — Vapi doesn't emit a thinking event; infer it from final user transcript. Other adapters may need similar patterns.
 - **`connecting` state** — Vapi doesn't emit a connecting event either. The Vapi adapter intercepts `vapi.start()` to emit `'connecting'` immediately, then restores the original on unsubscribe.
-- **Theme research before implementation** — Survey existing voice AI UIs before designing circle/bars/jarvis. See `docs/voice-ui-research.md`.
 
 ---
 
