@@ -117,6 +117,12 @@ npm run build
 npm run typecheck
 ```
 
+## Contributing
+
+See [`STATUS.md`](./STATUS.md) for current build status, file map, what's implemented vs stubbed, and what to work on next.
+
+See [`REQUIREMENTS.md`](./REQUIREMENTS.md) for the full design spec and architecture decisions.
+
 ## License
 
 MIT © [Alexander Chen](https://github.com/alexanderqchen)
