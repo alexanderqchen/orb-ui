@@ -14,7 +14,7 @@ pluggable provider adapters. MIT license.
 
 **Owner:** Alexander Chen ([@alexanderqchen](https://github.com/alexanderqchen))
 **npm:** `orb-ui` (not yet published)
-**Repo:** `github.com/alexanderqchen/orb-ui` (not yet pushed to GitHub)
+**Repo:** `github.com/alexanderqchen/orb-ui` ✅ pushed and public
 
 ---
 
@@ -25,30 +25,46 @@ pluggable provider adapters. MIT license.
 | Repo scaffold | ✅ Done | `package.json`, `tsconfig.json`, `vite.config.ts`, `src/` structure |
 | `VoiceOrb` component | ✅ Done | `src/components/VoiceOrb/VoiceOrb.tsx` — controlled + adapter modes |
 | `debug` theme | ✅ Done | Fully implemented. State display, volume bar, state buttons, Start/Stop |
-| Vapi adapter | ✅ Done | Full event mapping with thinking-state inference |
+| Vapi adapter | ✅ Done | Full event mapping, thinking-state inference, connecting-state intercept, removeListener cleanup |
 | `circle` theme | 🚧 Stub | Placeholder renders a static gray circle with "circle (todo)" label |
 | `bars` theme | 🚧 Stub | Placeholder renders three static bars |
 | `jarvis` theme | 🚧 Stub | Placeholder renders a static sci-fi placeholder |
 | ElevenLabs adapter | 🚧 Stub | Shell with full TODO comments and event mapping notes |
 | Pipecat adapter | 🚧 Stub | Shell with TODO |
 | Bland adapter | 🚧 Stub | Shell with TODO |
-| Demo app | 🚧 Scaffolded | `demo/` exists but needs real content wired up |
-| README | ✅ Done | Human-readable docs, API reference, theme/adapter tables |
+| Demo app | 🚧 Live but not deployed | `demo/` wired up with Vapi, runs locally on port 5173. Live-tested and working. |
+| README | ✅ Done | Human-facing docs, API reference, theme/adapter tables |
+| CONTRIBUTING.md | ✅ Done | AI-native contribution policy |
 | npm publish | ❌ Not done | — |
-| GitHub push | ❌ Not done | Repo exists locally, not pushed yet |
+
+---
+
+## Git Log
+
+```
+0447336  feat(vapi): intercept vapi.start() to emit connecting state immediately
+3eae9c3  fix: removeListener instead of off, add error display in demo UI, vite-env types
+45d37d1  demo: wire up live Vapi adapter with live/sandbox mode toggle
+ed08e00  demo: add .env.example, .gitignore, allowedHosts config, @vapi-ai/web dep
+46645fd  docs: add CONTRIBUTING.md (AI-native contribution policy)
+cd8cc93  docs: add STATUS.md, update README with contributing section
+8c93595  Implement Vapi adapter with full event mapping and thinking state inference
+61b8d8b  Initial scaffold: VoiceOrb component, debug theme, adapter stubs, demo app
+```
 
 ---
 
 ## Build Order (what to do next, in order)
 
-1. **`circle` theme** — Simple CSS circle. Pulse on idle, scale+glow on speaking/listening, rotate-dash on thinking.
-2. **`bars` theme** — Three vertical bars, animate height/opacity with volume.
-3. **ElevenLabs adapter** — `onModeChange({ mode })` maps to speaking/listening; infer thinking from mode gap.
-4. **Pipecat adapter** — WebRTC-based; map `botStartedSpeaking` / `botStoppedSpeaking` / `userStartedSpeaking`.
-5. **Bland adapter** — Bland uses WebSocket events; map similarly.
-6. **`jarvis` theme** — Sci-fi HUD. Canvas + WebGL. This is the launch demo — needs to be stunning.
-7. **Demo site** — Interactive playground showing all themes + adapters. This is the marketing page.
-8. **Push to GitHub, publish to npm** — Public launch.
+1. **Theme research** — Survey existing voice AI UIs (OpenAI, Anthropic, ElevenLabs, etc.) → `docs/voice-ui-research.md`. Use findings to finalize visual design for circle, bars, jarvis.
+2. **`circle` theme** — Simple CSS circle. Pulse on idle, scale+glow on speaking/listening, rotate-dash on thinking.
+3. **`bars` theme** — Three vertical bars, animate height/opacity with volume.
+4. **ElevenLabs adapter** — `onModeChange({ mode })` maps to speaking/listening; infer thinking from mode gap.
+5. **Pipecat adapter** — WebRTC-based; map `botStartedSpeaking` / `botStoppedSpeaking` / `userStartedSpeaking`.
+6. **Bland adapter** — Bland uses WebSocket events; map similarly.
+7. **`jarvis` theme** — Sci-fi HUD. Canvas + WebGL. This is the launch demo — needs to be stunning.
+8. **Demo site** — Interactive playground showing all themes + adapters. This is the marketing page.
+9. **Push updates to GitHub, publish to npm** — Public launch.
 
 ---
 
@@ -76,7 +92,9 @@ orb-ui/
 │   │   ├── pipecat/index.ts          # 🚧 Stub
 │   │   └── bland/index.ts            # 🚧 Stub
 │   └── index.ts                      # Public API: exports VoiceOrb + types
-├── demo/                             # 🚧 Vite app — interactive playground
+├── demo/                             # Vite app — wired to Vapi, tested live
+├── docs/                             # Research and design docs
+│   └── voice-ui-research.md          # 🚧 In progress — voice AI UI survey
 ├── REQUIREMENTS.md                   # Full design spec and decisions
 ├── STATUS.md                         # ← you are here
 ├── README.md                         # Human-facing docs (npm / GitHub)
@@ -127,7 +145,8 @@ interface OrbAdapter {
 - **Volume is normalized 0–1** — All adapters must normalize before calling `onVolumeChange`.
 - **Controlled props override adapter** — If both `state` prop and `adapter` are provided, the prop wins.
 - **`thinking` state inference** — Vapi doesn't emit a thinking event; infer it from final user transcript. Other adapters may need similar patterns.
-- **`connecting` state** — Vapi doesn't emit a connecting event either. The Vapi adapter intercepts `vapi.start()` to emit `'connecting'` immediately, then restores the original on unsubscribe. Other adapters should do the same.
+- **`connecting` state** — Vapi doesn't emit a connecting event either. The Vapi adapter intercepts `vapi.start()` to emit `'connecting'` immediately, then restores the original on unsubscribe.
+- **Theme research before implementation** — Survey existing voice AI UIs before designing circle/bars/jarvis. See `docs/voice-ui-research.md`.
 
 ---
 
@@ -138,16 +157,9 @@ npm run build       # Build the library (tsc + vite)
 npm run typecheck   # Type-check only, no emit
 npm run dev         # Watch mode build
 npm run test        # Vitest
-cd demo && npm run dev  # Run interactive demo
+cd demo && npm run dev  # Run interactive demo (requires demo/.env.local with Vapi keys)
 ```
 
 ---
-
-## Git Log (as of last update)
-
-```
-8c93595  Implement Vapi adapter with full event mapping and thinking state inference
-61b8d8b  Initial scaffold: VoiceOrb component, debug theme, adapter stubs, demo app
-```
 
 *Last updated: 2026-02-26*
