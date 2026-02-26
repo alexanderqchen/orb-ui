@@ -1,0 +1,1 @@
+export { BarsTheme } from './BarsTheme'
