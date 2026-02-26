@@ -70,7 +70,7 @@ function App() {
 
 | Provider | Package | Status |
 |---|---|---|
-| [Vapi](https://vapi.ai) | `@vapi-ai/web` | 🚧 Coming soon |
+| [Vapi](https://vapi.ai) | `@vapi-ai/web` | ✅ Ready |
 | [ElevenLabs](https://elevenlabs.io/conversational-ai) | `@elevenlabs/client` | 🚧 Coming soon |
 | [Pipecat](https://pipecat.ai) | `@pipecat-ai/client-js` | 🚧 Coming soon |
 | [Bland](https://bland.ai) | — | 🚧 Coming soon |
