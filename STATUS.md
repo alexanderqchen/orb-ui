@@ -127,6 +127,7 @@ interface OrbAdapter {
 - **Volume is normalized 0–1** — All adapters must normalize before calling `onVolumeChange`.
 - **Controlled props override adapter** — If both `state` prop and `adapter` are provided, the prop wins.
 - **`thinking` state inference** — Vapi doesn't emit a thinking event; infer it from final user transcript. Other adapters may need similar patterns.
+- **`connecting` state** — Vapi doesn't emit a connecting event either. The Vapi adapter intercepts `vapi.start()` to emit `'connecting'` immediately, then restores the original on unsubscribe. Other adapters should do the same.
 
 ---
 

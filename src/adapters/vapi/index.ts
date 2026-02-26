@@ -12,6 +12,8 @@ interface VapiClient {
   on(event: 'message', listener: (message: VapiMessage) => void): void
   on(event: 'error', listener: (error: unknown) => void): void
   removeListener(event: string, listener: (...args: unknown[]) => void): void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  start(...args: any[]): Promise<unknown>
 }
 
 interface VapiMessage {
@@ -25,17 +27,18 @@ interface VapiMessage {
  * Creates an OrbAdapter for Vapi voice agents.
  *
  * State mapping:
- *   call-start                              → 'listening'
+ *   vapi.start() called (intercepted)      → 'connecting'
+ *   call-start                             → 'listening'
  *   message (final user transcript)        → 'thinking'  (AI is now processing)
  *   speech-start                           → 'speaking'  (AI is speaking)
  *   speech-end                             → 'listening' (back to user's turn)
  *   call-end                               → 'disconnected'
  *   error                                  → 'error'
  *
- * Note: The 'connecting' state is not emitted by this adapter because Vapi
- * has no event for the setup phase between vapi.start() and call-start.
- * To show a connecting animation, set state='connecting' manually before
- * calling vapi.start(), then let the adapter take over once call-start fires.
+ * Note: Vapi has no native 'connecting' event. The adapter intercepts
+ * vapi.start() to emit 'connecting' immediately, then hands off to Vapi
+ * events for the rest of the lifecycle. The original start() is restored
+ * on unsubscribe.
  *
  * @param client - A Vapi instance from @vapi-ai/web
  *
@@ -116,6 +119,15 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
       client.on('message', onMessage)
       client.on('error', onError)
 
+      // Intercept vapi.start() to emit 'connecting' immediately.
+      // Vapi has no native connecting event — this fills the gap between
+      // the user pressing Start and call-start firing (typically 1–3s).
+      const originalStart = client.start.bind(client)
+      client.start = async (...args) => {
+        onStateChange('connecting')
+        return originalStart(...args)
+      }
+
       return () => {
         client.removeListener('call-start', onCallStart as () => void)
         client.removeListener('call-end', onCallEnd as () => void)
@@ -124,6 +136,8 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
         client.removeListener('volume-level', onVolumeLevel as (...args: unknown[]) => void)
         client.removeListener('message', onMessage as (...args: unknown[]) => void)
         client.removeListener('error', onError as (...args: unknown[]) => void)
+        // Restore original start on cleanup
+        client.start = originalStart
       }
     },
   }
