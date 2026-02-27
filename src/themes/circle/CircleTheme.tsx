@@ -69,11 +69,12 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       let currentScale = 1
       let currentGlow = 0
 
+      // Anything below this is ambient noise from the audio pipeline — ignore it
+      const NOISE_FLOOR = 0.08
+
       const animate = () => {
-        // Power curve: compress the bottom end of the volume range so small
-        // fluctuations (micro-silences between words) produce less visual movement.
-        // vol^0.6 leaves the top end largely intact while taming low-volume jitter.
-        const vol = Math.pow(Math.max(0, volumeRef.current), 0.6)
+        const raw = volumeRef.current
+        const vol = raw < NOISE_FLOOR ? 0 : raw
 
         let targetScale: number
         let targetGlow: number
