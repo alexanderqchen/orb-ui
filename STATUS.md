@@ -26,13 +26,13 @@ pluggable provider adapters. MIT license.
 | `VoiceOrb` component | ✅ Done | `src/components/VoiceOrb/VoiceOrb.tsx` — controlled + adapter modes |
 | `debug` theme | ✅ Done | Fully implemented. State display, volume bar, state buttons, Start/Stop |
 | Vapi adapter | ✅ Done | Full event mapping, thinking-state inference, connecting-state intercept, removeListener cleanup |
-| `circle` theme | 🚧 Stub | Placeholder renders a static gray circle with "circle (todo)" label |
-| `bars` theme | 🚧 Stub | Placeholder renders three static bars |
+| `circle` theme | ✅ Done | Pulse on idle, scale+glow on listening/speaking (volume-driven rAF), spinning dashed ring on thinking |
+| `bars` theme | ✅ Done | 5 bars, wave on idle/connecting, volume-driven rAF on listening/speaking, sine wave on thinking |
 | `jarvis` theme | 🚧 Stub | Placeholder renders a static sci-fi placeholder |
 | ElevenLabs adapter | 🚧 Stub | Shell with full TODO comments and event mapping notes |
 | Pipecat adapter | 🚧 Stub | Shell with TODO |
 | Bland adapter | 🚧 Stub | Shell with TODO |
-| Demo app | 🚧 Live but not deployed | `demo/` wired up with Vapi, runs locally on port 5173. Live-tested and working. |
+| Demo app | 🚧 Deploying to Vercel | `demo/` wired up with Vapi, runs locally on port 5173. Live-tested and working. Vercel deploy in progress. |
 | README | ✅ Done | Human-facing docs, API reference, theme/adapter tables |
 | CONTRIBUTING.md | ✅ Done | AI-native contribution policy |
 | npm publish | ❌ Not done | — |
@@ -42,6 +42,7 @@ pluggable provider adapters. MIT license.
 ## Git Log
 
 ```
+01a9c0d  feat: implement circle and bars themes
 0447336  feat(vapi): intercept vapi.start() to emit connecting state immediately
 3eae9c3  fix: removeListener instead of off, add error display in demo UI, vite-env types
 45d37d1  demo: wire up live Vapi adapter with live/sandbox mode toggle
@@ -56,8 +57,9 @@ cd8cc93  docs: add STATUS.md, update README with contributing section
 
 ## Build Order (what to do next, in order)
 
-1. **`circle` theme** — Simple CSS circle. Pulse on idle, scale+glow on speaking/listening, rotate-dash on thinking.
-3. **`bars` theme** — Three vertical bars, animate height/opacity with volume.
+1. ~~**`circle` theme**~~ ✅ Done
+2. ~~**`bars` theme**~~ ✅ Done
+3. **Deploy demo to Vercel** — In progress.
 4. **ElevenLabs adapter** — `onModeChange({ mode })` maps to speaking/listening; infer thinking from mode gap.
 5. **Pipecat adapter** — WebRTC-based; map `botStartedSpeaking` / `botStoppedSpeaking` / `userStartedSpeaking`.
 6. **Bland adapter** — Bland uses WebSocket events; map similarly.
@@ -79,8 +81,8 @@ orb-ui/
 │   │       └── index.ts
 │   ├── themes/
 │   │   ├── debug/DebugTheme.tsx      # ✅ Fully implemented
-│   │   ├── circle/CircleTheme.tsx    # 🚧 Stub
-│   │   ├── bars/BarsTheme.tsx        # 🚧 Stub
+│   │   ├── circle/CircleTheme.tsx    # ✅ Fully implemented
+│   │   ├── bars/BarsTheme.tsx        # ✅ Fully implemented
 │   │   ├── jarvis/JarvisTheme.tsx    # 🚧 Stub (Canvas/WebGL target)
 │   │   └── index.ts
 │   ├── adapters/
