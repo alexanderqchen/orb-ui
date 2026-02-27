@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Vapi from '@vapi-ai/web'
 import { VoiceOrb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
@@ -38,12 +38,42 @@ export default function App() {
     ? { adapter }
     : { state: sandboxState, volume: sandboxVolume }
 
-  // Track raw volume from Vapi so we can see what the noise floor actually is
+  // Volume logging — buffer events and flush to server every 2s
+  const volumeLog = useRef<{ t: number; state: string; vol: number }[]>([])
+  const orbState = useRef<string>('idle')
+
   useEffect(() => {
     if (!vapi) return
-    const handler = (v: number) => setRawVolume(v)
+    const handler = (v: number) => {
+      setRawVolume(v)
+      volumeLog.current.push({ t: Date.now(), state: orbState.current, vol: v })
+    }
     vapi.on('volume-level', handler)
     return () => { vapi.removeListener('volume-level', handler as (...args: unknown[]) => void) }
+  }, [])
+
+  // Keep orbState ref in sync with live mode adapter state
+  useEffect(() => {
+    if (!liveMode || !adapter) return
+    const unsub = adapter.subscribe({
+      onStateChange: (s) => { orbState.current = s },
+      onVolumeChange: () => {},
+    })
+    return unsub
+  }, [liveMode])
+
+  // Flush buffered volume events to the log server every 2s
+  useEffect(() => {
+    const id = setInterval(() => {
+      const batch = volumeLog.current.splice(0)
+      if (batch.length === 0) return
+      fetch('/api/volume-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch }),
+      }).catch(() => {})
+    }, 2000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
