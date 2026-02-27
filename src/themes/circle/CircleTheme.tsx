@@ -69,12 +69,14 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       let currentScale = 1
       let currentGlow = 0
 
-      // Anything below this is ambient noise from the audio pipeline — ignore it
-      const NOISE_FLOOR = 0.08
+      // Hard floor: treat anything below as silence.
+      // Linear ramp above the floor remaps [FLOOR→1] to [0→1], eliminating
+      // the cliff that previously caused a sudden jump when crossing the threshold.
+      const NOISE_FLOOR = 0.12
 
       const animate = () => {
         const raw = volumeRef.current
-        const vol = raw < NOISE_FLOOR ? 0 : raw
+        const vol = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
 
         let targetScale: number
         let targetGlow: number

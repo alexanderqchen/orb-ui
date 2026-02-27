@@ -80,7 +80,7 @@ export default function App() {
             Beautiful animated UI for voice AI agents
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-B (noise-gate + asymmetric-lerp)
+            build: circle-fix-C (noise-gate 0.12 + linear-ramp + asymmetric-lerp)
           </p>
         </div>
 
