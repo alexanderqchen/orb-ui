@@ -39,14 +39,16 @@ export default function App() {
     : { state: sandboxState, volume: sandboxVolume }
 
   // Volume logging — buffer events and flush to server every 2s
-  const volumeLog = useRef<{ t: number; state: string; vol: number }[]>([])
+  const volumeLog = useRef<{ t: number; state: string; vol: number; smoothed: number }[]>([])
   const orbState = useRef<string>('idle')
 
   useEffect(() => {
     if (!vapi) return
     const handler = (v: number) => {
       setRawVolume(v)
-      volumeLog.current.push({ t: Date.now(), state: orbState.current, vol: v })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const smoothed = (window as any).__orbSmoothedVol ?? 0
+      volumeLog.current.push({ t: Date.now(), state: orbState.current, vol: v, smoothed: +smoothed.toFixed(4) })
     }
     vapi.on('volume-level', handler)
     return () => { vapi.removeListener('volume-level', handler as (...args: unknown[]) => void) }
@@ -119,7 +121,7 @@ export default function App() {
             Beautiful animated UI for voice AI agents
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-E (input-EMA + persistent-refs)
+            build: circle-fix-F (rAF-EMA 0.08/0.015)
             {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
           </p>
         </div>
