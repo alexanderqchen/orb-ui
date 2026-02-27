@@ -74,9 +74,12 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
           targetGlow = vol * 30
         }
 
-        // Lerp for smoothness
-        currentScale += (targetScale - currentScale) * 0.15
-        currentGlow += (targetGlow - currentGlow) * 0.15
+        // Asymmetric lerp: fast attack, slow release
+        // This bridges micro-silences so the circle doesn't jitter
+        const scaleRate = targetScale > currentScale ? 0.15 : 0.04
+        const glowRate = targetGlow > currentGlow ? 0.15 : 0.04
+        currentScale += (targetScale - currentScale) * scaleRate
+        currentGlow += (targetGlow - currentGlow) * glowRate
 
         el.style.transform = `scale(${currentScale})`
         el.style.boxShadow = `0 0 ${currentGlow}px ${currentGlow * 0.4}px ${color}`
