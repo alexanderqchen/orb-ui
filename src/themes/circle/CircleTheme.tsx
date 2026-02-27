@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useLayoutEffect } from 'react'
 import type { OrbState } from '../../components/VoiceOrb/VoiceOrb.types'
 
 interface CircleThemeProps {
@@ -63,8 +63,9 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
   const currentScaleRef = useRef(1)
   const currentGlowRef = useRef(0)
 
-  // Sync raw volume ref on every Vapi tick — no EMA here, just a passthrough
-  useEffect(() => {
+  // useLayoutEffect runs before paint (and before rAF), so the rAF loop always
+  // reads the latest volume value rather than one render cycle behind.
+  useLayoutEffect(() => {
     volumeRef.current = volume
   }, [volume])
 
@@ -85,7 +86,10 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
+      let frameCount = 0
+
       const animate = () => {
+        frameCount++
         // 1. Noise gate + linear ramp on raw volume
         const raw = volumeRef.current
         const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
@@ -112,9 +116,28 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         el.style.boxShadow  = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.4}px ${color}`
         el.style.animation  = 'none'
 
-        // Expose for debug logging in demo
+        // Expose for external log reads
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(window as any).__orbSmoothedVol = smoothedVolRef.current
+
+        // POST diagnostic directly from rAF every 60 frames (~1s) so we can
+        // verify volumeRef and smoothedVol are actually being updated
+        if (frameCount % 60 === 0) {
+          fetch('/api/volume-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              raf: true,
+              t: Date.now(),
+              frame: frameCount,
+              state,
+              rawVol: volumeRef.current,
+              gated: volumeRef.current < NOISE_FLOOR ? 0 : (volumeRef.current - NOISE_FLOOR) / (1 - NOISE_FLOOR),
+              smoothed: +smoothedVolRef.current.toFixed(4),
+              scale: +currentScaleRef.current.toFixed(4),
+            }),
+          }).catch(() => {})
+        }
 
         rafRef.current = requestAnimationFrame(animate)
       }
