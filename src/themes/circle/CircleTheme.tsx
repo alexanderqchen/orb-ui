@@ -86,10 +86,9 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
-      let frameCount = 0
+      let lastDiagMs = 0
 
       const animate = () => {
-        frameCount++
         // 1. Noise gate + linear ramp on raw volume
         const raw = volumeRef.current
         const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
@@ -120,16 +119,17 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(window as any).__orbSmoothedVol = smoothedVolRef.current
 
-        // POST diagnostic directly from rAF every 60 frames (~1s) so we can
-        // verify volumeRef and smoothedVol are actually being updated
-        if (frameCount % 60 === 0) {
+        // POST diagnostic every ~1s (time-based so state-flicker frameCount
+        // resets don't prevent it from ever firing)
+        const now = Date.now()
+        if (now - lastDiagMs >= 1000) {
+          lastDiagMs = now
           fetch('/api/volume-log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               raf: true,
-              t: Date.now(),
-              frame: frameCount,
+              t: now,
               state,
               rawVol: volumeRef.current,
               gated: volumeRef.current < NOISE_FLOOR ? 0 : (volumeRef.current - NOISE_FLOOR) / (1 - NOISE_FLOOR),
