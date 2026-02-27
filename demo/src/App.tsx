@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, Fragment } from 'react'
 import Vapi from '@vapi-ai/web'
 import { VoiceOrb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
@@ -32,6 +32,42 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const [rawVolume, setRawVolume] = useState(0)
+
+  // ─── Debug monitoring panel ─────────────────────────────────────────────────
+  const [strategy, setStrategyState] = useState(4)
+  const [orbDebug, setOrbDebug] = useState({
+    raw: 0, gated: 0, smoothed: 0, scale: 1,
+    jitterMin: 1, jitterMax: 0,
+  })
+  const recentScales = useRef<number[]>([])
+
+  const setStrategy = (n: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__orbStrategy = n
+    setStrategyState(n)
+    // Reset jitter window on strategy change
+    recentScales.current = []
+  }
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any
+      const scale = w.__orbCurrentScale ?? 1
+      recentScales.current.push(scale)
+      if (recentScales.current.length > 30) recentScales.current.shift() // last 500ms
+      const arr = recentScales.current
+      setOrbDebug({
+        raw:      +(w.__orbRawVol      ?? 0).toFixed(4),
+        gated:    +(w.__orbGated       ?? 0).toFixed(4),
+        smoothed: +(w.__orbSmoothedVol ?? 0).toFixed(4),
+        scale:    +scale.toFixed(4),
+        jitterMin: +Math.min(...arr).toFixed(4),
+        jitterMax: +Math.max(...arr).toFixed(4),
+      })
+    }, 16) // ~60fps polling
+    return () => clearInterval(id)
+  }, [])
 
   // In live mode, adapter drives state. In sandbox mode, we pass state/volume manually.
   const orbProps = liveMode && adapter
@@ -121,7 +157,7 @@ export default function App() {
             Beautiful animated UI for voice AI agents
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-G (useLayoutEffect + rAF-EMA + direct-post)
+            build: circle-fix-H (5-strategy + monitoring panel + color-lerp)
             {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
           </p>
         </div>
@@ -259,6 +295,84 @@ export default function App() {
             </div>
           )}
 
+        </div>
+
+        {/* ── Debug monitoring panel ─────────────────────────────────────── */}
+        <div style={{
+          position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
+          background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: 8,
+          padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#aaa',
+          minWidth: 220, lineHeight: 1.7,
+        }}>
+          <div style={{ fontWeight: 700, color: '#fff', marginBottom: 8, letterSpacing: '0.05em' }}>
+            📊 DEBUG PANEL
+          </div>
+
+          {/* Strategy switcher */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ color: '#555', fontSize: 10, marginBottom: 4 }}>STRATEGY</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {([
+                [1, 'CANARY'],
+                [2, 'RAW'],
+                [3, 'OUT-LERP'],
+                [4, 'EMA-SLOW'],
+                [5, 'EMA-FAST'],
+              ] as [number, string][]).map(([n, label]) => (
+                <button key={n} onClick={() => setStrategy(n)} style={{
+                  padding: '3px 6px', fontSize: 10, cursor: 'pointer', borderRadius: 3,
+                  background: strategy === n ? '#a3e635' : '#1a1a1a',
+                  color:      strategy === n ? '#000'     : '#555',
+                  border: `1px solid ${strategy === n ? '#a3e635' : '#333'}`,
+                  fontFamily: 'monospace',
+                }} title={label}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div style={{ color: '#666', marginTop: 3, fontSize: 10 }}>
+              {['', 'CANARY: giant magenta flash (code check)', 'RAW: pure gated vol (jitter baseline)', 'OUT-LERP: asymmetric lerp only', 'EMA-SLOW: attack=0.08 / release=0.015', 'EMA-FAST: attack=0.40 / release=0.06'][strategy]}
+            </div>
+          </div>
+
+          {/* Live meters */}
+          {([
+            ['raw',      orbDebug.raw,      '#f87171'],
+            ['gated',    orbDebug.gated,    '#fb923c'],
+            ['smoothed', orbDebug.smoothed, '#60a5fa'],
+          ] as [string, number, string][]).map(([label, val, color]) => (
+            <Fragment key={label}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
+                <span style={{ width: 58, color: '#555' }}>{label}</span>
+                <div style={{
+                  flex: 1, height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${val * 100}%`, height: '100%',
+                    background: color, borderRadius: 3,
+                    transition: 'width 50ms linear',
+                  }} />
+                </div>
+                <span style={{ width: 44, textAlign: 'right', color }}>{val.toFixed(3)}</span>
+              </div>
+            </Fragment>
+          ))}
+
+          {/* Scale + jitter */}
+          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e1e1e' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#555' }}>scale</span>
+              <span style={{ color: '#fff' }}>{orbDebug.scale.toFixed(4)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#555' }}>jitter (500ms)</span>
+              <span style={{
+                color: (orbDebug.jitterMax - orbDebug.jitterMin) > 0.05 ? '#f87171' : '#4ade80',
+              }}>
+                ±{((orbDebug.jitterMax - orbDebug.jitterMin) / 2).toFixed(4)}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Footer: usage snippet */}
