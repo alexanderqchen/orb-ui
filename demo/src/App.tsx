@@ -119,7 +119,7 @@ export default function App() {
             Beautiful animated UI for voice AI agents
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-D (persistent-refs + noise-gate + linear-ramp)
+            build: circle-fix-E (input-EMA + persistent-refs)
             {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
           </p>
         </div>

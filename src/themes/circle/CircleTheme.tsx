@@ -37,17 +37,26 @@ const KEYFRAMES = `
 export function CircleTheme({ state, volume, size, className, style }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
-  const volumeRef = useRef(volume)
   // Persist animation position across state changes.
   // Vapi rapidly flickers speaking→listening→speaking at turn boundaries.
   // Without these refs, each state change resets currentScale to 1,
   // causing a visible jump on every transition.
   const currentScaleRef = useRef(1)
   const currentGlowRef = useRef(0)
+  // Smoothed volume — updated via EMA at Vapi's tick rate (~10Hz), not 60fps.
+  // Vapi alternates every other tick between loud (0.667) and near-zero (0.007)
+  // even during active speech. Smoothing the input here means those 100ms dips
+  // barely register rather than causing visible animation oscillation.
+  const smoothedVolRef = useRef(0)
 
-  // Sync ref whenever volume prop changes — no effect restart needed
+  // EMA on incoming volume — runs at Vapi tick rate, not per-frame
   useEffect(() => {
-    volumeRef.current = volume
+    const NOISE_FLOOR = 0.12
+    const raw = volume < NOISE_FLOOR ? 0 : (volume - NOISE_FLOOR) / (1 - NOISE_FLOOR)
+    const prev = smoothedVolRef.current
+    // Asymmetric: fast attack (energy rises quickly), slow release (fades over ~1s)
+    const rate = raw > prev ? 0.5 : 0.12
+    smoothedVolRef.current = prev + (raw - prev) * rate
   }, [volume])
 
   // Inject keyframes once
@@ -67,24 +76,18 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
-      // Noise floor + linear ramp: gate ambient noise, eliminate threshold cliff
-      const NOISE_FLOOR = 0.12
-
       const animate = () => {
-        const raw = volumeRef.current
-        const vol = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
+        // Use EMA-smoothed volume — input is already stabilised at Vapi tick rate.
+        // The rAF loop just interpolates toward the target for visual smoothness.
+        const vol = smoothedVolRef.current
 
         const color = STATE_COLORS[state]
         const targetScale = state === 'listening' ? 0.85 + vol * 0.25 : 0.8 + vol * 0.35
         const targetGlow = state === 'listening' ? vol * 20 : vol * 30
 
-        // Asymmetric lerp on persistent refs — position survives state transitions.
-        // Vapi flickers speaking→listening→speaking at turn boundaries; using refs
-        // means the circle never resets to 1.0 mid-animation on those flickers.
-        const scaleRate = targetScale > currentScaleRef.current ? 0.15 : 0.04
-        const glowRate = targetGlow > currentGlowRef.current ? 0.15 : 0.04
-        currentScaleRef.current += (targetScale - currentScaleRef.current) * scaleRate
-        currentGlowRef.current += (targetGlow - currentGlowRef.current) * glowRate
+        // Light symmetric lerp — only needed for intra-tick smoothness (60fps → 10Hz gap)
+        currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.2
+        currentGlowRef.current += (targetGlow - currentGlowRef.current) * 0.2
 
         el.style.transform = `scale(${currentScaleRef.current})`
         el.style.boxShadow = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.4}px ${color}`
