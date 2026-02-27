@@ -31,11 +31,20 @@ export default function App() {
   const [liveMode, setLiveMode] = useState(!!adapter)
   const [connected, setConnected] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [rawVolume, setRawVolume] = useState(0)
 
   // In live mode, adapter drives state. In sandbox mode, we pass state/volume manually.
   const orbProps = liveMode && adapter
     ? { adapter }
     : { state: sandboxState, volume: sandboxVolume }
+
+  // Track raw volume from Vapi so we can see what the noise floor actually is
+  useEffect(() => {
+    if (!vapi) return
+    const handler = (v: number) => setRawVolume(v)
+    vapi.on('volume-level', handler)
+    return () => { vapi.removeListener('volume-level', handler as (...args: unknown[]) => void) }
+  }, [])
 
   useEffect(() => {
     if (!vapi) return
@@ -81,6 +90,7 @@ export default function App() {
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
             build: circle-fix-C (noise-gate 0.12 + linear-ramp + asymmetric-lerp)
+            {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
           </p>
         </div>
 
