@@ -157,7 +157,7 @@ export default function App() {
             Beautiful animated UI for voice AI agents
           </p>
           <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-H (5-strategy + monitoring panel + color-lerp)
+            build: circle-fix-I (snap/crisp/punchy/peak-hold/wide)
             {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
           </p>
         </div>
@@ -313,11 +313,11 @@ export default function App() {
             <div style={{ color: '#555', fontSize: 10, marginBottom: 4 }}>STRATEGY</div>
             <div style={{ display: 'flex', gap: 4 }}>
               {([
-                [1, 'CANARY'],
-                [2, 'RAW'],
-                [3, 'OUT-LERP'],
-                [4, 'EMA-SLOW'],
-                [5, 'EMA-FAST'],
+                [1, 'SNAP'],
+                [2, 'CRISP'],
+                [3, 'PUNCHY'],
+                [4, 'PEAK-HOLD'],
+                [5, 'WIDE'],
               ] as [number, string][]).map(([n, label]) => (
                 <button key={n} onClick={() => setStrategy(n)} style={{
                   padding: '3px 6px', fontSize: 10, cursor: 'pointer', borderRadius: 3,
@@ -331,7 +331,7 @@ export default function App() {
               ))}
             </div>
             <div style={{ color: '#666', marginTop: 3, fontSize: 10 }}>
-              {['', 'CANARY: giant magenta flash (code check)', 'RAW: pure gated vol (jitter baseline)', 'OUT-LERP: asymmetric lerp only', 'EMA-SLOW: attack=0.08 / release=0.015', 'EMA-FAST: attack=0.40 / release=0.06'][strategy]}
+              {['', 'SNAP: fast asymmetric lerp, no EMA (rise 0.40 / fall 0.10)', 'CRISP: EMA 0.65/0.12 + output lerp 0.55', 'PUNCHY: EMA 0.90/0.18, instant output (no lerp)', 'PEAK-HOLD: instant attack, 8-frame hold, decay 0.09', 'WIDE: EMA 0.80/0.20 + bigger scale range'][strategy]}
             </div>
           </div>
 

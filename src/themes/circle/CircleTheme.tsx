@@ -48,32 +48,43 @@ const KEYFRAMES = `
 }
 `
 
-// ─── Volume constants ─────────────────────────────────────────────────────────
+// ─── Volume + scale constants ─────────────────────────────────────────────────
 
 const NOISE_FLOOR = 0.12
 
-// ─── Strategy descriptions (exposed on window for monitoring panel) ───────────
-// 1  CANARY      — giant magenta flash; proves the code is even running
-// 2  RAW         — raw gated vol → scale, no smoothing (jitter baseline)
-// 3  OUTPUT-LERP — asymmetric output lerp only (fast rise 0.15 / slow fall 0.04)
-// 4  EMA-SLOW    — rAF EMA attack=0.08/release=0.015 + output lerp 0.2
-// 5  EMA-FAST    — rAF EMA attack=0.40/release=0.06  + output lerp 0.4
+// Scale range — wider than before for more visual impact
+const SPEAK_BASE  = 0.75
+const SPEAK_RANGE = 0.55   // 0.75 → 1.30 at full volume
+const LISTEN_BASE  = 0.80
+const LISTEN_RANGE = 0.35  // 0.80 → 1.15 at full volume
+
+// ─── Strategies ───────────────────────────────────────────────────────────────
+// All 5 are snappier/less-floaty than the previous set.
+// Switch via window.__orbStrategy (1–5) or the debug panel buttons.
+//
+// 1  SNAP       — fast asymmetric output lerp (rise 0.40 / fall 0.10), no EMA
+// 2  CRISP      — EMA attack=0.65/release=0.12 + output lerp 0.55
+// 3  PUNCHY     — EMA attack=0.90/release=0.18 + instant output (lerp=1.0)
+// 4  PEAK-HOLD  — instant attack, 8-frame hold, then release 0.09/frame
+// 5  WIDE       — EMA attack=0.80/release=0.20 + output lerp 0.6 (widest scale)
 
 export function CircleTheme({ state, volume, size, className, style }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const rafRef    = useRef<number>(0)
 
-  // Raw volume — updated every Vapi tick via useLayoutEffect, read by rAF every frame
+  // Raw volume — updated every Vapi tick, read by rAF every frame
   const volumeRef = useRef(volume)
 
-  // Persistent animation state — survive state transitions so the speaking→listening
-  // flicker doesn't snap scale/glow/color back to zero
+  // Persistent animation state — survives speaking↔listening flicker
   const smoothedVolRef   = useRef(0)
   const currentScaleRef  = useRef(1)
   const currentGlowRef   = useRef(0)
   const currentColorRef  = useRef<RGB>(hexToRgb(STATE_COLORS.idle))
 
-  // Sync raw volume into ref before rAF reads it (runs before paint)
+  // Peak-hold state (used by strategy 4 only)
+  const peakVolRef       = useRef(0)
+  const peakHoldFrames   = useRef(0)
+
   useLayoutEffect(() => {
     volumeRef.current = volume
   }, [volume])
@@ -96,88 +107,98 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
 
     if (state === 'listening' || state === 'speaking') {
       let lastDiagMs = 0
+      const base  = state === 'speaking' ? SPEAK_BASE  : LISTEN_BASE
+      const range = state === 'speaking' ? SPEAK_RANGE : LISTEN_RANGE
 
       const animate = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const w = window as any
-        const strategy: number = w.__orbStrategy ?? 4
+        const strategy: number = w.__orbStrategy ?? 3
 
-        // ── 1. Gate raw volume ──────────────────────────────────────────────
-        const raw  = volumeRef.current
+        // ── Gate raw volume ─────────────────────────────────────────────────
+        const raw   = volumeRef.current
         const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
 
-        // ── 2. Smoothing strategy ───────────────────────────────────────────
+        // ── Smoothing strategy ──────────────────────────────────────────────
+
         if (strategy === 1) {
-          // CANARY: unmissable. If you don't see giant magenta, the code isn't running.
-          // Any raw vol > 0 (not even gated) → giant + magenta
-          const active = raw > 0.001
-          currentScaleRef.current = active ? 2.8 : 0.3
-          currentGlowRef.current  = active ? 50  : 0
-          currentColorRef.current = active ? [255, 0, 200] : [40, 40, 40]
-
-          const [r, g, b] = currentColorRef.current
-          el.style.transform  = `scale(${currentScaleRef.current})`
-          el.style.background = `rgb(${r},${g},${b})`
-          el.style.boxShadow  = active ? `0 0 50px 25px rgb(255,0,200)` : 'none'
-          el.style.animation  = 'none'
-
-          w.__orbRawVol       = raw
-          w.__orbGated        = gated
-          w.__orbSmoothedVol  = gated
-          w.__orbCurrentScale = currentScaleRef.current
-          w.__orbStrategy     = strategy
-          rafRef.current = requestAnimationFrame(animate)
-          return
+          // SNAP: fast asymmetric output lerp, no input EMA.
+          // Reacts immediately to loud ticks; drops at a moderate pace.
+          const tScale = base + gated * range
+          const tGlow  = gated * (state === 'speaking' ? 35 : 22)
+          const rateUp = 0.40
+          const rateDn = 0.10
+          currentScaleRef.current += (tScale - currentScaleRef.current) *
+            (tScale > currentScaleRef.current ? rateUp : rateDn)
+          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  *
+            (tGlow  > currentGlowRef.current  ? rateUp : rateDn)
 
         } else if (strategy === 2) {
-          // RAW: no smoothing at all — pure jitter baseline
-          currentScaleRef.current = state === 'listening'
-            ? 0.85 + gated * 0.25
-            : 0.80 + gated * 0.35
-          currentGlowRef.current = state === 'listening' ? gated * 20 : gated * 30
+          // CRISP: moderate EMA + snappy output lerp.
+          // Good balance — catches peaks fast, fades without hanging.
+          const prev    = smoothedVolRef.current
+          const emaRate = gated > prev ? 0.65 : 0.12
+          smoothedVolRef.current += (gated - prev) * emaRate
+          const v = smoothedVolRef.current
+          const tScale = base + v * range
+          const tGlow  = v * (state === 'speaking' ? 35 : 22)
+          currentScaleRef.current += (tScale - currentScaleRef.current) * 0.55
+          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.55
 
         } else if (strategy === 3) {
-          // OUTPUT-LERP: asymmetric lerp on output, no input EMA (original approach)
-          const tScale = state === 'listening' ? 0.85 + gated * 0.25 : 0.80 + gated * 0.35
-          const tGlow  = state === 'listening' ? gated * 20 : gated * 30
-          const sRate  = tScale > currentScaleRef.current ? 0.15 : 0.04
-          const gRate  = tGlow  > currentGlowRef.current  ? 0.12 : 0.03
-          currentScaleRef.current += (tScale - currentScaleRef.current) * sRate
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * gRate
+          // PUNCHY: near-instant attack EMA + no output lerp (EMA IS the output).
+          // The snappiest continuous-tracking option — what you see IS the EMA.
+          const prev    = smoothedVolRef.current
+          const emaRate = gated > prev ? 0.90 : 0.18
+          smoothedVolRef.current += (gated - prev) * emaRate
+          const v = smoothedVolRef.current
+          currentScaleRef.current = base + v * range
+          currentGlowRef.current  = v * (state === 'speaking' ? 35 : 22)
 
         } else if (strategy === 4) {
-          // EMA-SLOW: gentle input smoothing, light output lerp
-          const prev    = smoothedVolRef.current
-          const emaRate = gated > prev ? 0.08 : 0.015
-          smoothedVolRef.current += (gated - prev) * emaRate
-          const v = smoothedVolRef.current
-          const tScale = state === 'listening' ? 0.85 + v * 0.25 : 0.80 + v * 0.35
-          const tGlow  = state === 'listening' ? v * 20 : v * 30
-          currentScaleRef.current += (tScale - currentScaleRef.current) * 0.2
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.2
+          // PEAK-HOLD: instant attack, hold peak for ~130ms, then decay.
+          // VU-meter style — snaps to peak, sits there briefly, then drops.
+          const HOLD_FRAMES = 8   // ~133ms at 60fps
+          const DECAY_RATE  = 0.09
+
+          if (gated >= peakVolRef.current) {
+            // New peak: jump immediately and reset hold timer
+            peakVolRef.current     = gated
+            peakHoldFrames.current = HOLD_FRAMES
+          } else if (peakHoldFrames.current > 0) {
+            // Holding at current peak
+            peakHoldFrames.current--
+          } else {
+            // Release: decay toward current gated value
+            peakVolRef.current = peakVolRef.current > gated
+              ? peakVolRef.current - (peakVolRef.current - gated) * DECAY_RATE
+              : gated
+          }
+
+          const v = peakVolRef.current
+          currentScaleRef.current = base + v * range
+          currentGlowRef.current  = v * (state === 'speaking' ? 35 : 22)
 
         } else {
-          // strategy === 5: EMA-FAST: aggressive input smoothing + fast output lerp
+          // strategy === 5 — WIDE: fast EMA + widest scale range.
+          // Same attack feel as PUNCHY but scale goes 0.70→1.50 for max visual drama.
+          const WIDE_BASE  = state === 'speaking' ? 0.70 : 0.75
+          const WIDE_RANGE = state === 'speaking' ? 0.80 : 0.50
           const prev    = smoothedVolRef.current
-          const emaRate = gated > prev ? 0.40 : 0.06
+          const emaRate = gated > prev ? 0.80 : 0.20
           smoothedVolRef.current += (gated - prev) * emaRate
           const v = smoothedVolRef.current
-          const tScale = state === 'listening' ? 0.85 + v * 0.25 : 0.80 + v * 0.35
-          const tGlow  = state === 'listening' ? v * 20 : v * 30
-          currentScaleRef.current += (tScale - currentScaleRef.current) * 0.40
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.40
+          currentScaleRef.current = WIDE_BASE + v * WIDE_RANGE
+          currentGlowRef.current  = v * (state === 'speaking' ? 40 : 28)
         }
 
-        // ── 3. Color lerp (all strategies 2-5) ─────────────────────────────
-        // Lerp toward target color in rAF — avoids CSS transition flicker
-        // when Vapi flickers speaking↔listening every ~200ms
+        // ── Color lerp (rAF-managed — avoids CSS transition flicker) ────────
         const tRgb = hexToRgb(STATE_COLORS[state])
-        const COLOR_LERP = 0.05  // ~1s to fully transition
         const [cr, cg, cb] = currentColorRef.current
         currentColorRef.current = [
-          cr + (tRgb[0] - cr) * COLOR_LERP,
-          cg + (tRgb[1] - cg) * COLOR_LERP,
-          cb + (tRgb[2] - cb) * COLOR_LERP,
+          cr + (tRgb[0] - cr) * 0.05,
+          cg + (tRgb[1] - cg) * 0.05,
+          cb + (tRgb[2] - cb) * 0.05,
         ]
         const [r, g, b] = currentColorRef.current.map(Math.round)
 
@@ -186,14 +207,14 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         el.style.boxShadow  = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.4}px rgb(${r},${g},${b})`
         el.style.animation  = 'none'
 
-        // ── 4. Expose globals for monitoring panel ──────────────────────────
+        // ── Expose globals for monitoring panel ─────────────────────────────
         w.__orbRawVol       = raw
         w.__orbGated        = gated
         w.__orbSmoothedVol  = smoothedVolRef.current
         w.__orbCurrentScale = currentScaleRef.current
         w.__orbStrategy     = strategy
 
-        // ── 5. Time-based server diagnostic (survives state-flicker resets) ─
+        // ── Time-based server diagnostic ────────────────────────────────────
         const now = Date.now()
         if (now - lastDiagMs >= 1000) {
           lastDiagMs = now
@@ -206,6 +227,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
               gated:    +gated.toFixed(4),
               smoothed: +smoothedVolRef.current.toFixed(4),
               scale:    +currentScaleRef.current.toFixed(4),
+              peak:     +(peakVolRef.current).toFixed(4),
             }),
           }).catch(() => {})
         }
@@ -216,18 +238,19 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       rafRef.current = requestAnimationFrame(animate)
 
       return () => {
-        // IMPORTANT: don't clear transform/background/boxShadow here.
-        // Persistent refs keep the visual state alive across speaking↔listening
-        // flicker — clearing here causes a one-frame snap on every transition.
+        // Don't clear transform — persistent refs maintain state across
+        // speaking↔listening flicker (avoids one-frame snap on each transition)
         cancelAnimationFrame(rafRef.current)
       }
 
     } else {
-      // ── Non-active state: hand off to CSS animations ────────────────────
+      // ── Non-active state: reset + hand off to CSS animations ────────────
       cancelAnimationFrame(rafRef.current)
       smoothedVolRef.current  = 0
       currentScaleRef.current = 1
       currentGlowRef.current  = 0
+      peakVolRef.current      = 0
+      peakHoldFrames.current  = 0
       currentColorRef.current = hexToRgb(STATE_COLORS[state] ?? STATE_COLORS.idle)
 
       el.style.transform  = ''
@@ -262,8 +285,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         style={{
           width: d, height: d,
           borderRadius: '50%',
-          // Initial background — rAF overrides this immediately for listening/speaking.
-          // NO CSS transition — color changes handled by rAF lerp to avoid flicker.
+          // Initial color only — rAF manages background during listening/speaking
           background: color,
         }}
       />
