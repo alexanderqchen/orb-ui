@@ -70,7 +70,10 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       let currentGlow = 0
 
       const animate = () => {
-        const vol = volumeRef.current  // read from ref, not closure
+        // Power curve: compress the bottom end of the volume range so small
+        // fluctuations (micro-silences between words) produce less visual movement.
+        // vol^0.6 leaves the top end largely intact while taming low-volume jitter.
+        const vol = Math.pow(Math.max(0, volumeRef.current), 0.6)
 
         let targetScale: number
         let targetGlow: number
