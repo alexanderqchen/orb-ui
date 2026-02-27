@@ -42,6 +42,12 @@ export function BarsTheme({ state, volume, size, className, style }: BarsThemePr
   const rafRef = useRef<number>(0)
   const smoothed = useRef<number[]>(new Array(BAR_COUNT).fill(0))
   const styleRef = useRef<HTMLStyleElement | null>(null)
+  const volumeRef = useRef(volume)
+
+  // Sync ref on every volume change — keeps the rAF loop from restarting
+  useEffect(() => {
+    volumeRef.current = volume
+  }, [volume])
 
   // Inject/update keyframes when size changes
   useEffect(() => {
@@ -75,7 +81,7 @@ export function BarsTheme({ state, volume, size, className, style }: BarsThemePr
 
     if (state === 'listening' || state === 'speaking') {
       const animate = () => {
-        const vol = volume
+        const vol = volumeRef.current
         for (let i = 0; i < BAR_COUNT; i++) {
           const rand = state === 'speaking'
             ? 0.5 + Math.random() * 0.5
@@ -131,7 +137,7 @@ export function BarsTheme({ state, volume, size, className, style }: BarsThemePr
       el.style.background = color
       el.style.animation = 'none'
     }
-  }, [state, volume, size])
+  }, [state, size])  // volume intentionally excluded — read via volumeRef instead
 
   const barW = size * 0.055
   const gap = size * 0.035

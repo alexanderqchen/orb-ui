@@ -37,6 +37,17 @@ const KEYFRAMES = `
 export function CircleTheme({ state, volume, size, className, style }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
+  // Keep volume in a ref so the rAF loop always reads the latest value
+  // without volume being in the effect's dependency array.
+  // If volume were in deps, React would tear down and restart the loop
+  // on every volume tick, resetting currentScale/currentGlow each time
+  // and making the asymmetric lerp completely ineffective.
+  const volumeRef = useRef(volume)
+
+  // Sync ref whenever volume prop changes — no effect restart needed
+  useEffect(() => {
+    volumeRef.current = volume
+  }, [volume])
 
   // Inject keyframes once
   useEffect(() => {
@@ -49,7 +60,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     }
   }, [])
 
-  // rAF loop for volume-driven states
+  // rAF loop — only restarts when state changes, not on every volume tick
   useEffect(() => {
     const el = circleRef.current
     if (!el) return
@@ -59,7 +70,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       let currentGlow = 0
 
       const animate = () => {
-        const vol = volume
+        const vol = volumeRef.current  // read from ref, not closure
 
         let targetScale: number
         let targetGlow: number
@@ -75,7 +86,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         }
 
         // Asymmetric lerp: fast attack, slow release
-        // This bridges micro-silences so the circle doesn't jitter
+        // Bridges micro-silences so the circle doesn't jitter between words
         const scaleRate = targetScale > currentScale ? 0.15 : 0.04
         const glowRate = targetGlow > currentGlow ? 0.15 : 0.04
         currentScale += (targetScale - currentScale) * scaleRate
@@ -97,6 +108,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
       }
     } else {
       // Reset for CSS-animated or static states
+      cancelAnimationFrame(rafRef.current)
       el.style.transform = ''
       el.style.boxShadow = ''
 
@@ -108,7 +120,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         el.style.animation = 'none'
       }
     }
-  }, [state, volume])
+  }, [state])  // volume intentionally excluded — read via volumeRef instead
 
   const d = size * 0.55
   const color = STATE_COLORS[state]
