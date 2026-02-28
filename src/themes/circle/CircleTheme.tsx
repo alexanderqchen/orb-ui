@@ -125,7 +125,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
           // SNAP: fast asymmetric output lerp, no input EMA.
           // Reacts immediately to loud ticks; drops at a moderate pace.
           const tScale = base + gated * range
-          const tGlow  = gated * (state === 'speaking' ? 35 : 22)
+          const tGlow  = gated * (state === 'speaking' ? 16 : 10)
           const rateUp = 0.40
           const rateDn = 0.10
           currentScaleRef.current += (tScale - currentScaleRef.current) *
@@ -141,7 +141,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
           smoothedVolRef.current += (gated - prev) * emaRate
           const v = smoothedVolRef.current
           const tScale = base + v * range
-          const tGlow  = v * (state === 'speaking' ? 35 : 22)
+          const tGlow  = v * (state === 'speaking' ? 16 : 10)
           currentScaleRef.current += (tScale - currentScaleRef.current) * 0.55
           currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.55
 
@@ -153,7 +153,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
           smoothedVolRef.current += (gated - prev) * emaRate
           const v = smoothedVolRef.current
           currentScaleRef.current = base + v * range
-          currentGlowRef.current  = v * (state === 'speaking' ? 35 : 22)
+          currentGlowRef.current  = v * (state === 'speaking' ? 16 : 10)
 
         } else if (strategy === 4) {
           // PEAK-HOLD: instant attack, hold peak for ~130ms, then decay.
@@ -177,7 +177,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
 
           const v = peakVolRef.current
           currentScaleRef.current = base + v * range
-          currentGlowRef.current  = v * (state === 'speaking' ? 35 : 22)
+          currentGlowRef.current  = v * (state === 'speaking' ? 16 : 10)
 
         } else {
           // strategy === 5 — WIDE: fast EMA + widest scale range.
@@ -189,7 +189,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
           smoothedVolRef.current += (gated - prev) * emaRate
           const v = smoothedVolRef.current
           currentScaleRef.current = WIDE_BASE + v * WIDE_RANGE
-          currentGlowRef.current  = v * (state === 'speaking' ? 40 : 28)
+          currentGlowRef.current  = v * (state === 'speaking' ? 20 : 14)
         }
 
         // ── Color lerp (rAF-managed — avoids CSS transition flicker) ────────
@@ -204,7 +204,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
 
         el.style.transform  = `scale(${currentScaleRef.current})`
         el.style.background = `rgb(${r},${g},${b})`
-        el.style.boxShadow  = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.4}px rgb(${r},${g},${b})`
+        el.style.boxShadow  = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.25}px rgb(${r},${g},${b})`
         el.style.animation  = 'none'
 
         // ── Expose globals for monitoring panel ─────────────────────────────
