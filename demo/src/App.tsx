@@ -31,86 +31,10 @@ export default function App() {
   const [liveMode, setLiveMode] = useState(!!adapter)
   const [connected, setConnected] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
-  const [rawVolume, setRawVolume] = useState(0)
-
-  // ─── Debug monitoring panel ─────────────────────────────────────────────────
-  const [strategy, setStrategyState] = useState(4)
-  const [orbDebug, setOrbDebug] = useState({
-    vol: 0, scale: 1,
-    jitterMin: 1, jitterMax: 0,
-  })
-  const recentScales = useRef<number[]>([])
-
-  const setStrategy = (n: number) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).__orbStrategy = n
-    setStrategyState(n)
-    // Reset jitter window on strategy change
-    recentScales.current = []
-  }
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const w = window as any
-      const scale = w.__orbCurrentScale ?? 1
-      recentScales.current.push(scale)
-      if (recentScales.current.length > 30) recentScales.current.shift()
-      const arr = recentScales.current
-      setOrbDebug({
-        vol:   +(w.__orbVol ?? 0).toFixed(4),
-        scale: +scale.toFixed(4),
-        jitterMin: +Math.min(...arr).toFixed(4),
-        jitterMax: +Math.max(...arr).toFixed(4),
-      })
-    }, 16) // ~60fps polling
-    return () => clearInterval(id)
-  }, [])
-
   // In live mode, adapter drives state. In sandbox mode, we pass state/volume manually.
   const orbProps = liveMode && adapter
     ? { adapter }
     : { state: sandboxState, volume: sandboxVolume }
-
-  // Volume logging — buffer events and flush to server every 2s
-  const volumeLog = useRef<{ t: number; state: string; vol: number; smoothed: number }[]>([])
-  const orbState = useRef<string>('idle')
-
-  useEffect(() => {
-    if (!vapi) return
-    const handler = (v: number) => {
-      setRawVolume(v)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const smoothed = (window as any).__orbSmoothedVol ?? 0
-      volumeLog.current.push({ t: Date.now(), state: orbState.current, vol: v, smoothed: +smoothed.toFixed(4) })
-    }
-    vapi.on('volume-level', handler)
-    return () => { vapi.removeListener('volume-level', handler as (...args: unknown[]) => void) }
-  }, [])
-
-  // Keep orbState ref in sync with live mode adapter state
-  useEffect(() => {
-    if (!liveMode || !adapter) return
-    const unsub = adapter.subscribe({
-      onStateChange: (s) => { orbState.current = s },
-      onVolumeChange: () => {},
-    })
-    return unsub
-  }, [liveMode])
-
-  // Flush buffered volume events to the log server every 2s
-  useEffect(() => {
-    const id = setInterval(() => {
-      const batch = volumeLog.current.splice(0)
-      if (batch.length === 0) return
-      fetch('/api/volume-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batch }),
-      }).catch(() => {})
-    }, 2000)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     if (!vapi) return
@@ -154,10 +78,7 @@ export default function App() {
           <p style={{ color: '#555', fontSize: 13, margin: 0 }}>
             Beautiful animated UI for voice AI agents
           </p>
-          <p style={{ color: '#f59e0b', fontSize: 11, margin: '6px 0 0', fontFamily: 'monospace' }}>
-            build: circle-fix-J (crisp/narrowed-range 0.88→1.10)
-            {' · '}raw vol: <span style={{ color: rawVolume > 0.12 ? '#4ade80' : '#f87171' }}>{rawVolume.toFixed(3)}</span>
-          </p>
+
         </div>
 
         {/* Env warning */}
@@ -293,75 +214,6 @@ export default function App() {
             </div>
           )}
 
-        </div>
-
-        {/* ── Debug monitoring panel ─────────────────────────────────────── */}
-        <div style={{
-          position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
-          background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: 8,
-          padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#aaa',
-          minWidth: 220, lineHeight: 1.7,
-        }}>
-          <div style={{ fontWeight: 700, color: '#fff', marginBottom: 8, letterSpacing: '0.05em' }}>
-            📊 DEBUG PANEL
-          </div>
-
-          {/* Strategy switcher */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ color: '#555', fontSize: 10, marginBottom: 4 }}>STRATEGY</div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {([
-                [1, 'SNAP'],
-                [2, 'CRISP'],
-                [3, 'PUNCHY'],
-                [4, 'PEAK-HOLD'],
-                [5, 'WIDE'],
-              ] as [number, string][]).map(([n, label]) => (
-                <button key={n} onClick={() => setStrategy(n)} style={{
-                  padding: '3px 6px', fontSize: 10, cursor: 'pointer', borderRadius: 3,
-                  background: strategy === n ? '#a3e635' : '#1a1a1a',
-                  color:      strategy === n ? '#000'     : '#555',
-                  border: `1px solid ${strategy === n ? '#a3e635' : '#333'}`,
-                  fontFamily: 'monospace',
-                }} title={label}>
-                  {n}
-                </button>
-              ))}
-            </div>
-            <div style={{ color: '#666', marginTop: 3, fontSize: 10 }}>
-              {['', 'SNAP: fast asymmetric lerp, no EMA (rise 0.40 / fall 0.10)', 'CRISP: EMA 0.65/0.12 + output lerp 0.55', 'PUNCHY: EMA 0.90/0.18, instant output (no lerp)', 'PEAK-HOLD: instant attack, 8-frame hold, decay 0.09', 'WIDE: EMA 0.80/0.20 + bigger scale range'][strategy]}
-            </div>
-          </div>
-
-          {/* Live meters */}
-          {/* vol = adapter-normalized signal (noise gate + EMA already applied) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span style={{ width: 34, color: '#555' }}>vol</span>
-            <div style={{ flex: 1, height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{
-                width: `${orbDebug.vol * 100}%`, height: '100%',
-                background: '#60a5fa', borderRadius: 3,
-                transition: 'width 50ms linear',
-              }} />
-            </div>
-            <span style={{ width: 44, textAlign: 'right', color: '#60a5fa' }}>{orbDebug.vol.toFixed(3)}</span>
-          </div>
-
-          {/* Scale + jitter */}
-          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e1e1e' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#555' }}>scale</span>
-              <span style={{ color: '#fff' }}>{orbDebug.scale.toFixed(4)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#555' }}>jitter (500ms)</span>
-              <span style={{
-                color: (orbDebug.jitterMax - orbDebug.jitterMin) > 0.05 ? '#f87171' : '#4ade80',
-              }}>
-                ±{((orbDebug.jitterMax - orbDebug.jitterMin) / 2).toFixed(4)}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Footer: usage snippet */}

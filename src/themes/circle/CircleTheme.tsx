@@ -48,48 +48,37 @@ const KEYFRAMES = `
 }
 `
 
-// ─── Scale constants ──────────────────────────────────────────────────────────
-// Signal processing (noise gate, EMA) is handled by the adapter.
-// These constants only control the visual scale mapping.
+// ─── Visual constants ─────────────────────────────────────────────────────────
+// Volume arrives pre-normalized from the adapter (noise gate + EMA already
+// applied). These constants only control the visual mapping vol → scale/glow.
 
-// Scale range — subtle breathing feel, not dramatic swings
-const SPEAK_BASE  = 0.88
-const SPEAK_RANGE = 0.22   // 0.88 → 1.10 at full volume
+// Scale: subtle breathing feel. At vol=0 → SPEAK_BASE; at vol=1 → SPEAK_BASE + SPEAK_RANGE.
+const SPEAK_BASE   = 0.88
+const SPEAK_RANGE  = 0.22   // 0.88 → 1.10
 const LISTEN_BASE  = 0.90
-const LISTEN_RANGE = 0.15  // 0.90 → 1.05 at full volume
+const LISTEN_RANGE = 0.15   // 0.90 → 1.05
 
-// ─── Strategies ───────────────────────────────────────────────────────────────
-// Signal processing (noise gate, EMA) now lives in the adapter layer — the
-// volume arriving here is already a clean 0–1 value. These strategies only
-// vary the *visual* output lerp (how quickly the circle chases its target).
-//
-// Switch via window.__orbStrategy (1–5) or the debug panel buttons.
-//
-// 1  SNAP       — asymmetric output lerp: fast rise (0.40), slower fall (0.10)
-// 2  CRISP      — symmetric output lerp 0.55  ← current winner
-// 3  PUNCHY     — instant output (lerp 1.0) — circle IS the adapter signal
-// 4  PEAK-HOLD  — instant attack, 8-frame visual hold, then decay 0.09/frame
-// 5  WIDE       — lerp 0.55 but wider scale range (0.70 → 1.50)
+const SPEAK_GLOW   = 16     // px at vol=1
+const LISTEN_GLOW  = 10
+
+// Output lerp rate — interpolates the adapter's ~10 Hz signal up to 60 fps
+// so the circle animates smoothly rather than snapping every 100 ms.
+const LERP = 0.55
 
 export function CircleTheme({ state, volume, size, className, style }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const rafRef    = useRef<number>(0)
 
-  // Raw volume — updated every Vapi tick, read by rAF every frame
+  // Sync adapter volume into a ref so the rAF loop always reads the latest
+  // value without being in the useEffect dependency array.
   const volumeRef = useRef(volume)
+  useLayoutEffect(() => { volumeRef.current = volume }, [volume])
 
-  // Persistent animation state — survives speaking↔listening flicker
-  const currentScaleRef  = useRef(1)
-  const currentGlowRef   = useRef(0)
-  const currentColorRef  = useRef<RGB>(hexToRgb(STATE_COLORS.idle))
-
-  // Peak-hold state (used by strategy 4 only)
-  const peakVolRef       = useRef(0)
-  const peakHoldFrames   = useRef(0)
-
-  useLayoutEffect(() => {
-    volumeRef.current = volume
-  }, [volume])
+  // Persistent animation state — survives speaking↔listening state transitions
+  // (the adapter debounces these, but refs make the theme resilient regardless).
+  const currentScaleRef = useRef(1)
+  const currentGlowRef  = useRef(0)
+  const currentColorRef = useRef<RGB>(hexToRgb(STATE_COLORS.idle))
 
   // Inject keyframes once
   useEffect(() => {
@@ -102,71 +91,29 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     }
   }, [])
 
-  // ─── Main rAF loop ──────────────────────────────────────────────────────────
+  // ─── rAF loop (listening + speaking) ─────────────────────────────────────
+  // Runs at display rate (~60 fps). Reads adapter volume via ref, interpolates
+  // toward target scale/glow/color, writes directly to DOM style.
   useEffect(() => {
     const el = circleRef.current
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
-      let lastDiagMs = 0
       const base  = state === 'speaking' ? SPEAK_BASE  : LISTEN_BASE
       const range = state === 'speaking' ? SPEAK_RANGE : LISTEN_RANGE
+      const glow  = state === 'speaking' ? SPEAK_GLOW  : LISTEN_GLOW
 
       const animate = () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = window as any
-        const strategy: number = w.__orbStrategy ?? 3
-
-        // Volume is already normalized by the adapter (noise gate + EMA).
-        // These strategies only vary the *visual* output lerp.
         const vol = volumeRef.current
 
-        if (strategy === 1) {
-          // SNAP: asymmetric output lerp — fast rise, slower fall
-          const tScale = base + vol * range
-          const tGlow  = vol * (state === 'speaking' ? 16 : 10)
-          currentScaleRef.current += (tScale - currentScaleRef.current) *
-            (tScale > currentScaleRef.current ? 0.40 : 0.10)
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  *
-            (tGlow  > currentGlowRef.current  ? 0.40 : 0.10)
+        // Scale + glow: lerp toward vol-derived target
+        const tScale = base + vol * range
+        const tGlow  = vol * glow
+        currentScaleRef.current += (tScale - currentScaleRef.current) * LERP
+        currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * LERP
 
-        } else if (strategy === 2) {
-          // CRISP: symmetric output lerp 0.55 — current winner
-          const tScale = base + vol * range
-          const tGlow  = vol * (state === 'speaking' ? 16 : 10)
-          currentScaleRef.current += (tScale - currentScaleRef.current) * 0.55
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.55
-
-        } else if (strategy === 3) {
-          // PUNCHY: instant — circle directly mirrors adapter signal, no lag
-          currentScaleRef.current = base + vol * range
-          currentGlowRef.current  = vol * (state === 'speaking' ? 16 : 10)
-
-        } else if (strategy === 4) {
-          // PEAK-HOLD: visual VU-meter — snaps to peak, holds, then decays
-          const HOLD_FRAMES = 8    // ~133ms at 60fps
-          const DECAY_RATE  = 0.09
-
-          if (vol >= peakVolRef.current) {
-            peakVolRef.current     = vol
-            peakHoldFrames.current = HOLD_FRAMES
-          } else if (peakHoldFrames.current > 0) {
-            peakHoldFrames.current--
-          } else {
-            peakVolRef.current -= (peakVolRef.current - vol) * DECAY_RATE
-          }
-          currentScaleRef.current = base + peakVolRef.current * range
-          currentGlowRef.current  = peakVolRef.current * (state === 'speaking' ? 16 : 10)
-
-        } else {
-          // WIDE: same lerp as CRISP but wider scale range for more drama
-          const WIDE_BASE  = state === 'speaking' ? 0.70 : 0.75
-          const WIDE_RANGE = state === 'speaking' ? 0.80 : 0.50
-          currentScaleRef.current += (WIDE_BASE + vol * WIDE_RANGE - currentScaleRef.current) * 0.55
-          currentGlowRef.current  += (vol * (state === 'speaking' ? 20 : 14) - currentGlowRef.current) * 0.55
-        }
-
-        // ── Color lerp (rAF-managed — avoids CSS transition flicker) ────────
+        // Color: lerp toward state color (handles state transition fades;
+        // avoids CSS transition flicker on rapid speaking↔listening changes)
         const tRgb = hexToRgb(STATE_COLORS[state])
         const [cr, cg, cb] = currentColorRef.current
         currentColorRef.current = [
@@ -181,45 +128,22 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         el.style.boxShadow  = `0 0 ${currentGlowRef.current}px ${currentGlowRef.current * 0.25}px rgb(${r},${g},${b})`
         el.style.animation  = 'none'
 
-        // ── Expose globals for monitoring panel ─────────────────────────────
-        w.__orbVol          = vol   // normalized by adapter
-        w.__orbCurrentScale = currentScaleRef.current
-        w.__orbStrategy     = strategy
-
-        // ── Time-based server diagnostic ────────────────────────────────────
-        const now = Date.now()
-        if (now - lastDiagMs >= 1000) {
-          lastDiagMs = now
-          fetch('/api/volume-log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              raf: true, t: now, strategy, state,
-              vol:   +vol.toFixed(4),
-              scale: +currentScaleRef.current.toFixed(4),
-              peak:  +peakVolRef.current.toFixed(4),
-            }),
-          }).catch(() => {})
-        }
-
         rafRef.current = requestAnimationFrame(animate)
       }
 
       rafRef.current = requestAnimationFrame(animate)
 
       return () => {
-        // Don't clear transform — persistent refs maintain state across
-        // speaking↔listening flicker (avoids one-frame snap on each transition)
+        // Don't reset transform/background here — persistent refs keep the
+        // visual state alive so rapid state transitions don't cause a snap frame.
         cancelAnimationFrame(rafRef.current)
       }
 
     } else {
-      // ── Non-active state: reset + hand off to CSS animations ────────────
+      // Non-active states: cancel rAF, reset refs, hand off to CSS animations
       cancelAnimationFrame(rafRef.current)
       currentScaleRef.current = 1
       currentGlowRef.current  = 0
-      peakVolRef.current      = 0
-      peakHoldFrames.current  = 0
       currentColorRef.current = hexToRgb(STATE_COLORS[state] ?? STATE_COLORS.idle)
 
       el.style.transform  = ''
@@ -236,8 +160,7 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
     }
   }, [state])
 
-  const d     = size * 0.55
-  const color = STATE_COLORS[state]
+  const d = size * 0.55
 
   return (
     <div
@@ -254,20 +177,18 @@ export function CircleTheme({ state, volume, size, className, style }: CircleThe
         style={{
           width: d, height: d,
           borderRadius: '50%',
-          // Initial color only — rAF manages background during listening/speaking
-          background: color,
+          // Initial color — rAF overwrites this immediately on first frame
+          background: STATE_COLORS[state],
         }}
       />
       {state === 'thinking' && (
-        <div
-          style={{
-            position: 'absolute',
-            width: size * 0.68, height: size * 0.68,
-            border: '2px dashed #fbbf24', borderRadius: '50%',
-            animation: 'orb-circle-thinking-spin 1.5s linear infinite',
-            pointerEvents: 'none',
-          }}
-        />
+        <div style={{
+          position: 'absolute',
+          width: size * 0.68, height: size * 0.68,
+          border: '2px dashed #fbbf24', borderRadius: '50%',
+          animation: 'orb-circle-thinking-spin 1.5s linear infinite',
+          pointerEvents: 'none',
+        }} />
       )}
     </div>
   )
