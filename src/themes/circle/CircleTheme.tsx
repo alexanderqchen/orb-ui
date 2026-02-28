@@ -52,11 +52,11 @@ const KEYFRAMES = `
 
 const NOISE_FLOOR = 0.12
 
-// Scale range — wider than before for more visual impact
-const SPEAK_BASE  = 0.75
-const SPEAK_RANGE = 0.55   // 0.75 → 1.30 at full volume
-const LISTEN_BASE  = 0.80
-const LISTEN_RANGE = 0.35  // 0.80 → 1.15 at full volume
+// Scale range — subtle breathing feel, not dramatic swings
+const SPEAK_BASE  = 0.88
+const SPEAK_RANGE = 0.22   // 0.88 → 1.10 at full volume
+const LISTEN_BASE  = 0.90
+const LISTEN_RANGE = 0.15  // 0.90 → 1.05 at full volume
 
 // ─── Strategies ───────────────────────────────────────────────────────────────
 // All 5 are snappier/less-floaty than the previous set.
