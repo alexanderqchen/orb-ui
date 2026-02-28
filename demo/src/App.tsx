@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, Fragment } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Vapi from '@vapi-ai/web'
 import { VoiceOrb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
@@ -36,7 +36,7 @@ export default function App() {
   // ─── Debug monitoring panel ─────────────────────────────────────────────────
   const [strategy, setStrategyState] = useState(4)
   const [orbDebug, setOrbDebug] = useState({
-    raw: 0, gated: 0, smoothed: 0, scale: 1,
+    vol: 0, scale: 1,
     jitterMin: 1, jitterMax: 0,
   })
   const recentScales = useRef<number[]>([])
@@ -55,13 +55,11 @@ export default function App() {
       const w = window as any
       const scale = w.__orbCurrentScale ?? 1
       recentScales.current.push(scale)
-      if (recentScales.current.length > 30) recentScales.current.shift() // last 500ms
+      if (recentScales.current.length > 30) recentScales.current.shift()
       const arr = recentScales.current
       setOrbDebug({
-        raw:      +(w.__orbRawVol      ?? 0).toFixed(4),
-        gated:    +(w.__orbGated       ?? 0).toFixed(4),
-        smoothed: +(w.__orbSmoothedVol ?? 0).toFixed(4),
-        scale:    +scale.toFixed(4),
+        vol:   +(w.__orbVol ?? 0).toFixed(4),
+        scale: +scale.toFixed(4),
         jitterMin: +Math.min(...arr).toFixed(4),
         jitterMax: +Math.max(...arr).toFixed(4),
       })
@@ -336,27 +334,18 @@ export default function App() {
           </div>
 
           {/* Live meters */}
-          {([
-            ['raw',      orbDebug.raw,      '#f87171'],
-            ['gated',    orbDebug.gated,    '#fb923c'],
-            ['smoothed', orbDebug.smoothed, '#60a5fa'],
-          ] as [string, number, string][]).map(([label, val, color]) => (
-            <Fragment key={label}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
-                <span style={{ width: 58, color: '#555' }}>{label}</span>
-                <div style={{
-                  flex: 1, height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden',
-                }}>
-                  <div style={{
-                    width: `${val * 100}%`, height: '100%',
-                    background: color, borderRadius: 3,
-                    transition: 'width 50ms linear',
-                  }} />
-                </div>
-                <span style={{ width: 44, textAlign: 'right', color }}>{val.toFixed(3)}</span>
-              </div>
-            </Fragment>
-          ))}
+          {/* vol = adapter-normalized signal (noise gate + EMA already applied) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ width: 34, color: '#555' }}>vol</span>
+            <div style={{ flex: 1, height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{
+                width: `${orbDebug.vol * 100}%`, height: '100%',
+                background: '#60a5fa', borderRadius: 3,
+                transition: 'width 50ms linear',
+              }} />
+            </div>
+            <span style={{ width: 44, textAlign: 'right', color: '#60a5fa' }}>{orbDebug.vol.toFixed(3)}</span>
+          </div>
 
           {/* Scale + jitter */}
           <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e1e1e' }}>

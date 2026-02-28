@@ -23,53 +23,104 @@ interface VapiMessage {
   transcript?: string
 }
 
+// ─── Vapi-specific volume normalization ───────────────────────────────────────
+//
+// Vapi's volume-level events have two quirks that must be handled before the
+// signal reaches the visual layer:
+//
+// 1. QUANTIZED VALUES — Vapi only ever emits 6 discrete levels:
+//       0, 0.000667, 0.00667, 0.0667, 0.667, 1.0   (each ~10× the previous)
+//    These are not a continuous signal; they're essentially log-scale buckets.
+//
+// 2. ALTERNATING PATTERN — During speech, values frequently alternate between
+//    loud (0.667 / 1.0) and near-zero every ~100ms. This is a Vapi artifact,
+//    not actual silence between words. Without treatment it causes visible
+//    jitter in any animation driven by this signal.
+//
+// Normalization pipeline (runs at Vapi tick rate, ~10 Hz):
+//   a. Noise gate — anything below NOISE_FLOOR is treated as silence (→ 0).
+//      This zeroes out the two lowest quantized levels (0.000667, 0.00667)
+//      which are never real speech energy.
+//   b. Linear ramp — rescales the gated value to the full 0–1 range so that
+//      genuine quiet speech (0.0667) reads as ~0.0 after gating, not 0.42.
+//   c. EMA (exponential moving average) — smooths the alternating loud/silent
+//      pattern. Fast attack (0.65/tick) catches new speech immediately; slow
+//      release (0.12/tick) bridges ~100 ms dips without visible float.
+//
+// The resulting value is a clean, continuous 0–1 signal ready for the theme.
+//
+// NOTE: This normalization is intentionally NOT in CircleTheme or any other
+// theme. The theme just receives a clean 0–1 signal regardless of adapter.
+
+const NOISE_FLOOR = 0.12
+let emaVol = 0   // EMA state persists across start/stop cycles
+
+function normalizeVapiVolume(raw: number): number {
+  const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
+  const rate  = gated > emaVol ? 0.65 : 0.12
+  emaVol      = emaVol + (gated - emaVol) * rate
+  return emaVol
+}
+
+// ─── Vapi-specific state debouncing ──────────────────────────────────────────
+//
+// Vapi fires  speaking → listening → speaking  within ~200 ms at every
+// turn boundary (the AI finishes a sentence, briefly expects user input,
+// then continues). This flicker causes the visual layer to restart its rAF
+// loop and reset animation position on every turn.
+//
+// Fix: debounce the speaking → listening transition by 350 ms.
+// If speaking fires again before the timer expires the pending listening
+// event is silently dropped. Any other state transition cancels the timer
+// and emits immediately.
+
+let stateDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function makeStateEmitter(onStateChange: (s: OrbState) => void) {
+  let lastEmitted: OrbState = 'idle'
+
+  return function emitState(next: OrbState) {
+    if (stateDebounceTimer) {
+      clearTimeout(stateDebounceTimer)
+      stateDebounceTimer = null
+    }
+
+    if (lastEmitted === 'speaking' && next === 'listening') {
+      stateDebounceTimer = setTimeout(() => {
+        lastEmitted = next
+        onStateChange(next)
+        stateDebounceTimer = null
+      }, 350)
+      return
+    }
+
+    lastEmitted = next
+    onStateChange(next)
+  }
+}
+
 /**
  * Creates an OrbAdapter for Vapi voice agents.
  *
  * State mapping:
  *   vapi.start() called (intercepted)      → 'connecting'
  *   call-start                             → 'listening'
- *   message (final user transcript)        → 'thinking'  (AI is now processing)
- *   speech-start                           → 'speaking'  (AI is speaking)
- *   speech-end                             → 'listening' (back to user's turn)
+ *   message (final user transcript)        → 'thinking'
+ *   speech-start                           → 'speaking'
+ *   speech-end                             → 'listening'  (debounced 350 ms)
  *   call-end                               → 'disconnected'
  *   error                                  → 'error'
  *
- * Note: Vapi has no native 'connecting' event. The adapter intercepts
- * vapi.start() to emit 'connecting' immediately, then hands off to Vapi
- * events for the rest of the lifecycle. The original start() is restored
- * on unsubscribe.
+ * Volume: raw Vapi values are normalized (noise gate + EMA) before being
+ * passed to onVolumeChange, so themes receive a clean 0–1 signal.
  *
  * @param client - A Vapi instance from @vapi-ai/web
- *
- * @example
- * import Vapi from '@vapi-ai/web'
- * import { VoiceOrb } from 'orb-ui'
- * import { createVapiAdapter } from 'orb-ui/adapters'
- *
- * const vapi = new Vapi('your-public-key')
- * const adapter = createVapiAdapter(vapi)
- *
- * function App() {
- *   return (
- *     <VoiceOrb
- *       adapter={adapter}
- *       theme="jarvis"
- *       onStart={() => vapi.start('your-assistant-id')}
- *       onStop={() => vapi.stop()}
- *     />
- *   )
- * }
  */
 export function createVapiAdapter(client: VapiClient): OrbAdapter {
-  // ── Mic leak prevention ────────────────────────────────────────────────────
-  // Vapi manages WebRTC internally and doesn't always release the microphone
-  // track reliably on stop/error — especially during repeated start/stop cycles.
-  // This leaves the mic hardware-locked (camera/mic indicator stays on, other
-  // apps can't use the mic until the tab is closed or the track is stopped).
-  //
-  // Fix: intercept getUserMedia to capture the active audio stream reference,
-  // then explicitly stop every track when the call ends or errors.
+  // ── Mic leak prevention ──────────────────────────────────────────────────
+  // Vapi's WebRTC teardown doesn't always release the microphone track,
+  // especially on repeated start/stop cycles. We intercept getUserMedia to
+  // capture the stream reference, then explicitly stop all tracks on call-end.
   let latestAudioStream: MediaStream | null = null
 
   if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
@@ -90,84 +141,75 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
 
   return {
     subscribe({ onStateChange, onVolumeChange }: AdapterCallbacks) {
-      // call-start: connection established, ready for user input
-      const onCallStart = () => {
-        onStateChange('listening')
-      }
+      const emitState = makeStateEmitter(onStateChange)
 
-      // call-end: session finished — explicitly release mic tracks
+      const onCallStart  = () => emitState('listening')
+
       const onCallEnd = () => {
-        onStateChange('disconnected')
+        emitState('disconnected')
         onVolumeChange(0)
+        emaVol = 0
         releaseMic()
       }
 
-      // speech-start: AI is now speaking
-      const onSpeechStart = () => {
-        onStateChange('speaking')
-      }
+      const onSpeechStart = () => emitState('speaking')
 
-      // speech-end: AI finished speaking, back to user's turn
       const onSpeechEnd = () => {
-        onStateChange('listening')
+        emitState('listening')   // debounced — may be suppressed if speaking fires again quickly
         onVolumeChange(0)
       }
 
-      // volume-level: already normalized 0–1 by Vapi
       const onVolumeLevel = (volume: number) => {
-        onVolumeChange(volume)
+        onVolumeChange(normalizeVapiVolume(volume))
       }
 
-      // message: watch for final user transcript to infer 'thinking' state.
-      // When the user finishes speaking (final transcript), the AI is processing.
       const onMessage = (message: VapiMessage) => {
         if (
           message.type === 'transcript' &&
           message.transcriptType === 'final' &&
           message.role === 'user'
         ) {
-          onStateChange('thinking')
+          emitState('thinking')
           onVolumeChange(0)
         }
       }
 
-      // error: something went wrong — release mic here too, since call-end
-      // may not fire if the call never fully connected
       const onError = (error: unknown) => {
         console.error('[orb-ui/vapi] Error:', error)
-        onStateChange('error')
+        emitState('error')
         onVolumeChange(0)
+        emaVol = 0
         releaseMic()
       }
 
-      client.on('call-start', onCallStart)
-      client.on('call-end', onCallEnd)
+      client.on('call-start',   onCallStart)
+      client.on('call-end',     onCallEnd)
       client.on('speech-start', onSpeechStart)
-      client.on('speech-end', onSpeechEnd)
+      client.on('speech-end',   onSpeechEnd)
       client.on('volume-level', onVolumeLevel)
-      client.on('message', onMessage)
-      client.on('error', onError)
+      client.on('message',      onMessage)
+      client.on('error',        onError)
 
-      // Intercept vapi.start() to emit 'connecting' immediately.
-      // Vapi has no native connecting event — this fills the gap between
-      // the user pressing Start and call-start firing (typically 1–3s).
+      // Intercept vapi.start() to emit 'connecting' immediately
       const originalStart = client.start.bind(client)
       client.start = async (...args) => {
-        onStateChange('connecting')
+        emitState('connecting')
         return originalStart(...args)
       }
 
       return () => {
-        client.removeListener('call-start', onCallStart as () => void)
-        client.removeListener('call-end', onCallEnd as () => void)
+        if (stateDebounceTimer) {
+          clearTimeout(stateDebounceTimer)
+          stateDebounceTimer = null
+        }
+        client.removeListener('call-start',   onCallStart as () => void)
+        client.removeListener('call-end',     onCallEnd as () => void)
         client.removeListener('speech-start', onSpeechStart as () => void)
-        client.removeListener('speech-end', onSpeechEnd as () => void)
+        client.removeListener('speech-end',   onSpeechEnd as () => void)
         client.removeListener('volume-level', onVolumeLevel as (...args: unknown[]) => void)
-        client.removeListener('message', onMessage as (...args: unknown[]) => void)
-        client.removeListener('error', onError as (...args: unknown[]) => void)
-        // Restore original start on cleanup
+        client.removeListener('message',      onMessage as (...args: unknown[]) => void)
+        client.removeListener('error',        onError as (...args: unknown[]) => void)
         client.start = originalStart
-        // Safety net: release mic if somehow still held at unsubscribe time
         releaseMic()
       }
     },
