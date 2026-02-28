@@ -62,6 +62,32 @@ interface VapiMessage {
  * }
  */
 export function createVapiAdapter(client: VapiClient): OrbAdapter {
+  // ── Mic leak prevention ────────────────────────────────────────────────────
+  // Vapi manages WebRTC internally and doesn't always release the microphone
+  // track reliably on stop/error — especially during repeated start/stop cycles.
+  // This leaves the mic hardware-locked (camera/mic indicator stays on, other
+  // apps can't use the mic until the tab is closed or the track is stopped).
+  //
+  // Fix: intercept getUserMedia to capture the active audio stream reference,
+  // then explicitly stop every track when the call ends or errors.
+  let latestAudioStream: MediaStream | null = null
+
+  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    const _origGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await _origGUM(constraints)
+      if (constraints?.audio) latestAudioStream = stream
+      return stream
+    }
+  }
+
+  function releaseMic() {
+    latestAudioStream?.getTracks().forEach(track => {
+      if (track.readyState === 'live') track.stop()
+    })
+    latestAudioStream = null
+  }
+
   return {
     subscribe({ onStateChange, onVolumeChange }: AdapterCallbacks) {
       // call-start: connection established, ready for user input
@@ -69,10 +95,11 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
         onStateChange('listening')
       }
 
-      // call-end: session finished
+      // call-end: session finished — explicitly release mic tracks
       const onCallEnd = () => {
         onStateChange('disconnected')
         onVolumeChange(0)
+        releaseMic()
       }
 
       // speech-start: AI is now speaking
@@ -104,11 +131,13 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
         }
       }
 
-      // error: something went wrong
+      // error: something went wrong — release mic here too, since call-end
+      // may not fire if the call never fully connected
       const onError = (error: unknown) => {
         console.error('[orb-ui/vapi] Error:', error)
         onStateChange('error')
         onVolumeChange(0)
+        releaseMic()
       }
 
       client.on('call-start', onCallStart)
@@ -138,6 +167,8 @@ export function createVapiAdapter(client: VapiClient): OrbAdapter {
         client.removeListener('error', onError as (...args: unknown[]) => void)
         // Restore original start on cleanup
         client.start = originalStart
+        // Safety net: release mic if somehow still held at unsubscribe time
+        releaseMic()
       }
     },
   }
