@@ -8,7 +8,6 @@ interface CircleThemeProps {
   className?: string
   style?: React.CSSProperties
   onClick?: () => void
-
 }
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
@@ -24,11 +23,11 @@ function hexToRgb(hex: string): RGB {
 }
 
 const STATE_COLORS: Record<OrbState, string> = {
-  idle:         '#cccccc',
-  connecting:   '#cccccc',
-  listening:    '#999999',
-  speaking:     '#e8e8e8',
-  error:        '#f87171',
+  idle: '#cccccc',
+  connecting: '#cccccc',
+  listening: '#999999',
+  speaking: '#e8e8e8',
+  error: '#f87171',
 }
 
 // ─── Keyframes ────────────────────────────────────────────────────────────────
@@ -50,13 +49,13 @@ const KEYFRAMES = `
 // applied). These constants only control the visual mapping vol → scale/glow.
 
 // Scale: subtle breathing feel. At vol=0 → SPEAK_BASE; at vol=1 → SPEAK_BASE + SPEAK_RANGE.
-const SPEAK_BASE   = 0.95
-const SPEAK_RANGE  = 0.08   // 0.95 → 1.03 — subtle size change
-const LISTEN_BASE  = 0.82
-const LISTEN_RANGE = 0.18   // 0.82 → 1.00 (expands toward voice, stays under speaking)
+const SPEAK_BASE = 0.95
+const SPEAK_RANGE = 0.08 // 0.95 → 1.03 — subtle size change
+const LISTEN_BASE = 0.82
+const LISTEN_RANGE = 0.18 // 0.82 → 1.00 (expands toward voice, stays under speaking)
 
-const SPEAK_GLOW   = 24     // px at vol=1 (sigmoid caps effective max ~14px)
-const LISTEN_GLOW  = 0      // no glow during listening — clean edge
+const SPEAK_GLOW = 24 // px at vol=1 (sigmoid caps effective max ~14px)
+const LISTEN_GLOW = 0 // no glow during listening — clean edge
 
 // Output lerp rate — interpolates the adapter's ~10 Hz signal up to 60 fps
 // so the circle animates smoothly rather than snapping every 100 ms.
@@ -64,25 +63,27 @@ const LERP = 0.55
 
 export function CircleTheme({ state, volume, size, className, style, onClick }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
-  const glowRef   = useRef<HTMLDivElement>(null)
-  const hoverRef  = useRef<HTMLDivElement>(null)
-  const rafRef    = useRef<number>(0)
+  const glowRef = useRef<HTMLDivElement>(null)
+  const hoverRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef<number>(0)
 
   // Sync adapter volume into a ref so the rAF loop always reads the latest
   // value without being in the useEffect dependency array.
   const volumeRef = useRef(volume)
-  useLayoutEffect(() => { volumeRef.current = volume }, [volume])
+  useLayoutEffect(() => {
+    volumeRef.current = volume
+  }, [volume])
 
   // Persistent animation state — survives speaking↔listening state transitions
   // (the adapter debounces these, but refs make the theme resilient regardless).
   const currentScaleRef = useRef(1)
-  const currentGlowRef  = useRef(0)
+  const currentGlowRef = useRef(0)
   const currentColorRef = useRef<RGB>(hexToRgb(STATE_COLORS.idle))
 
   // State transition blending — lerps base/range toward new state's targets
   // so size changes smoothly between states without affecting volume reactivity
-  const TRANSITION_RATE = 0.06  // ~400ms to settle
-  const currentBaseRef  = useRef(LISTEN_BASE)
+  const TRANSITION_RATE = 0.06 // ~400ms to settle
+  const currentBaseRef = useRef(LISTEN_BASE)
   const currentRangeRef = useRef(LISTEN_RANGE)
 
   // Inject keyframes once
@@ -104,28 +105,28 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
-      const base  = state === 'speaking' ? SPEAK_BASE  : LISTEN_BASE
+      const base = state === 'speaking' ? SPEAK_BASE : LISTEN_BASE
       const range = state === 'speaking' ? SPEAK_RANGE : LISTEN_RANGE
-      const glow  = state === 'speaking' ? SPEAK_GLOW  : LISTEN_GLOW
+      const glow = state === 'speaking' ? SPEAK_GLOW : LISTEN_GLOW
 
       const animate = () => {
         const vol = volumeRef.current
 
         // Blend base/range toward current state's targets (smooth state transitions)
-        currentBaseRef.current  += (base  - currentBaseRef.current)  * TRANSITION_RATE
+        currentBaseRef.current += (base - currentBaseRef.current) * TRANSITION_RATE
         currentRangeRef.current += (range - currentRangeRef.current) * TRANSITION_RATE
 
         // Volume curves are now applied in the adapters — theme just animates
         const tScale = currentBaseRef.current + vol * currentRangeRef.current
-        const tGlow  = vol * glow
+        const tGlow = vol * glow
 
         // Lerp for listening only — speaking lerp handled by adapters
         if (state === 'listening') {
-          currentScaleRef.current += (tScale - currentScaleRef.current) * 0.45
-          currentGlowRef.current  += (tGlow  - currentGlowRef.current)  * 0.45
+          currentScaleRef.current += (tScale - currentScaleRef.current) * LERP
+          currentGlowRef.current += (tGlow - currentGlowRef.current) * LERP
         } else {
           currentScaleRef.current = tScale
-          currentGlowRef.current  = tGlow
+          currentGlowRef.current = tGlow
         }
 
         // Color: lerp toward state color (handles state transition fades;
@@ -139,19 +140,17 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
         ]
         const [r, g, b] = currentColorRef.current.map(Math.round)
 
-        el.style.transform  = `scale(${currentScaleRef.current})`
+        el.style.transform = `scale(${currentScaleRef.current})`
         el.style.background = `rgb(${r},${g},${b})`
-        el.style.boxShadow  = 'none'
-        el.style.animation  = 'none'
+        el.style.boxShadow = 'none'
+        el.style.animation = 'none'
 
         // Glow on separate element behind the circle — scales with circle
         const ge = glowRef.current
         if (ge) {
           const g2 = currentGlowRef.current
           ge.style.transform = `scale(${currentScaleRef.current})`
-          ge.style.boxShadow = g2 > 0.5
-            ? `0 0 ${g2}px ${g2 * 0.4}px rgb(${r},${g},${b})`
-            : 'none'
+          ge.style.boxShadow = g2 > 0.5 ? `0 0 ${g2}px ${g2 * 0.4}px rgb(${r},${g},${b})` : 'none'
         }
 
         rafRef.current = requestAnimationFrame(animate)
@@ -164,19 +163,17 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
         // visual state alive so rapid state transitions don't cause a snap frame.
         cancelAnimationFrame(rafRef.current)
       }
-
     } else {
       // Non-active states: cancel rAF, reset refs, hand off to CSS animations
       cancelAnimationFrame(rafRef.current)
       currentScaleRef.current = 1
-      currentGlowRef.current  = 0
+      currentGlowRef.current = 0
       currentColorRef.current = hexToRgb(STATE_COLORS[state] ?? STATE_COLORS.idle)
 
-      el.style.transform  = ''
-      el.style.boxShadow  = 'none'
+      el.style.transform = ''
+      el.style.boxShadow = 'none'
       if (glowRef.current) glowRef.current.style.boxShadow = 'none'
       const c = STATE_COLORS[state] ?? STATE_COLORS.idle
-      const [sr, sg, sb] = hexToRgb(c)
       el.style.background = c
 
       if (state === 'idle') {
@@ -195,8 +192,11 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
     <div
       className={className}
       style={{
-        width: size, height: size,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: size,
+        height: size,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         position: 'relative',
         ...style,
       }}
@@ -237,7 +237,8 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
           ref={glowRef}
           style={{
             position: 'absolute',
-            width: d, height: d,
+            width: d,
+            height: d,
             borderRadius: '50%',
             pointerEvents: 'none',
           }}
@@ -247,13 +248,13 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
           ref={circleRef}
           style={{
             position: 'relative',
-            width: d, height: d,
+            width: d,
+            height: d,
             borderRadius: '50%',
             background: STATE_COLORS[state],
           }}
         />
       </div>
-
     </div>
   )
 }

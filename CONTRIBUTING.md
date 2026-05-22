@@ -33,7 +33,7 @@ If your PR is a large, human-written feature or refactor, expect it to sit in th
 
 ## Why?
 
-Because we think the most interesting question in open source right now isn't *"how do we keep AI out?"* — it's *"what does a project look like when AI is the primary contributor?"*
+Because we think the most interesting question in open source right now isn't _"how do we keep AI out?"_ — it's _"what does a project look like when AI is the primary contributor?"_
 
 This is that experiment.
 
@@ -54,14 +54,25 @@ That's it.
 ```bash
 git clone https://github.com/alexanderqchen/orb-ui.git
 cd orb-ui
-npm install
-cd demo && npm install && cd ..
+pnpm install
 
 # Build the library
-npm run build
+pnpm build
 
 # Run demo locally
-cd demo && npm run dev
+pnpm dev:demo
+```
+
+Before opening a PR, run:
+
+```bash
+pnpm check
+```
+
+If your change affects users, add a changeset:
+
+```bash
+pnpm changeset
 ```
 
 ---
@@ -70,9 +81,9 @@ cd demo && npm run dev
 
 - Don't break the public API (`Orb` props, `OrbAdapter` interface, `OrbState` union)
 - New themes go in `src/themes/`, new adapters in `src/adapters/`
-- Run `npm run build` before opening a PR
+- Run `pnpm check` before opening a PR
 - Keep bundle size in mind — no heavy dependencies without discussion
 
 ---
 
-*orb-ui is maintained by [Alexander Chen](https://github.com/alexanderqchen).*
+_orb-ui is maintained by [Alexander Chen](https://github.com/alexanderqchen)._

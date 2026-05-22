@@ -12,16 +12,16 @@ interface BarsThemeProps {
 const BAR_COUNT = 5
 
 // Traveling wave: all bars share one frequency, evenly phase-shifted left→right.
-const WAVE_FREQ       = 1.4
+const WAVE_FREQ = 1.4
 const WAVE_PHASE_STEP = (Math.PI * 2) / BAR_COUNT
 
 // Match Circle's per-state colors
 const STATE_COLORS: Record<string, string> = {
-  idle:       '#cccccc',
+  idle: '#cccccc',
   connecting: '#cccccc',
-  listening:  '#999999',
-  speaking:   '#e8e8e8',
-  error:      '#f87171',
+  listening: '#999999',
+  speaking: '#e8e8e8',
+  error: '#f87171',
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -32,7 +32,14 @@ function hexToRgb(hex: string): [number, number, number] {
   ]
 }
 
-export function BarsTheme({ state, volume, size, className, style, onClick }: BarsThemeProps & { onClick?: () => void }) {
+export function BarsTheme({
+  state,
+  volume,
+  size,
+  className,
+  style,
+  onClick,
+}: BarsThemeProps & { onClick?: () => void }) {
   const barRefs = useRef<(HTMLDivElement | null)[]>([])
   const hoverRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
@@ -77,7 +84,7 @@ export function BarsTheme({ state, volume, size, className, style, onClick }: Ba
 
     const updateHoverBoost = () => {
       const canHover = true
-      const target = (hoveredRef.current && canHover) ? hoverBoostMax : 0
+      const target = hoveredRef.current && canHover ? hoverBoostMax : 0
       hoverBoostRef.current += (target - hoverBoostRef.current) * 0.15
     }
 
@@ -116,7 +123,8 @@ export function BarsTheme({ state, volume, size, className, style, onClick }: Ba
         const t = Date.now() / 1000
 
         for (let i = 0; i < BAR_COUNT; i++) {
-          const osc = 0.5 + 0.15 * Math.sin(t * WAVE_FREQ * freqScale * Math.PI * 2 + i * WAVE_PHASE_STEP)
+          const osc =
+            0.5 + 0.15 * Math.sin(t * WAVE_FREQ * freqScale * Math.PI * 2 + i * WAVE_PHASE_STEP)
           let targetH = minH + (maxH - minH) * vol * osc
 
           // During state transition, blend the target from frozen heights
@@ -150,10 +158,8 @@ export function BarsTheme({ state, volume, size, className, style, onClick }: Ba
         updateHoverBoost()
         for (let i = 0; i < BAR_COUNT; i++) {
           // Sine hump: 50% sweep, 50% rest — left to right
-          const cycle = (t * 0.6 + i / BAR_COUNT * 0.5) % 1.0
-          const wave = cycle < 0.5
-            ? Math.sin((cycle / 0.5) * Math.PI)
-            : 0
+          const cycle = (t * 0.6 + (i / BAR_COUNT) * 0.5) % 1.0
+          const wave = cycle < 0.5 ? Math.sin((cycle / 0.5) * Math.PI) : 0
           const targetH = minH + (maxH * 0.4 - minH) * wave
           // Lerp from current height into wave for smooth transition from hover
           smoothed.current[i] += (targetH - smoothed.current[i]) * 0.15
@@ -230,7 +236,9 @@ export function BarsTheme({ state, volume, size, className, style, onClick }: Ba
         {Array.from({ length: BAR_COUNT }, (_, i) => (
           <div
             key={i}
-            ref={(el) => { barRefs.current[i] = el }}
+            ref={(el) => {
+              barRefs.current[i] = el
+            }}
             style={{
               width: barW,
               minHeight: minH,

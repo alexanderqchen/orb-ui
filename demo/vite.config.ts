@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     allowedHosts: true,
   },
-  // Never pre-bundle orb-ui — it's a local symlink and we want changes to
-  // dist/ to be picked up immediately after yarn build without cache clears.
+  // Never pre-bundle orb-ui — it's a local workspace link and we want changes
+  // to dist/ to be picked up immediately after pnpm build without cache clears.
   optimizeDeps: {
     exclude: ['orb-ui'],
   },

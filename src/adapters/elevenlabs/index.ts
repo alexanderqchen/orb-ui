@@ -4,29 +4,29 @@ import type { OrbAdapter, OrbState, AdapterCallbacks } from '../types'
 // We define minimal interfaces rather than importing @elevenlabs/client directly
 // so orb-ui doesn't pull in the SDK as a hard dependency — users already have it.
 
-type ElevenLabsMode   = 'speaking' | 'listening'
+type ElevenLabsMode = 'speaking' | 'listening'
 type ElevenLabsStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting'
 
 interface ElevenLabsCallbacks {
-  onConnect?:       (props: { conversationId: string }) => void
-  onDisconnect?:    (details: unknown) => void
-  onError?:         (message: string, context?: unknown) => void
-  onModeChange?:    (prop: { mode: ElevenLabsMode }) => void
-  onStatusChange?:  (prop: { status: ElevenLabsStatus }) => void
-  onVadScore?:      (props: { vadScore: number }) => void
+  onConnect?: (props: { conversationId: string }) => void
+  onDisconnect?: (details: unknown) => void
+  onError?: (message: string, context?: unknown) => void
+  onModeChange?: (prop: { mode: ElevenLabsMode }) => void
+  onStatusChange?: (prop: { status: ElevenLabsStatus }) => void
+  onVadScore?: (props: { vadScore: number }) => void
 }
 
 interface ElevenLabsConversation {
-  endSession():              Promise<void>
-  getInputVolume():          number   // normalized RMS of mic input (0–1)
-  getOutputVolume():         number   // normalized RMS of AI audio output (0–1)
-  getInputByteFrequencyData():  Uint8Array
+  endSession(): Promise<void>
+  getInputVolume(): number // normalized RMS of mic input (0–1)
+  getOutputVolume(): number // normalized RMS of AI audio output (0–1)
+  getInputByteFrequencyData(): Uint8Array
   getOutputByteFrequencyData(): Uint8Array
 }
 
 type ElevenLabsConfig = {
   // Provide either agentId (public) or signedUrl (server-side auth)
-  agentId?:   string
+  agentId?: string
   signedUrl?: string
   // Any other @elevenlabs/client startSession options are passed through
   [key: string]: unknown
@@ -68,9 +68,6 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
 // EMA config: lighter than Vapi (EL signal is already clean, less smoothing needed)
 //   attack=0.5 (fast rise), release=0.15 (moderate decay)
 
-// Clean slate — no gain, no EMA, just pass raw values through
-const NOISE_FLOOR   = 0.05   // VAD scores below this are silence
-
 /**
  * Creates an OrbAdapter for ElevenLabs Conversational AI.
  *
@@ -106,16 +103,19 @@ export function createElevenLabsAdapter(
   config: ElevenLabsConfig,
 ): ElevenLabsOrbAdapter {
   // Active conversation instance + cleanup reference
-  let conversation:    ElevenLabsConversation | null = null
-  let volumeInterval:  ReturnType<typeof setInterval> | null = null
-  let currentMode:     ElevenLabsMode = 'listening'
+  let conversation: ElevenLabsConversation | null = null
+  let volumeInterval: ReturnType<typeof setInterval> | null = null
 
   // Subscriber registry — supports multiple simultaneous subscribers
   // (e.g. Orb + signal monitor both subscribing at the same time)
   const subscribers = new Set<AdapterCallbacks>()
 
-  function emitState(s: OrbState)  { subscribers.forEach(cb => cb.onStateChange(s)) }
-  function emitVolume(v: number)   { subscribers.forEach(cb => cb.onVolumeChange(v)) }
+  function emitState(s: OrbState) {
+    subscribers.forEach((cb) => cb.onStateChange(s))
+  }
+  function emitVolume(v: number) {
+    subscribers.forEach((cb) => cb.onVolumeChange(v))
+  }
 
   function startVolumePolling() {
     if (volumeInterval) return
@@ -127,7 +127,10 @@ export function createElevenLabsAdapter(
   }
 
   function stopVolumePolling() {
-    if (volumeInterval) { clearInterval(volumeInterval); volumeInterval = null }
+    if (volumeInterval) {
+      clearInterval(volumeInterval)
+      volumeInterval = null
+    }
     emitVolume(0)
   }
 
@@ -142,7 +145,6 @@ export function createElevenLabsAdapter(
     },
 
     onModeChange: ({ mode }) => {
-      currentMode = mode
       if (mode === 'speaking') {
         emitState('speaking')
         startVolumePolling()

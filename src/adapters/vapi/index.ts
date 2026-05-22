@@ -56,7 +56,10 @@ function makeStateEmitter(onStateChange: (s: OrbState) => void) {
   let timer: ReturnType<typeof setTimeout> | null = null
 
   function emitState(next: OrbState) {
-    if (timer) { clearTimeout(timer); timer = null }
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
 
     if (lastEmitted === 'speaking' && next === 'listening') {
       timer = setTimeout(() => {
@@ -72,7 +75,10 @@ function makeStateEmitter(onStateChange: (s: OrbState) => void) {
   }
 
   function clearTimer() {
-    if (timer) { clearTimeout(timer); timer = null }
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
   }
 
   return { emitState, clearTimer }
@@ -109,8 +115,8 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
   function normalizeVapiVolume(raw: number): number {
     const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
     // Light EMA to bridge Vapi's alternating loud/silent artifact
-    const rate  = gated > emaVol ? 0.8 : 0.5
-    emaVol      = emaVol + (gated - emaVol) * rate
+    const rate = gated > emaVol ? 0.8 : 0.5
+    emaVol = emaVol + (gated - emaVol) * rate
     return emaVol
   }
 
@@ -130,7 +136,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       let currentState: OrbState = 'idle'
       let callActive = false
 
-      const onCallStart  = () => {
+      const onCallStart = () => {
         callActive = true
         currentState = 'listening'
         emitState('listening')
@@ -177,7 +183,10 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         if (!volRaf) volRaf = requestAnimationFrame(volLoop)
       }
       const stopVolLoop = () => {
-        if (volRaf) { cancelAnimationFrame(volRaf); volRaf = 0 }
+        if (volRaf) {
+          cancelAnimationFrame(volRaf)
+          volRaf = 0
+        }
         currentVol = 0
         targetVol = 0
       }
@@ -191,7 +200,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         }
       }
 
-      const onMessage = (_message: VapiMessage) => {
+      const onMessage = () => {
         // Kept as a listener slot for future use (e.g. function-call events).
       }
 
@@ -203,13 +212,13 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         emaVol = 0
       }
 
-      client.on('call-start',   onCallStart)
-      client.on('call-end',     onCallEnd)
+      client.on('call-start', onCallStart)
+      client.on('call-end', onCallEnd)
       client.on('speech-start', onSpeechStart)
-      client.on('speech-end',   onSpeechEnd)
+      client.on('speech-end', onSpeechEnd)
       client.on('volume-level', onVolumeLevel)
-      client.on('message',      onMessage)
-      client.on('error',        onError)
+      client.on('message', onMessage)
+      client.on('error', onError)
 
       // Intercept vapi.start() to emit 'connecting' immediately
       const originalStart = client.start.bind(client)
@@ -220,13 +229,13 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
       return () => {
         clearTimer()
-        client.removeListener('call-start',   onCallStart as () => void)
-        client.removeListener('call-end',     onCallEnd as () => void)
+        client.removeListener('call-start', onCallStart as () => void)
+        client.removeListener('call-end', onCallEnd as () => void)
         client.removeListener('speech-start', onSpeechStart as () => void)
-        client.removeListener('speech-end',   onSpeechEnd as () => void)
+        client.removeListener('speech-end', onSpeechEnd as () => void)
         client.removeListener('volume-level', onVolumeLevel as (...args: unknown[]) => void)
-        client.removeListener('message',      onMessage as (...args: unknown[]) => void)
-        client.removeListener('error',        onError as (...args: unknown[]) => void)
+        client.removeListener('message', onMessage as (...args: unknown[]) => void)
+        client.removeListener('error', onError as (...args: unknown[]) => void)
         client.start = originalStart
       }
     },

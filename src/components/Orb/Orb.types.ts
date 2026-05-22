@@ -1,9 +1,4 @@
-export type OrbState =
-  | 'idle'
-  | 'connecting'
-  | 'listening'
-  | 'speaking'
-  | 'error'
+export type OrbState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error'
 
 export type OrbTheme = 'debug' | 'circle' | 'bars'
 

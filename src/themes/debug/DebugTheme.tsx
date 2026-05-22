@@ -10,9 +10,7 @@ interface DebugThemeProps {
   onStop?: () => void
 }
 
-const ALL_STATES: OrbState[] = [
-  'idle', 'connecting', 'listening', 'speaking', 'error',
-]
+const ALL_STATES: OrbState[] = ['idle', 'connecting', 'listening', 'speaking', 'error']
 
 const STATE_COLORS: Record<OrbState, string> = {
   idle: '#888',
@@ -20,7 +18,6 @@ const STATE_COLORS: Record<OrbState, string> = {
   listening: '#40c0f0',
   speaking: '#40f080',
   error: '#f04040',
-
 }
 
 export function DebugTheme({
@@ -56,7 +53,7 @@ export function DebugTheme({
 
       {/* State */}
       <div style={{ marginBottom: 8 }}>
-        <span style={{ color: '#555' }}>state  </span>
+        <span style={{ color: '#555' }}>state </span>
         <span style={{ color: STATE_COLORS[state], fontWeight: 'bold' }}>{state}</span>
       </div>
 
@@ -105,7 +102,7 @@ export function DebugTheme({
               // In controlled mode, wire onStateChange to your own state.
               onClick={() => {
                 console.warn(
-                  `[orb-ui debug] To force state '${s}', use controlled mode: <Orb state="${s}" />`
+                  `[orb-ui debug] To force state '${s}', use controlled mode: <Orb state="${s}" />`,
                 )
               }}
             >

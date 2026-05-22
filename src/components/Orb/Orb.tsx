@@ -69,7 +69,7 @@ function createMicMonitor() {
       context.close().catch(() => {})
       context = null
     }
-    stream?.getTracks().forEach(track => {
+    stream?.getTracks().forEach((track) => {
       if (track.readyState === 'live') track.stop()
     })
     stream = null
@@ -143,9 +143,8 @@ export function Orb({
   }, [])
 
   // Use mic volume when listening, adapter volume otherwise
-  const volume: number = volumeProp ?? (
-    (state === 'listening' && micActiveRef.current) ? micVolume : adapterVolume
-  )
+  const volume: number =
+    volumeProp ?? (state === 'listening' && micActiveRef.current ? micVolume : adapterVolume)
 
   const isActive = state !== 'idle' && state !== 'error'
 
@@ -172,9 +171,12 @@ export function Orb({
       return <BarsTheme {...themeProps} onClick={clickHandler} />
     case 'debug':
     default:
-      return <DebugTheme {...themeProps}
-        onStart={onStart ?? (() => adapter?.start?.())}
-        onStop={onStop ?? (() => adapter?.stop?.())}
-      />
+      return (
+        <DebugTheme
+          {...themeProps}
+          onStart={onStart ?? (() => adapter?.start?.())}
+          onStop={onStop ?? (() => adapter?.stop?.())}
+        />
+      )
   }
 }

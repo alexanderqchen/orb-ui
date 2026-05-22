@@ -16,7 +16,11 @@ The simplest way to add voice UI to your React app. One install, one component, 
 import { Orb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
 
-<Orb adapter={createVapiAdapter(vapi, { assistantId: 'your-id' })} theme="circle" />
+function VoiceOrb({ vapi }) {
+  const adapter = createVapiAdapter(vapi, { assistantId: 'your-id' })
+
+  return <Orb adapter={adapter} theme="circle" />
+}
 ```
 
 ## Install
@@ -74,23 +78,23 @@ function App() {
 
 ## Themes
 
-| Theme | Description |
-|---|---|
-| `debug` | State + volume display with start/stop. Use to verify your integration works. |
-| `circle` | Pulsing circle that reacts to volume. |
-| `bars` | Five bars that animate with voice. |
+| Theme    | Description                                                                   |
+| -------- | ----------------------------------------------------------------------------- |
+| `debug`  | State + volume display with start/stop. Use to verify your integration works. |
+| `circle` | Pulsing circle that reacts to volume.                                         |
+| `bars`   | Five bars that animate with voice.                                            |
 
 ## Props
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `theme` | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme |
-| `state` | `OrbState` | `'idle'` | Conversation state (controlled mode) |
-| `volume` | `number` | `0` | Audio volume, 0–1 (controlled mode) |
-| `adapter` | `OrbAdapter` | — | Provider adapter (manages state + volume automatically) |
-| `size` | `number` | `200` | Size in pixels |
-| `onStart` | `() => void` | — | Custom start handler (overrides adapter.start()) |
-| `onStop` | `() => void` | — | Custom stop handler (overrides adapter.stop()) |
+| Prop      | Type                            | Default   | Description                                             |
+| --------- | ------------------------------- | --------- | ------------------------------------------------------- |
+| `theme`   | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme                                            |
+| `state`   | `OrbState`                      | `'idle'`  | Conversation state (controlled mode)                    |
+| `volume`  | `number`                        | `0`       | Audio volume, 0–1 (controlled mode)                     |
+| `adapter` | `OrbAdapter`                    | —         | Provider adapter (manages state + volume automatically) |
+| `size`    | `number`                        | `200`     | Size in pixels                                          |
+| `onStart` | `() => void`                    | —         | Custom start handler (overrides adapter.start())        |
+| `onStop`  | `() => void`                    | —         | Custom stop handler (overrides adapter.stop())          |
 
 ## States
 
@@ -98,26 +102,36 @@ function App() {
 
 ## Supported Providers
 
-| Provider | Adapter |
-|---|---|
-| [Vapi](https://vapi.ai) | `createVapiAdapter` from `orb-ui/adapters` |
-| [ElevenLabs](https://elevenlabs.io/conversational-ai) | `createElevenLabsAdapter` from `orb-ui/adapters` |
-| Custom | Use controlled mode — pass `state` and `volume` directly |
+| Provider                                              | Adapter                                                  |
+| ----------------------------------------------------- | -------------------------------------------------------- |
+| [Vapi](https://vapi.ai)                               | `createVapiAdapter` from `orb-ui/adapters`               |
+| [ElevenLabs](https://elevenlabs.io/conversational-ai) | `createElevenLabsAdapter` from `orb-ui/adapters`         |
+| Custom                                                | Use controlled mode — pass `state` and `volume` directly |
 
 ## Development
 
 ```bash
 git clone https://github.com/alexanderqchen/orb-ui.git
 cd orb-ui
-npm install
-cd demo && npm install && cd ..
+pnpm install
 
 # Build the library
-npm run build
+pnpm build
 
 # Run demo locally
-cd demo && npm run dev
+pnpm dev:demo
 ```
+
+Useful maintenance commands:
+
+```bash
+pnpm check        # format check, lint, typecheck, tests, library build, demo build
+pnpm format       # format repo files
+pnpm changeset    # add release notes for a user-facing package change
+```
+
+Releases are managed with Changesets. Merging a Changesets version PR publishes
+`orb-ui` to npm from GitHub Actions using npm trusted publishing.
 
 ## License
 
