@@ -9,8 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@elevenlabs/client": "^0.15.0",
-    "@vapi-ai/web": "^2.5.2",
     "orb-ui": "workspace:*"
   },
   "devDependencies": {
