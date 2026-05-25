@@ -176,12 +176,9 @@ export function BarsTheme({
     const animateStatic = () => {
       updateHoverBoost()
       for (let i = 0; i < BAR_COUNT; i++) {
-        const el = barRefs.current[i]
-        if (!el) continue
-        el.style.height = `${minH + hoverBoostRef.current * diamondWeights[i]}px`
-        el.style.background = color
-        el.style.animation = 'none'
+        smoothed.current[i] += (minH - smoothed.current[i]) * 0.16
       }
+      setBars(smoothed.current, color)
       rafRef.current = requestAnimationFrame(animateStatic)
     }
     rafRef.current = requestAnimationFrame(animateStatic)

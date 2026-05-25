@@ -60,6 +60,8 @@ const LISTEN_GLOW = 0 // no glow during listening — clean edge
 // Output lerp rate — interpolates the adapter's ~10 Hz signal up to 60 fps
 // so the circle animates smoothly rather than snapping every 100 ms.
 const LERP = 0.55
+const SETTLE_RATE = 0.12
+const SETTLE_SCALE_EPSILON = 0.002
 
 export function CircleTheme({ state, volume, size, className, style, onClick }: CircleThemeProps) {
   const circleRef = useRef<HTMLDivElement>(null)
@@ -164,25 +166,70 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
         cancelAnimationFrame(rafRef.current)
       }
     } else {
-      // Non-active states: cancel rAF, reset refs, hand off to CSS animations
+      // Non-active states: settle from the current active visual before handing
+      // off to CSS animations. This avoids a visible snap from listening's
+      // compact base scale back to idle.
       cancelAnimationFrame(rafRef.current)
-      currentScaleRef.current = 1
-      currentGlowRef.current = 0
-      currentColorRef.current = hexToRgb(STATE_COLORS[state] ?? STATE_COLORS.idle)
-
-      el.style.transform = ''
-      el.style.boxShadow = 'none'
-      if (glowRef.current) glowRef.current.style.boxShadow = 'none'
       const c = STATE_COLORS[state] ?? STATE_COLORS.idle
-      el.style.background = c
+      const tRgb = hexToRgb(c)
 
-      if (state === 'idle') {
-        el.style.animation = 'orb-circle-idle-pulse 3s ease-in-out infinite alternate'
-      } else if (state === 'connecting') {
-        el.style.animation = 'orb-circle-connecting-pulse 1.5s ease-in-out infinite'
-      } else {
+      const settle = () => {
+        currentScaleRef.current += (1 - currentScaleRef.current) * SETTLE_RATE
+        currentGlowRef.current += (0 - currentGlowRef.current) * SETTLE_RATE
+
+        const [cr, cg, cb] = currentColorRef.current
+        currentColorRef.current = [
+          cr + (tRgb[0] - cr) * SETTLE_RATE,
+          cg + (tRgb[1] - cg) * SETTLE_RATE,
+          cb + (tRgb[2] - cb) * SETTLE_RATE,
+        ]
+        const [r, g, b] = currentColorRef.current.map(Math.round)
+
+        el.style.transform = `scale(${currentScaleRef.current})`
+        el.style.background = `rgb(${r},${g},${b})`
+        el.style.boxShadow = 'none'
         el.style.animation = 'none'
+
+        if (glowRef.current) {
+          glowRef.current.style.transform = `scale(${currentScaleRef.current})`
+          glowRef.current.style.boxShadow = 'none'
+        }
+
+        const scaleDone = Math.abs(currentScaleRef.current - 1) < SETTLE_SCALE_EPSILON
+        const glowDone = currentGlowRef.current < 0.1
+        const colorDone = currentColorRef.current.every(
+          (channel, i) => Math.abs(channel - tRgb[i]) < 1,
+        )
+
+        if (scaleDone && glowDone && colorDone) {
+          currentScaleRef.current = 1
+          currentGlowRef.current = 0
+          currentColorRef.current = tRgb
+
+          el.style.transform = ''
+          el.style.boxShadow = 'none'
+          el.style.background = c
+          if (glowRef.current) {
+            glowRef.current.style.transform = 'scale(1)'
+            glowRef.current.style.boxShadow = 'none'
+          }
+
+          if (state === 'idle') {
+            el.style.animation = 'orb-circle-idle-pulse 3s ease-in-out infinite alternate'
+          } else if (state === 'connecting') {
+            el.style.animation = 'orb-circle-connecting-pulse 1.5s ease-in-out infinite'
+          } else {
+            el.style.animation = 'none'
+          }
+          return
+        }
+
+        rafRef.current = requestAnimationFrame(settle)
       }
+
+      rafRef.current = requestAnimationFrame(settle)
+
+      return () => cancelAnimationFrame(rafRef.current)
     }
   }, [state])
 
