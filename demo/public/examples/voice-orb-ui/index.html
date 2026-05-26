@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Orb UI Example for React | orb-ui</title>
+    <meta
+      name="description"
+      content="See a React voice orb UI example with animated states, audio-reactive motion, Vapi and ElevenLabs adapters, and custom controlled mode."
+    />
+    <link rel="canonical" href="https://orb-ui.com/examples/voice-orb-ui/" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://orb-ui.com/examples/voice-orb-ui/" />
+    <meta property="og:title" content="Voice Orb UI Example for React | orb-ui" />
+    <meta
+      property="og:description"
+      content="See a React voice orb UI example with animated states, audio-reactive motion, Vapi and ElevenLabs adapters, and custom controlled mode."
+    />
+    <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Voice Orb UI Example for React | orb-ui" />
+    <meta
+      name="twitter:description"
+      content="See a React voice orb UI example with animated states, audio-reactive motion, Vapi and ElevenLabs adapters, and custom controlled mode."
+    />
+    <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
+    <link rel="stylesheet" href="/seo.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "orb-ui", "item": "https://orb-ui.com/" },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Examples",
+            "item": "https://orb-ui.com/examples/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Voice Orb Ui",
+            "item": "https://orb-ui.com/examples/voice-orb-ui/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "orb-ui",
+        "description": "React voice agent UI component library with animated voice orbs, audio-reactive themes, and provider adapters.",
+        "url": "https://orb-ui.com/",
+        "codeRepository": "https://github.com/alexanderqchen/orb-ui",
+        "downloadUrl": "https://www.npmjs.com/package/orb-ui",
+        "applicationCategory": "DeveloperApplication",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "React",
+        "license": "https://opensource.org/licenses/MIT"
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="brand" href="/">orb-ui</a>
+      <div class="nav-links">
+        <a href="/">Home</a><a href="/guides/voice-agent-ui/">Voice Agent UI</a
+        ><a href="/docs/vapi-voice-ui/">Vapi</a><a href="/docs/elevenlabs-voice-ui/">ElevenLabs</a
+        ><a href="/compare/voice-agent-platforms/">Compare</a><a href="/skins/">Skins</a>
+        <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a>
+      </div>
+    </nav>
+    <main>
+      <section class="wrap hero">
+        <p class="eyebrow">Example</p>
+        <h1>Voice orb UI example for React</h1>
+        <p class="lede">
+          Orb is not the generic industry term for every voice agent interface. It is the memorable
+          visual shape of orb-ui. This example protects the existing search wedge around voice orb,
+          react ai orb, and orb component while pointing developers back to broader voice agent UI
+          language.
+        </p>
+        <div class="targets">
+          <span>voice orb</span><span>react ai orb</span><span>orb component</span>
+        </div>
+      </section>
+      <section class="wrap">
+        <div class="grid">
+          <article class="card">
+            <h2>When an orb works well</h2>
+            <p>
+              An orb works best when the voice agent needs a compact visual presence: a landing page
+              demo, an embedded assistant, a command surface, or a product area where a full
+              transcript would be too heavy.
+            </p>
+            <p>
+              The orb should react to actual voice activity when possible. If audio volume is not
+              available, state changes alone can still make the interface feel responsive.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Voice states</h2>
+            <p>
+              Idle should feel calm. Connecting should imply progress. Listening should invite
+              speech. Speaking should show output activity. Error should be visible without becoming
+              alarming. Those details make the component feel useful rather than decorative.
+            </p>
+            <p>
+              The debug theme is available when you need to verify state and volume during
+              integration.
+            </p>
+          </article>
+          <article class="card">
+            <h2>From orb to voice agent UI</h2>
+            <p>
+              Search Console shows that people already find orb-ui through orb phrases. The product
+              should keep that identity, but the docs should also teach the broader category: React
+              voice agent UI components.
+            </p>
+            <p>
+              That gives orb-ui both a distinctive brand and a clearer path into higher-volume voice
+              AI searches.
+            </p>
+          </article>
+        </div>
+        <article class="card" style="margin-top: 22px">
+          <h2>Animated voice orb</h2>
+          <pre class="code"><code>import { Orb } from &#39;orb-ui&#39;
+
+export function VoiceOrbExample() {
+  return (
+    &lt;Orb
+      state=&quot;listening&quot;
+      volume={0.7}
+      theme=&quot;circle&quot;
+      size={280}
+    /&gt;
+  )
+}</code></pre>
+        </article>
+        <div class="cta">
+          <strong>Use the orb as the visible state layer for your React voice agent.</strong>
+          <span
+            ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
+            · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span
+          >
+        </div>
+        <div class="related">
+          <strong>Related:</strong>
+          <a href="/guides/voice-agent-ui/">Voice agent UI components for React</a
+          ><a href="/docs/vapi-voice-ui/">Vapi voice UI components for React</a
+          ><a href="/skins/">Voice agent skins and orb UI themes</a>
+        </div>
+      </section>
+    </main>
+    <footer>
+      MIT License · Built by Alexander Chen and Experimental Software · Last updated 2026-05-25
+    </footer>
+  </body>
+</html>

@@ -175,6 +175,52 @@ function useConversationSimulation() {
   return frame
 }
 
+const NAV_LINKS = [
+  { href: '#demo', label: 'Demo' },
+  { href: '#providers', label: 'Providers' },
+  { href: '#themes', label: 'Themes' },
+  { href: '#quick-start', label: 'Quick Start' },
+  { href: 'https://github.com/alexanderqchen/orb-ui', label: 'GitHub', external: true },
+] as const
+
+const SEO_SECTIONS = [
+  {
+    id: 'voice-agent-ui',
+    title: 'Voice agent UI for React',
+    copy: 'orb-ui gives React apps a polished voice agent UI layer: animated voice orbs, audio-reactive visual feedback, and clear conversation states for idle, connecting, listening, speaking, and error flows.',
+    link: '/guides/voice-agent-ui/',
+    linkLabel: 'Read the voice agent UI guide',
+  },
+  {
+    id: 'providers',
+    title: 'Provider adapters',
+    copy: 'Use built-in provider adapters for Vapi and ElevenLabs, or keep full control with state and volume props when you are integrating custom realtime voice agents.',
+    link: '/docs/vapi-voice-ui/',
+    linkLabel: 'Explore Vapi voice UI docs',
+  },
+  {
+    id: 'themes',
+    title: 'Themes and voice states',
+    copy: 'Start with the animated orb, bars, or debug theme, then map your voice agent lifecycle into consistent visual states users can understand at a glance.',
+    link: '/examples/voice-orb-ui/',
+    linkLabel: 'View the voice orb UI example',
+  },
+  {
+    id: 'custom-integrations',
+    title: 'Custom voice AI integrations',
+    copy: 'Controlled mode works with any voice AI stack. Connect your own WebRTC, WebSocket, telephony, or speech pipeline and pass state plus audio volume directly to the Orb component.',
+    link: '/guides/voice-agent-ui/',
+    linkLabel: 'Build a custom voice agent UI',
+  },
+  {
+    id: 'roadmap',
+    title: 'Coming next: OpenAI Realtime and Gemini Live',
+    copy: 'OpenAI Realtime and Gemini Live adapters are planned next. Today, you can already use controlled mode to prototype a React voice UI for those realtime voice agent stacks.',
+    link: '/docs/openai-realtime-voice-ui/',
+    linkLabel: 'Preview OpenAI Realtime voice UI notes',
+  },
+] as const
+
 function btnStyle(selected: boolean, disabled = false): CSSProperties {
   return {
     padding: '6px 16px',
@@ -309,31 +355,30 @@ export default function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 24,
+          gap: 16,
+          flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: 18, color: '#fff' }}>orb-ui</span>
-        <div style={{ display: 'flex', gap: 24 }}>
-          <a
-            href="https://github.com/alexanderqchen/orb-ui"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#888', fontSize: 14, textDecoration: 'none' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
-          >
-            GitHub
-          </a>
-          <a
-            href="https://www.npmjs.com/package/orb-ui"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#888', fontSize: 14, textDecoration: 'none' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
-          >
-            npm
-          </a>
+        <a
+          href="/"
+          style={{ fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none' }}
+        >
+          orb-ui
+        </a>
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              target={link.external ? '_blank' : undefined}
+              rel={link.external ? 'noreferrer' : undefined}
+              style={{ color: '#888', fontSize: 14, textDecoration: 'none' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
+            >
+              {link.label}
+            </a>
+          ))}
         </div>
       </nav>
 
@@ -349,11 +394,12 @@ export default function App() {
             margin: 0,
           }}
         >
-          Beautiful voice AI in minutes, not days.
+          React voice agent UI components
         </h1>
         <p style={{ fontSize: 16, color: '#888', marginTop: 16, lineHeight: 1.6 }}>
-          A small React orb that responds to conversation state and volume. Use an adapter in
-          production, or control it directly for previews, mocks, and docs.
+          orb-ui is a React voice agent UI library with animated orb components, audio-reactive
+          themes, Vapi and ElevenLabs adapters, and controlled mode for custom realtime voice
+          agents.
         </p>
         <div
           style={{
@@ -391,7 +437,8 @@ export default function App() {
         </div>
       </section>
 
-      <section style={{ padding: '48px 32px', maxWidth: 680, margin: '0 auto' }}>
+      {/* ── Demo ────────────────────────────────────────────────────────── */}
+      <section id="demo" style={{ padding: '48px 32px', maxWidth: 680, margin: '0 auto' }}>
         <div style={{ ...labelStyle, textAlign: 'center', marginBottom: 32 }}>Simulated demo</div>
 
         <div
@@ -492,7 +539,51 @@ export default function App() {
         )}
       </section>
 
-      <section style={{ padding: '48px 32px', maxWidth: 680, margin: '0 auto' }}>
+      {/* ── SEO Content ─────────────────────────────────────────────────── */}
+      <section style={{ padding: '32px 32px 16px', maxWidth: 980, margin: '0 auto' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {SEO_SECTIONS.map((section) => (
+            <article
+              key={section.id}
+              id={section.id}
+              style={{
+                background: '#101010',
+                border: '1px solid #1f1f1f',
+                borderRadius: 8,
+                padding: 20,
+              }}
+            >
+              <h2 style={{ fontSize: 18, color: '#fff', margin: 0, lineHeight: 1.3 }}>
+                {section.title}
+              </h2>
+              <p style={{ fontSize: 14, color: '#9a9a9a', marginTop: 12, lineHeight: 1.65 }}>
+                {section.copy}
+              </p>
+              <a
+                href={section.link}
+                style={{
+                  color: '#d9ecff',
+                  display: 'inline-block',
+                  fontSize: 13,
+                  marginTop: 12,
+                  textDecoration: 'none',
+                }}
+              >
+                {section.linkLabel}
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Code ────────────────────────────────────────────────────────── */}
+      <section id="quick-start" style={{ padding: '48px 32px', maxWidth: 680, margin: '0 auto' }}>
         <div style={{ ...labelStyle, marginBottom: 24, textAlign: 'center' }}>Quick start</div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>

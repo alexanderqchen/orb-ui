@@ -1,6 +1,6 @@
 # orb-ui
 
-The simplest way to add voice UI to your React app. One install, one component, works with Vapi and ElevenLabs out of the box.
+React voice agent UI components for Vapi, ElevenLabs, and custom realtime voice AI apps. One install gives you an animated voice orb, audio-reactive themes, and provider adapters for building polished voice agent interfaces in React.
 
 <p align="center">
   <a href="https://orb-ui.com">
@@ -9,7 +9,7 @@ The simplest way to add voice UI to your React app. One install, one component, 
 </p>
 
 <p align="center">
-  <a href="https://orb-ui.com">Live Demo</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">GitHub</a>
+  <a href="https://orb-ui.com">Live Demo</a> · <a href="https://orb-ui.com/guides/voice-agent-ui/">Voice Agent UI Guide</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">GitHub</a>
 </p>
 
 ```jsx
@@ -32,6 +32,8 @@ npm install orb-ui
 > **Note:** Orb uses React hooks internally — in Next.js App Router, use it in a `'use client'` component.
 
 ## Quick Start
+
+Use orb-ui as a React voice AI component when you need a Vapi voice UI, an ElevenLabs voice UI, or a custom animated voice orb for another realtime voice agent stack.
 
 ### With Vapi
 

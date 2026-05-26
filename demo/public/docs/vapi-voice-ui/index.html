@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vapi Voice UI Components for React | orb-ui</title>
+    <meta
+      name="description"
+      content="Add a Vapi voice UI to a React app with orb-ui. Use the Vapi adapter, animated orb themes, and state-aware voice agent components."
+    />
+    <link rel="canonical" href="https://orb-ui.com/docs/vapi-voice-ui/" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://orb-ui.com/docs/vapi-voice-ui/" />
+    <meta property="og:title" content="Vapi Voice UI Components for React | orb-ui" />
+    <meta
+      property="og:description"
+      content="Add a Vapi voice UI to a React app with orb-ui. Use the Vapi adapter, animated orb themes, and state-aware voice agent components."
+    />
+    <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Vapi Voice UI Components for React | orb-ui" />
+    <meta
+      name="twitter:description"
+      content="Add a Vapi voice UI to a React app with orb-ui. Use the Vapi adapter, animated orb themes, and state-aware voice agent components."
+    />
+    <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
+    <link rel="stylesheet" href="/seo.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "orb-ui", "item": "https://orb-ui.com/" },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Docs",
+            "item": "https://orb-ui.com/docs/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Vapi Voice Ui",
+            "item": "https://orb-ui.com/docs/vapi-voice-ui/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "orb-ui",
+        "description": "React voice agent UI component library with animated voice orbs, audio-reactive themes, and provider adapters.",
+        "url": "https://orb-ui.com/",
+        "codeRepository": "https://github.com/alexanderqchen/orb-ui",
+        "downloadUrl": "https://www.npmjs.com/package/orb-ui",
+        "applicationCategory": "DeveloperApplication",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "React",
+        "license": "https://opensource.org/licenses/MIT"
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="brand" href="/">orb-ui</a>
+      <div class="nav-links">
+        <a href="/">Home</a><a href="/guides/voice-agent-ui/">Voice Agent UI</a
+        ><a href="/docs/vapi-voice-ui/">Vapi</a><a href="/docs/elevenlabs-voice-ui/">ElevenLabs</a
+        ><a href="/compare/voice-agent-platforms/">Compare</a><a href="/skins/">Skins</a>
+        <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a>
+      </div>
+    </nav>
+    <main>
+      <section class="wrap hero">
+        <p class="eyebrow">Docs</p>
+        <h1>Vapi voice UI components for React</h1>
+        <p class="lede">
+          Vapi handles the voice agent platform layer. orb-ui handles the visible React UI layer: an
+          animated voice orb, audio-reactive feedback, and predictable states that make a Vapi
+          assistant feel present in your app.
+        </p>
+        <div class="targets">
+          <span>vapi alternative</span><span>vapi react component</span><span>vapi voice ui</span>
+        </div>
+      </section>
+      <section class="wrap">
+        <div class="grid">
+          <article class="card">
+            <h2>Use orb-ui with Vapi</h2>
+            <p>
+              The Vapi adapter connects a Vapi client to the Orb component. Once configured, the
+              component can start and stop the conversation, listen for state changes, and react to
+              audio volume without a custom visualizer.
+            </p>
+            <p>
+              This is not positioned as a Vapi replacement. It is a better frontend layer for teams
+              already building with Vapi or comparing provider stacks.
+            </p>
+          </article>
+          <article class="card">
+            <h2>State mapping and themes</h2>
+            <p>
+              A Vapi voice agent should clearly communicate connecting, listening, speaking, and
+              error states. The circle theme works well for a primary assistant. The bars theme is
+              useful when the audio-reactive element should feel more like a waveform. The debug
+              theme helps verify the integration.
+            </p>
+            <p>
+              Provider pages should include screenshots for each theme and a short explanation of
+              what the user sees at every state.
+            </p>
+          </article>
+          <article class="card">
+            <h2>When this page should rank</h2>
+            <p>
+              This page is built for Vapi voice UI, Vapi React component, and Vapi alternative
+              searches. The comparison angle should stay honest: orb-ui is the interface layer,
+              while Vapi remains a voice agent platform.
+            </p>
+            <p>
+              That distinction matters for trust and for future sponsor opportunities around
+              provider pages.
+            </p>
+          </article>
+        </div>
+        <article class="card" style="margin-top: 22px">
+          <h2>Vapi adapter</h2>
+          <pre class="code"><code>import Vapi from &#39;@vapi-ai/web&#39;
+import { Orb } from &#39;orb-ui&#39;
+import { createVapiAdapter } from &#39;orb-ui/adapters&#39;
+
+const vapi = new Vapi(&#39;your-public-key&#39;)
+const adapter = createVapiAdapter(vapi, {
+  assistantId: &#39;your-assistant-id&#39;,
+})
+
+export function VapiVoiceUI() {
+  return &lt;Orb adapter={adapter} theme=&quot;circle&quot; /&gt;
+}</code></pre>
+        </article>
+        <div class="cta">
+          <strong>Install orb-ui and add a polished Vapi voice UI.</strong>
+          <span
+            ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
+            · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span
+          >
+        </div>
+        <div class="related">
+          <strong>Related:</strong>
+          <a href="/docs/elevenlabs-voice-ui/">ElevenLabs voice UI components for React</a
+          ><a href="/compare/voice-agent-platforms/">Voice agent platforms for React developers</a
+          ><a href="/guides/voice-agent-ui/">Voice agent UI components for React</a>
+        </div>
+      </section>
+    </main>
+    <footer>
+      MIT License · Built by Alexander Chen and Experimental Software · Last updated 2026-05-25
+    </footer>
+  </body>
+</html>

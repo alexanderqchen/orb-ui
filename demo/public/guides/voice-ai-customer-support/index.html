@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice AI Customer Support UI Patterns | orb-ui</title>
+    <meta
+      name="description"
+      content="Design voice AI customer support UIs with clear listening, speaking, interruption, handoff, transcript, and error states."
+    />
+    <link rel="canonical" href="https://orb-ui.com/guides/voice-ai-customer-support/" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://orb-ui.com/guides/voice-ai-customer-support/" />
+    <meta property="og:title" content="Voice AI Customer Support UI Patterns | orb-ui" />
+    <meta
+      property="og:description"
+      content="Design voice AI customer support UIs with clear listening, speaking, interruption, handoff, transcript, and error states."
+    />
+    <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Voice AI Customer Support UI Patterns | orb-ui" />
+    <meta
+      name="twitter:description"
+      content="Design voice AI customer support UIs with clear listening, speaking, interruption, handoff, transcript, and error states."
+    />
+    <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
+    <link rel="stylesheet" href="/seo.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "orb-ui", "item": "https://orb-ui.com/" },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Guides",
+            "item": "https://orb-ui.com/guides/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Voice Ai Customer Support",
+            "item": "https://orb-ui.com/guides/voice-ai-customer-support/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "orb-ui",
+        "description": "React voice agent UI component library with animated voice orbs, audio-reactive themes, and provider adapters.",
+        "url": "https://orb-ui.com/",
+        "codeRepository": "https://github.com/alexanderqchen/orb-ui",
+        "downloadUrl": "https://www.npmjs.com/package/orb-ui",
+        "applicationCategory": "DeveloperApplication",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "React",
+        "license": "https://opensource.org/licenses/MIT"
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="brand" href="/">orb-ui</a>
+      <div class="nav-links">
+        <a href="/">Home</a><a href="/guides/voice-agent-ui/">Voice Agent UI</a
+        ><a href="/docs/vapi-voice-ui/">Vapi</a><a href="/docs/elevenlabs-voice-ui/">ElevenLabs</a
+        ><a href="/compare/voice-agent-platforms/">Compare</a><a href="/skins/">Skins</a>
+        <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a>
+      </div>
+    </nav>
+    <main>
+      <section class="wrap hero">
+        <p class="eyebrow">Guide</p>
+        <h1>Voice AI customer support UI patterns</h1>
+        <p class="lede">
+          Customer support voice AI has some of the strongest commercial search signals in the
+          dataset, but the product promise needs to stay precise. orb-ui is not a contact-center
+          platform. It is a React UI layer that can make customer support voice agents easier to
+          understand, test, and operate.
+        </p>
+        <div class="targets">
+          <span>conversational ai for customer service</span><span>ai call center agent</span>
+        </div>
+      </section>
+      <section class="wrap">
+        <div class="grid">
+          <article class="card">
+            <h2>Support conversations need clear state</h2>
+            <p>
+              A support user should never wonder whether the assistant is listening, speaking,
+              paused, or failed. The UI should show connection state, active audio, and recoverable
+              errors quickly. If a human handoff exists, the UI should make that transition obvious.
+            </p>
+            <p>
+              orb-ui covers the compact voice status element. A full support application may also
+              need transcripts, customer identity, routing, analytics, and escalation controls.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Interruption and handoff patterns</h2>
+            <p>
+              The most important support-specific states are interruption, waiting, transfer, and
+              failure recovery. orb-ui currently ships a simple state model, but the product roadmap
+              can expand after provider adapters prove which extra states are worth standardizing.
+            </p>
+            <p>
+              Until then, teams can pair the Orb component with their own transcript and handoff UI.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Sponsor and revenue angle</h2>
+            <p>
+              Customer support and call-center terms have high bid prices because vendors compete
+              for enterprise buyers. A useful, neutral builder guide can become sponsor inventory
+              later, especially if it attracts teams evaluating voice AI tools.
+            </p>
+            <p>
+              The page should stay educational first. Sponsorship works only if readers trust the
+              content.
+            </p>
+          </article>
+        </div>
+        <article class="card" style="margin-top: 22px">
+          <h2>Support voice status</h2>
+          <pre class="code"><code>import { Orb } from &#39;orb-ui&#39;
+
+export function SupportVoiceStatus({ state, volume }) {
+  return &lt;Orb state={state} volume={volume} theme=&quot;bars&quot; /&gt;
+}</code></pre>
+        </article>
+        <div class="cta">
+          <strong>Add a clear voice status component to customer support AI workflows.</strong>
+          <span
+            ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
+            · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span
+          >
+        </div>
+        <div class="related">
+          <strong>Related:</strong>
+          <a href="/guides/voice-agent-ui/">Voice agent UI components for React</a
+          ><a href="/guides/ai-voice-sales-agents/">AI voice sales agent UI patterns</a
+          ><a href="/compare/voice-agent-platforms/">Voice agent platforms for React developers</a>
+        </div>
+      </section>
+    </main>
+    <footer>
+      MIT License · Built by Alexander Chen and Experimental Software · Last updated 2026-05-25
+    </footer>
+  </body>
+</html>

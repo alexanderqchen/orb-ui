@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Voice Sales Agent UI Patterns | orb-ui</title>
+    <meta
+      name="description"
+      content="Design React UI patterns for AI voice sales agents, AI receptionists, appointment setters, and outbound calling assistants."
+    />
+    <link rel="canonical" href="https://orb-ui.com/guides/ai-voice-sales-agents/" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://orb-ui.com/guides/ai-voice-sales-agents/" />
+    <meta property="og:title" content="AI Voice Sales Agent UI Patterns | orb-ui" />
+    <meta
+      property="og:description"
+      content="Design React UI patterns for AI voice sales agents, AI receptionists, appointment setters, and outbound calling assistants."
+    />
+    <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AI Voice Sales Agent UI Patterns | orb-ui" />
+    <meta
+      name="twitter:description"
+      content="Design React UI patterns for AI voice sales agents, AI receptionists, appointment setters, and outbound calling assistants."
+    />
+    <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
+    <link rel="stylesheet" href="/seo.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "orb-ui", "item": "https://orb-ui.com/" },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Guides",
+            "item": "https://orb-ui.com/guides/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Ai Voice Sales Agents",
+            "item": "https://orb-ui.com/guides/ai-voice-sales-agents/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "orb-ui",
+        "description": "React voice agent UI component library with animated voice orbs, audio-reactive themes, and provider adapters.",
+        "url": "https://orb-ui.com/",
+        "codeRepository": "https://github.com/alexanderqchen/orb-ui",
+        "downloadUrl": "https://www.npmjs.com/package/orb-ui",
+        "applicationCategory": "DeveloperApplication",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "React",
+        "license": "https://opensource.org/licenses/MIT"
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="brand" href="/">orb-ui</a>
+      <div class="nav-links">
+        <a href="/">Home</a><a href="/guides/voice-agent-ui/">Voice Agent UI</a
+        ><a href="/docs/vapi-voice-ui/">Vapi</a><a href="/docs/elevenlabs-voice-ui/">ElevenLabs</a
+        ><a href="/compare/voice-agent-platforms/">Compare</a><a href="/skins/">Skins</a>
+        <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a>
+      </div>
+    </nav>
+    <main>
+      <section class="wrap hero">
+        <p class="eyebrow">Guide</p>
+        <h1>AI voice sales agent UI patterns</h1>
+        <p class="lede">
+          AI sales agents, AI receptionists, and appointment setters are high-intent voice AI use
+          cases. The backend may handle calls, qualification, scheduling, and CRM updates, but the
+          product still needs a user interface for live status, review, testing, and operator trust.
+        </p>
+        <div class="targets">
+          <span>ai sales agent</span><span>ai receptionist</span><span>ai appointment setter</span>
+        </div>
+      </section>
+      <section class="wrap">
+        <div class="grid">
+          <article class="card">
+            <h2>Design for trust, not decoration</h2>
+            <p>
+              A sales or receptionist agent often touches revenue directly. Users need to know when
+              the assistant is listening, speaking, escalating, or stuck. A subtle voice orb can
+              make a browser-based tester, admin panel, or embedded site widget feel alive without
+              turning the UI into a cartoon.
+            </p>
+            <p>
+              The same state model applies: idle before a call, connecting while the session starts,
+              listening during user input, speaking during agent output, and error when the call or
+              microphone fails.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Builder workflow</h2>
+            <p>
+              Teams building AI voice sales agents usually need a test harness before they need a
+              marketplace. A good UI lets them switch providers, inspect states, test prompts, and
+              verify that interruptions or silence are handled correctly.
+            </p>
+            <p>
+              orb-ui can become the visible layer for that harness while the voice platform handles
+              telephony, model routing, and business logic.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Where the content should point</h2>
+            <p>
+              This guide should link back to provider docs and the core voice agent UI guide. It
+              should not imply that orb-ui is a CRM, dialer, or sales automation platform. The right
+              promise is narrower: a better React UI layer for sales-oriented voice agents.
+            </p>
+            <p>That narrower promise is more credible and more useful for developer traffic.</p>
+          </article>
+        </div>
+        <article class="card" style="margin-top: 22px">
+          <h2>Sales agent status component</h2>
+          <pre class="code"><code>import { Orb } from &#39;orb-ui&#39;
+
+export function SalesAgentCallStatus({ callState, volume }) {
+  return (
+    &lt;div&gt;
+      &lt;Orb state={callState} volume={volume} theme=&quot;circle&quot; /&gt;
+      &lt;p&gt;AI sales agent status: {callState}&lt;/p&gt;
+    &lt;/div&gt;
+  )
+}</code></pre>
+        </article>
+        <div class="cta">
+          <strong
+            >Use orb-ui to make sales and receptionist voice agents easier to test and
+            trust.</strong
+          >
+          <span
+            ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
+            · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span
+          >
+        </div>
+        <div class="related">
+          <strong>Related:</strong>
+          <a href="/guides/voice-agent-ui/">Voice agent UI components for React</a
+          ><a href="/compare/voice-agent-platforms/">Voice agent platforms for React developers</a
+          ><a href="/docs/vapi-voice-ui/">Vapi voice UI components for React</a>
+        </div>
+      </section>
+    </main>
+    <footer>
+      MIT License · Built by Alexander Chen and Experimental Software · Last updated 2026-05-25
+    </footer>
+  </body>
+</html>
