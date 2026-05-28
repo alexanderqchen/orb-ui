@@ -90,76 +90,76 @@
   },
   "redirects": [
     {
-      "source": "/docs/vapi-voice-ui",
-      "destination": "/docs/adapters/vapi"
+      "source": "/vapi-voice-ui",
+      "destination": "/adapters/vapi"
     },
     {
-      "source": "/docs/vapi-voice-ui/",
-      "destination": "/docs/adapters/vapi"
+      "source": "/vapi-voice-ui/",
+      "destination": "/adapters/vapi"
     },
     {
-      "source": "/docs/elevenlabs-voice-ui",
-      "destination": "/docs/adapters/elevenlabs"
+      "source": "/elevenlabs-voice-ui",
+      "destination": "/adapters/elevenlabs"
     },
     {
-      "source": "/docs/elevenlabs-voice-ui/",
-      "destination": "/docs/adapters/elevenlabs"
+      "source": "/elevenlabs-voice-ui/",
+      "destination": "/adapters/elevenlabs"
     },
     {
-      "source": "/docs/openai-realtime-voice-ui",
-      "destination": "/docs/adapters/openai-realtime"
+      "source": "/openai-realtime-voice-ui",
+      "destination": "/adapters/openai-realtime"
     },
     {
-      "source": "/docs/openai-realtime-voice-ui/",
-      "destination": "/docs/adapters/openai-realtime"
+      "source": "/openai-realtime-voice-ui/",
+      "destination": "/adapters/openai-realtime"
     },
     {
-      "source": "/docs/gemini-live-voice-ui",
-      "destination": "/docs/adapters/gemini-live"
+      "source": "/gemini-live-voice-ui",
+      "destination": "/adapters/gemini-live"
     },
     {
-      "source": "/docs/gemini-live-voice-ui/",
-      "destination": "/docs/adapters/gemini-live"
+      "source": "/gemini-live-voice-ui/",
+      "destination": "/adapters/gemini-live"
     },
     {
-      "source": "/docs/providers/openai-realtime",
-      "destination": "/docs/adapters/openai-realtime"
+      "source": "/providers/openai-realtime",
+      "destination": "/adapters/openai-realtime"
     },
     {
-      "source": "/docs/providers/openai-realtime/",
-      "destination": "/docs/adapters/openai-realtime"
+      "source": "/providers/openai-realtime/",
+      "destination": "/adapters/openai-realtime"
     },
     {
-      "source": "/docs/providers/gemini-live",
-      "destination": "/docs/adapters/gemini-live"
+      "source": "/providers/gemini-live",
+      "destination": "/adapters/gemini-live"
     },
     {
-      "source": "/docs/providers/gemini-live/",
-      "destination": "/docs/adapters/gemini-live"
+      "source": "/providers/gemini-live/",
+      "destination": "/adapters/gemini-live"
     },
     {
-      "source": "/docs/resources/voice-agent-platforms",
-      "destination": "/docs/guides/voice-agent-platforms"
+      "source": "/resources/voice-agent-platforms",
+      "destination": "/guides/voice-agent-platforms"
     },
     {
-      "source": "/docs/resources/voice-agent-platforms/",
-      "destination": "/docs/guides/voice-agent-platforms"
+      "source": "/resources/voice-agent-platforms/",
+      "destination": "/guides/voice-agent-platforms"
     },
     {
-      "source": "/docs/resources/ai-voice-sales-agents",
-      "destination": "/docs/guides/ai-voice-sales-agents"
+      "source": "/resources/ai-voice-sales-agents",
+      "destination": "/guides/ai-voice-sales-agents"
     },
     {
-      "source": "/docs/resources/ai-voice-sales-agents/",
-      "destination": "/docs/guides/ai-voice-sales-agents"
+      "source": "/resources/ai-voice-sales-agents/",
+      "destination": "/guides/ai-voice-sales-agents"
     },
     {
-      "source": "/docs/resources/voice-ai-customer-support",
-      "destination": "/docs/guides/voice-ai-customer-support"
+      "source": "/resources/voice-ai-customer-support",
+      "destination": "/guides/voice-ai-customer-support"
     },
     {
-      "source": "/docs/resources/voice-ai-customer-support/",
-      "destination": "/docs/guides/voice-ai-customer-support"
+      "source": "/resources/voice-ai-customer-support/",
+      "destination": "/guides/voice-ai-customer-support"
     }
   ]
 }
