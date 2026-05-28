@@ -1,0 +1,24 @@
+#background-color::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(760px, 78vw);
+  height: min(640px, 70vh);
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 100% 0%,
+    rgba(77, 163, 255, 0.2) 0%,
+    rgba(77, 163, 255, 0.12) 30%,
+    rgba(77, 163, 255, 0) 68%
+  );
+}
+
+html.dark #background-color::after {
+  background: radial-gradient(
+    circle at 100% 0%,
+    rgba(159, 210, 255, 0.18) 0%,
+    rgba(77, 163, 255, 0.12) 32%,
+    rgba(77, 163, 255, 0) 70%
+  );
+}

@@ -11,9 +11,6 @@
   "appearance": {
     "default": "dark"
   },
-  "background": {
-    "decoration": "gradient"
-  },
   "icons": {
     "library": "lucide"
   },
