@@ -1,0 +1,120 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "orb-ui",
+  "description": "React voice agent UI components for Vapi, ElevenLabs, and custom realtime voice AI apps.",
+  "colors": {
+    "primary": "#4da3ff",
+    "light": "#9fd2ff",
+    "dark": "#1f6feb"
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "background": {
+    "decoration": "gradient"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "logo": {
+    "light": "/logo.svg",
+    "dark": "/logo.svg",
+    "href": "https://orb-ui.com"
+  },
+  "favicon": "/favicon.svg",
+  "navbar": {
+    "links": [
+      {
+        "label": "Home",
+        "href": "https://orb-ui.com"
+      },
+      {
+        "type": "github",
+        "href": "https://github.com/alexanderqchen/orb-ui"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "npm",
+      "href": "https://www.npmjs.com/package/orb-ui"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/alexanderqchen/orb-ui",
+      "website": "https://orb-ui.com"
+    }
+  },
+  "metadata": {
+    "timestamp": true
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start",
+        "icon": "rocket",
+        "pages": ["index", "quickstart"]
+      },
+      {
+        "group": "Core concepts",
+        "icon": "sparkles",
+        "pages": ["guides/voice-agent-ui", "themes/voice-states", "examples/voice-orb-ui"]
+      },
+      {
+        "group": "Adapters",
+        "icon": "plug",
+        "pages": ["adapters/vapi", "adapters/elevenlabs", "adapters/custom"]
+      },
+      {
+        "group": "Provider roadmap",
+        "icon": "radio",
+        "pages": ["providers/openai-realtime", "providers/gemini-live"]
+      },
+      {
+        "group": "Resources",
+        "icon": "library",
+        "pages": [
+          "resources/voice-agent-platforms",
+          "resources/ai-voice-sales-agents",
+          "resources/voice-ai-customer-support",
+          "resources/skins"
+        ]
+      }
+    ]
+  },
+  "redirects": [
+    {
+      "source": "/docs/vapi-voice-ui",
+      "destination": "/docs/adapters/vapi"
+    },
+    {
+      "source": "/docs/vapi-voice-ui/",
+      "destination": "/docs/adapters/vapi"
+    },
+    {
+      "source": "/docs/elevenlabs-voice-ui",
+      "destination": "/docs/adapters/elevenlabs"
+    },
+    {
+      "source": "/docs/elevenlabs-voice-ui/",
+      "destination": "/docs/adapters/elevenlabs"
+    },
+    {
+      "source": "/docs/openai-realtime-voice-ui",
+      "destination": "/docs/providers/openai-realtime"
+    },
+    {
+      "source": "/docs/openai-realtime-voice-ui/",
+      "destination": "/docs/providers/openai-realtime"
+    },
+    {
+      "source": "/docs/gemini-live-voice-ui",
+      "destination": "/docs/providers/gemini-live"
+    },
+    {
+      "source": "/docs/gemini-live-voice-ui/",
+      "destination": "/docs/providers/gemini-live"
+    }
+  ]
+}

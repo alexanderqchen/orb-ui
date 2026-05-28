@@ -1,0 +1,40 @@
+---
+title: OpenAI Realtime voice UI
+description: Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated adapter support is planned.
+---
+
+# OpenAI Realtime voice UI for React
+
+OpenAI Realtime is a natural fit for orb-ui because realtime voice agents need fast visual feedback. orb-ui does not ship a dedicated OpenAI Realtime adapter yet, so the supported path today is controlled mode.
+
+Your app owns the Realtime session. orb-ui renders the visual state.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function OpenAIRealtimeOrb({ realtimeState, outputVolume }) {
+  return <Orb state={realtimeState} volume={outputVolume} theme="circle" />
+}
+```
+
+## How orb-ui fits
+
+Map your session events into the Orb component:
+
+- connection started -> `connecting`
+- user audio detected -> `listening`
+- assistant audio output -> `speaking`
+- session idle -> `idle`
+- session failure -> `error`
+
+## Planned adapter
+
+A future OpenAI Realtime adapter should normalize session events, audio output volume, interruption state, and error handling while letting your app manage WebRTC or WebSocket connection details.
+
+Until that exists, controlled mode is the honest API.
+
+## Related
+
+- [Custom integrations](/adapters/custom)
+- [Voice agent UI guide](/guides/voice-agent-ui)
+- [Provider platforms comparison](/resources/voice-agent-platforms)

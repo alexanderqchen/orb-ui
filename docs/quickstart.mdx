@@ -1,0 +1,76 @@
+---
+title: Quickstart
+description: Install orb-ui and add an animated voice agent UI to a React app.
+---
+
+# Quickstart
+
+Install orb-ui from npm:
+
+```bash
+npm install orb-ui
+```
+
+## Controlled mode
+
+Controlled mode is the universal fallback. Use it when your app already owns the voice session and can provide a conversation state plus normalized volume.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceAgentStatus({ state, volume }) {
+  return <Orb state={state} volume={volume} theme="circle" size={240} />
+}
+```
+
+The state can be one of:
+
+- `idle`
+- `connecting`
+- `listening`
+- `speaking`
+- `error`
+
+Volume should be a number from `0` to `1`.
+
+## Vapi
+
+```tsx
+import Vapi from '@vapi-ai/web'
+import { Orb } from 'orb-ui'
+import { createVapiAdapter } from 'orb-ui/adapters'
+
+const vapi = new Vapi('your-public-key')
+const adapter = createVapiAdapter(vapi, {
+  assistantId: 'your-assistant-id',
+})
+
+export function VapiVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" />
+}
+```
+
+## ElevenLabs
+
+```tsx
+import { Orb } from 'orb-ui'
+import { createElevenLabsAdapter } from 'orb-ui/adapters'
+
+const adapter = createElevenLabsAdapter({
+  agentId: 'your-agent-id',
+})
+
+export function ElevenLabsVoiceUI() {
+  return <Orb adapter={adapter} theme="bars" />
+}
+```
+
+## Themes
+
+Start with:
+
+- `circle` for a primary assistant orb.
+- `bars` for waveform-like audio activity.
+- `debug` while verifying state and volume changes.
+
+Use the [voice states guide](/themes/voice-states) when you are deciding how each state should appear in your product.

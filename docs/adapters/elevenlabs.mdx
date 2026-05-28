@@ -1,0 +1,55 @@
+---
+title: ElevenLabs adapter
+description: Add an ElevenLabs voice UI to React with orb-ui's adapter, audio-reactive themes, and controlled voice agent states.
+---
+
+# ElevenLabs voice UI components for React
+
+ElevenLabs can power conversational voice experiences. orb-ui gives those experiences a visible React UI layer: an animated orb, audio-reactive feedback, and predictable voice states.
+
+## Install
+
+```bash
+npm install orb-ui
+```
+
+Install the ElevenLabs client package used by your app, then create the orb-ui adapter.
+
+```tsx
+import { Orb } from 'orb-ui'
+import { createElevenLabsAdapter } from 'orb-ui/adapters'
+
+const adapter = createElevenLabsAdapter({
+  agentId: 'your-agent-id',
+})
+
+export function ElevenLabsVoiceUI() {
+  return <Orb adapter={adapter} theme="bars" />
+}
+```
+
+## State mapping
+
+The ElevenLabs adapter is responsible for normalizing provider events into orb-ui states. Keep the UI language simple:
+
+- connecting
+- listening
+- speaking
+- error
+
+## Theming
+
+The `circle` theme works well for assistant-style voice interfaces. The `bars` theme is useful when you want a waveform-adjacent feel.
+
+```tsx
+<Orb adapter={adapter} theme="circle" />
+<Orb adapter={adapter} theme="bars" />
+```
+
+## Controlled mode
+
+If your app owns more of the ElevenLabs session lifecycle, pass state and volume directly.
+
+```tsx
+<Orb state={state} volume={volume} theme="circle" />
+```

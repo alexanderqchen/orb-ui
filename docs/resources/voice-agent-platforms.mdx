@@ -1,0 +1,37 @@
+---
+title: Voice agent platforms
+description: Compare where the UI layer fits across voice agent platforms like Vapi, ElevenLabs, OpenAI Realtime, Gemini Live API, Retell AI, Bland AI, and Synthflow.
+---
+
+# Voice agent platforms for React developers
+
+Voice agent platforms can provide speech, realtime audio, call orchestration, tool calls, and deployment. React teams still need a clear frontend layer for state, activity, and trust.
+
+orb-ui is intentionally narrow. It is the React UI layer that can sit on top of provider stacks.
+
+## Where orb-ui fits
+
+| Layer                | Examples                             | orb-ui role                                    |
+| -------------------- | ------------------------------------ | ---------------------------------------------- |
+| Voice agent platform | Vapi, Retell AI, Bland AI, Synthflow | Render the visible state layer                 |
+| Realtime model API   | OpenAI Realtime, Gemini Live API     | Use controlled mode today                      |
+| Voice generation     | ElevenLabs                           | Render conversational state and audio activity |
+| Custom backend       | WebRTC, WebSocket, telephony         | Use controlled mode or write an adapter        |
+
+## Comparison posture
+
+When comparing tools, keep the distinction clear:
+
+- Vapi is a voice agent platform.
+- ElevenLabs can provide voice and conversational agent capabilities.
+- OpenAI Realtime and Gemini Live API are lower-level realtime model APIs.
+- orb-ui is the frontend component layer.
+
+That distinction is better for trust and more useful for developers than pretending everything is interchangeable.
+
+## Related pages
+
+- [Vapi adapter](/adapters/vapi)
+- [ElevenLabs adapter](/adapters/elevenlabs)
+- [OpenAI Realtime voice UI](/providers/openai-realtime)
+- [Gemini Live voice UI](/providers/gemini-live)

@@ -1,0 +1,45 @@
+---
+title: AI voice sales agent UI patterns
+description: Design React UI patterns for AI voice sales agents, AI receptionists, appointment setters, and outbound calling assistants.
+---
+
+# AI voice sales agent UI patterns
+
+Sales-oriented voice agents need visible state because users and operators need to trust what the agent is doing.
+
+orb-ui is not a sales agent platform. It is a UI layer for builders designing the visible experience around voice sessions.
+
+## Useful UI states
+
+For sales, appointment-setting, and receptionist flows, consider showing:
+
+- idle or ready
+- connecting
+- listening
+- speaking
+- muted
+- handoff requested
+- error
+
+The current orb-ui component supports the core states today. More specialized states should be added only when adapter integrations prove they are needed.
+
+## Builder workflows
+
+A useful voice sales agent builder UI should make it easy to:
+
+- inspect state transitions
+- test prompts
+- switch providers
+- see a transcript
+- handle human handoff
+- understand failure states
+
+## Controlled mode example
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function SalesAgentCallStatus({ callState, volume }) {
+  return <Orb state={callState} volume={volume} theme="circle" />
+}
+```

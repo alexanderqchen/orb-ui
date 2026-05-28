@@ -1,0 +1,45 @@
+---
+title: Documentation
+description: Build polished React voice agent UIs with animated orbs, provider adapters, audio-reactive themes, and controlled mode.
+---
+
+# orb-ui documentation
+
+orb-ui is a React UI layer for realtime voice agents. It gives your app an animated voice orb, audio-reactive themes, provider adapters, and a controlled mode that can sit on top of custom voice AI stacks.
+
+Use orb-ui when you want users to understand whether a voice agent is idle, connecting, listening, speaking, or in an error state.
+
+## Start here
+
+1. Install `orb-ui`.
+2. Choose an adapter for Vapi or ElevenLabs, or use controlled mode.
+3. Pick a visual theme.
+4. Map your voice agent state into the Orb component.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceAgentStatus({ state, volume }) {
+  return <Orb state={state} volume={volume} theme="circle" />
+}
+```
+
+## What orb-ui handles
+
+- A small React component for visible voice agent state.
+- Audio-reactive orb and bars themes.
+- Provider adapters for Vapi and ElevenLabs.
+- Controlled mode for OpenAI Realtime, Gemini Live API, telephony, WebRTC, WebSocket, and custom speech pipelines.
+- A stable state model for `idle`, `connecting`, `listening`, `speaking`, and `error`.
+
+## What orb-ui does not handle
+
+orb-ui is not a voice agent platform. It does not host calls, manage prompts, run speech recognition, or replace Vapi, ElevenLabs, OpenAI Realtime, Gemini Live API, or your own backend. It is the frontend UI layer that makes those systems feel understandable inside a product.
+
+## Next steps
+
+- [Quickstart](/quickstart)
+- [Voice agent UI guide](/guides/voice-agent-ui)
+- [Vapi adapter](/adapters/vapi)
+- [ElevenLabs adapter](/adapters/elevenlabs)
+- [Custom integrations](/adapters/custom)

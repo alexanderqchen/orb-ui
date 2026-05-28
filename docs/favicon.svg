@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="orb-ui">
+  <rect width="512" height="512" rx="104" fill="#09090b" />
+  <circle cx="256" cy="256" r="156" fill="none" stroke="#ffffff" stroke-width="28" opacity="0.96" />
+  <circle cx="256" cy="256" r="104" fill="#4f9eff" opacity="0.22" />
+  <circle cx="256" cy="256" r="58" fill="#ffffff" />
+  <path
+    d="M128 256c0-70.7 57.3-128 128-128 37.3 0 70.8 15.9 94.2 41.3"
+    fill="none"
+    stroke="#8bd5ff"
+    stroke-width="24"
+    stroke-linecap="round"
+  />
+</svg>

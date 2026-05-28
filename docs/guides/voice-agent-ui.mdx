@@ -1,0 +1,60 @@
+---
+title: Voice agent UI components
+description: Design React voice agent UI components that communicate listening, speaking, connecting, and error states clearly.
+---
+
+# Voice agent UI components for React
+
+A voice agent needs more than a microphone button. Users need to know when the agent is connecting, listening, thinking, speaking, or failing. orb-ui gives React teams a small UI layer for those moments: animated voice orbs, audio-reactive themes, provider adapters, and controlled mode.
+
+## What the UI has to communicate
+
+The important job of a voice agent UI is trust. A user should understand whether the app heard them, whether the assistant is waiting, and whether the assistant is speaking. The visual state should change quickly enough to feel alive, but it should not distract from the conversation.
+
+orb-ui models the core lifecycle as:
+
+- `idle`
+- `connecting`
+- `listening`
+- `speaking`
+- `error`
+
+Those states map cleanly to Vapi, ElevenLabs, and custom WebRTC or WebSocket voice pipelines.
+
+## Component architecture
+
+Use an adapter when a provider can supply state and audio volume for you. Use controlled mode when your app already owns the voice session lifecycle.
+
+Controlled mode is especially useful for teams experimenting with OpenAI Realtime, Gemini Live API, telephony backends, or internal speech pipelines.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceAgentStatus({ state, volume }) {
+  return <Orb state={state} volume={volume} theme="circle" size={240} />
+}
+```
+
+## UI patterns that help adoption
+
+For developer tools, the fastest path to adoption is:
+
+- a visible demo
+- a short install command
+- a provider-specific code sample
+- a custom controlled-mode example
+- honest language about what the UI layer does and does not do
+
+The UI should make the voice agent feel present without pretending to be the voice agent platform itself.
+
+## Future states
+
+The current state model is intentionally small. As provider adapters mature, likely additions include:
+
+- `thinking`
+- `interrupted`
+- `muted`
+- `transcribing`
+- `handoff`
+
+Those should only ship when they remove real ambiguity across providers.

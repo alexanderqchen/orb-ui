@@ -1,0 +1,38 @@
+---
+title: Gemini Live voice UI
+description: Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Dedicated adapter support is planned.
+---
+
+# Gemini Live voice UI for React
+
+Gemini Live API can power realtime audio and multimodal applications. orb-ui gives those apps a visible React UI layer: state-aware animated orbs, audio-reactive motion, and controlled mode.
+
+orb-ui does not ship a dedicated Gemini Live adapter yet.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function GeminiLiveStatus({ sessionState, volume }) {
+  return <Orb state={sessionState} volume={volume} theme="circle" />
+}
+```
+
+## SEO target
+
+The useful implementation target is Gemini Live API, Gemini voice API, Gemini Live voice UI, and Gemini Live React implementation terms. Generic "Gemini live" searches can be noisy and may not reflect developer intent.
+
+## How orb-ui fits
+
+Your Gemini integration owns the stateful voice session. orb-ui receives normalized UI state and volume:
+
+- `connecting`
+- `listening`
+- `speaking`
+- `idle`
+- `error`
+
+## Planned adapter
+
+A dedicated Gemini Live adapter should focus on state normalization, audio volume, and error handling. It should not hide important session setup details from the app.
+
+Until that adapter exists, controlled mode is the correct path.

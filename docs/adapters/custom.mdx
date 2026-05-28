@@ -1,0 +1,62 @@
+---
+title: Custom integrations
+description: Use controlled mode to connect orb-ui to custom realtime voice AI stacks, WebRTC sessions, WebSocket streams, telephony, or speech pipelines.
+---
+
+# Custom voice AI integrations
+
+Controlled mode lets orb-ui work with custom realtime voice AI stacks without a dedicated provider adapter.
+
+Use it when your app already knows:
+
+- the current voice agent state
+- the current input or output volume
+- when the session starts and stops
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function CustomVoiceUI({ state, volume }) {
+  return <Orb state={state} volume={volume} theme="circle" />
+}
+```
+
+## Common sources
+
+Controlled mode works well with:
+
+- WebRTC sessions
+- WebSocket voice streams
+- telephony systems
+- internal speech pipelines
+- provider SDK wrappers
+- experimental OpenAI Realtime or Gemini Live API prototypes
+
+## Normalize volume
+
+Volume should be normalized from `0` to `1`.
+
+```ts
+function normalizeVolume(raw: number) {
+  return Math.max(0, Math.min(raw, 1))
+}
+```
+
+## Build an adapter later
+
+If your integration becomes reusable, wrap it in an adapter.
+
+```ts
+const adapter = {
+  subscribe(callbacks) {
+    const unsubscribe = voiceSession.onChange((event) => {
+      callbacks.onStateChange(event.state)
+      callbacks.onVolumeChange(event.volume)
+    })
+
+    return unsubscribe
+  },
+  start: () => voiceSession.start(),
+  stop: () => voiceSession.stop(),
+}
+```

@@ -1,0 +1,44 @@
+---
+title: Themes and voice states
+description: Use orb-ui themes to communicate voice agent states with animated, audio-reactive UI.
+---
+
+# Themes and voice states
+
+orb-ui ships with a small set of themes for common voice agent UI needs.
+
+## Circle
+
+Use `circle` when the voice agent is a primary assistant surface. It reads as an orb, status indicator, and voice presence at the same time.
+
+```tsx
+<Orb theme="circle" state="listening" volume={0.42} />
+```
+
+## Bars
+
+Use `bars` when you want a waveform-like audio visualization.
+
+```tsx
+<Orb theme="bars" state="speaking" volume={0.72} />
+```
+
+## Debug
+
+Use `debug` while wiring a provider adapter. It makes state and volume changes visible during integration.
+
+```tsx
+<Orb theme="debug" adapter={adapter} />
+```
+
+## State design
+
+Each state should answer a user question:
+
+- `idle`: Is the assistant available?
+- `connecting`: Is the session starting?
+- `listening`: Did the app hear me?
+- `speaking`: Is the assistant responding?
+- `error`: Did something fail?
+
+Keep motion calm during idle states and more responsive during active voice states. Audio-reactive movement should support comprehension, not compete with the transcript or controls.

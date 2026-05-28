@@ -1,0 +1,52 @@
+---
+title: Voice orb UI example
+description: Build a React voice orb UI with animated states, audio-reactive motion, adapters, and controlled mode.
+---
+
+# Voice orb UI example for React
+
+The orb is the visible state layer for a voice agent. It should communicate activity quickly and stay out of the way while a user is talking.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceOrbExample() {
+  return <Orb state="listening" volume={0.45} theme="circle" size={260} />
+}
+```
+
+## Provider-backed orb
+
+Use an adapter when the provider SDK owns the session.
+
+```tsx
+import Vapi from '@vapi-ai/web'
+import { Orb } from 'orb-ui'
+import { createVapiAdapter } from 'orb-ui/adapters'
+
+const vapi = new Vapi('your-public-key')
+const adapter = createVapiAdapter(vapi, {
+  assistantId: 'your-assistant-id',
+})
+
+export function ProviderOrb() {
+  return <Orb adapter={adapter} theme="circle" />
+}
+```
+
+## Custom controlled orb
+
+Use controlled mode when a custom stack supplies state and volume.
+
+```tsx
+export function CustomOrb({ voiceState, outputLevel }) {
+  return <Orb state={voiceState} volume={outputLevel} theme="bars" />
+}
+```
+
+## Design notes
+
+- Do not animate aggressively while idle.
+- Make listening and speaking visually distinct.
+- Keep error states obvious but not alarming.
+- Pair the orb with a transcript or status label when users need more precision.

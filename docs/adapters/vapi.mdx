@@ -1,0 +1,52 @@
+---
+title: Vapi adapter
+description: Add a Vapi voice UI to React with orb-ui's adapter, animated orb themes, and state-aware voice agent visuals.
+---
+
+# Vapi voice UI components for React
+
+Vapi handles the voice agent platform layer. orb-ui handles the visible React UI layer: an animated voice orb, audio-reactive feedback, and predictable states that make a Vapi assistant feel present in your app.
+
+## Install
+
+```bash
+npm install orb-ui @vapi-ai/web
+```
+
+## Use the adapter
+
+```tsx
+import Vapi from '@vapi-ai/web'
+import { Orb } from 'orb-ui'
+import { createVapiAdapter } from 'orb-ui/adapters'
+
+const vapi = new Vapi('your-public-key')
+const adapter = createVapiAdapter(vapi, {
+  assistantId: 'your-assistant-id',
+})
+
+export function VapiVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" />
+}
+```
+
+## State mapping
+
+The adapter maps Vapi conversation lifecycle events into orb-ui state changes. The UI can then communicate:
+
+- connection startup
+- listening state
+- assistant speech
+- errors
+
+## When to use controlled mode instead
+
+Use controlled mode if your app wraps Vapi in its own session layer or combines Vapi with custom state. The Orb component does not need to own the provider SDK if your app already knows the state and volume.
+
+```tsx
+<Orb state={voiceState} volume={volume} theme="circle" />
+```
+
+## Positioning
+
+orb-ui is not a Vapi replacement. It is a frontend UI layer for teams already building with Vapi or comparing voice agent stacks.

@@ -1,0 +1,45 @@
+---
+title: Voice AI customer support UI patterns
+description: Design voice AI customer support interfaces with clear state, interruption, handoff, transcript, and error patterns.
+---
+
+# Voice AI customer support UI patterns
+
+Customer support voice agents need clear UI because the user is often trying to solve a problem quickly. The interface should reduce uncertainty, not add another thing to interpret.
+
+orb-ui is not a contact-center platform. It is a React UI layer that can make customer support voice agents easier to understand.
+
+## Important states
+
+Support flows often need to communicate:
+
+- ready
+- connecting
+- listening
+- speaking
+- muted
+- interrupted
+- transcribing
+- handoff
+- error
+
+orb-ui supports the core lifecycle today. Custom apps can use controlled mode to map more detailed internal states into the closest supported state.
+
+## Handoff and transcript
+
+The orb should not be the only interface element in a support setting. Pair it with:
+
+- a transcript
+- an explicit stop or mute control
+- a handoff affordance
+- status copy for failures
+
+## Controlled mode example
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function SupportVoiceStatus({ state, volume }) {
+  return <Orb state={state} volume={volume} theme="bars" />
+}
+```
