@@ -46,6 +46,12 @@
   "metadata": {
     "timestamp": true
   },
+  "seo": {
+    "metatags": {
+      "og:image": "https://orb-ui.com/og-image.jpg",
+      "twitter:image": "https://orb-ui.com/og-image.jpg"
+    }
+  },
   "navigation": {
     "groups": [
       {
