@@ -52,6 +52,13 @@
       "twitter:image": "https://orb-ui.com/og-image.jpg"
     }
   },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_U5BI9zJCRMtmbd1nhlpg2e0cdsAymmgdbZpFYbVXBJQ",
+      "apiHost": "https://us.i.posthog.com",
+      "sessionRecording": true
+    }
+  },
   "navigation": {
     "groups": [
       {
