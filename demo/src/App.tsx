@@ -177,9 +177,9 @@ function useConversationSimulation() {
 
 const NAV_LINKS = [
   { href: '#demo', label: 'Demo' },
+  { href: '#quick-start', label: 'Quick Start' },
   { href: '#providers', label: 'Providers' },
   { href: '#themes', label: 'Themes' },
-  { href: '#quick-start', label: 'Quick Start' },
   { href: 'https://github.com/alexanderqchen/orb-ui', label: 'GitHub', external: true },
 ] as const
 
@@ -187,37 +187,37 @@ const SEO_SECTIONS = [
   {
     id: 'voice-agent-ui',
     title: 'Voice agent UI for React',
-    copy: 'orb-ui gives React apps a polished voice agent UI layer: animated voice orbs, audio-reactive visual feedback, and clear conversation states for idle, connecting, listening, speaking, and error flows.',
+    copy: 'Animated voice orbs, audio-reactive feedback, and clear states for React voice agents.',
     link: '/guides/voice-agent-ui/',
-    linkLabel: 'Read the voice agent UI guide',
+    linkLabel: 'Read the guide',
   },
   {
     id: 'providers',
     title: 'Provider adapters',
-    copy: 'Use built-in provider adapters for Vapi and ElevenLabs, or keep full control with state and volume props when you are integrating custom realtime voice agents.',
+    copy: 'Use Vapi and ElevenLabs adapters, or control state and volume yourself.',
     link: '/docs/vapi-voice-ui/',
-    linkLabel: 'Explore Vapi voice UI docs',
+    linkLabel: 'Explore adapters',
   },
   {
     id: 'themes',
     title: 'Themes and voice states',
-    copy: 'Start with the animated orb, bars, or debug theme, then map your voice agent lifecycle into consistent visual states users can understand at a glance.',
+    copy: 'Map listening, speaking, idle, and error states into polished visual themes.',
     link: '/examples/voice-orb-ui/',
-    linkLabel: 'View the voice orb UI example',
+    linkLabel: 'View example',
   },
   {
     id: 'custom-integrations',
     title: 'Custom voice AI integrations',
-    copy: 'Controlled mode works with any voice AI stack. Connect your own WebRTC, WebSocket, telephony, or speech pipeline and pass state plus audio volume directly to the Orb component.',
+    copy: 'Connect WebRTC, WebSocket, telephony, or speech pipelines with controlled mode.',
     link: '/guides/voice-agent-ui/',
-    linkLabel: 'Build a custom voice agent UI',
+    linkLabel: 'Build custom UI',
   },
   {
     id: 'roadmap',
-    title: 'Coming next: OpenAI Realtime and Gemini Live',
-    copy: 'OpenAI Realtime and Gemini Live adapters are planned next. Today, you can already use controlled mode to prototype a React voice UI for those realtime voice agent stacks.',
+    title: 'OpenAI Realtime + Gemini Live',
+    copy: 'Prototype with controlled mode today; dedicated provider adapters are planned next.',
     link: '/docs/openai-realtime-voice-ui/',
-    linkLabel: 'Preview OpenAI Realtime voice UI notes',
+    linkLabel: 'Preview notes',
   },
 ] as const
 
@@ -344,6 +344,63 @@ export default function App() {
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
+      <style>{`
+        .seo-card {
+          background: #101010;
+          border: 1px solid #1f1f1f;
+          border-radius: 8px;
+          color: inherit;
+          display: flex;
+          flex-direction: column;
+          min-height: 180px;
+          padding: 20px;
+          text-decoration: none;
+          transition:
+            border-color 180ms ease,
+            background 180ms ease,
+            transform 180ms ease;
+        }
+
+        .seo-card:hover,
+        .seo-card:focus-visible {
+          background: #141414;
+          border-color: #3a3a3a;
+          transform: translateY(-2px);
+        }
+
+        .seo-card:focus-visible {
+          outline: 2px solid #d9ecff;
+          outline-offset: 3px;
+        }
+
+        .seo-card__copy {
+          color: #9a9a9a;
+          font-size: 14px;
+          line-height: 1.55;
+          margin: 10px 0 0;
+        }
+
+        .seo-card__link {
+          align-items: center;
+          color: #9fd2ff;
+          display: inline-flex;
+          font-size: 13px;
+          font-weight: 650;
+          gap: 6px;
+          margin-top: auto;
+          padding-top: 18px;
+        }
+
+        .seo-card__arrow {
+          display: inline-block;
+          transition: transform 180ms ease;
+        }
+
+        .seo-card:hover .seo-card__arrow,
+        .seo-card:focus-visible .seo-card__arrow {
+          transform: translateX(4px);
+        }
+      `}</style>
       <nav
         style={{
           position: 'sticky',
@@ -539,49 +596,6 @@ export default function App() {
         )}
       </section>
 
-      {/* ── SEO Content ─────────────────────────────────────────────────── */}
-      <section style={{ padding: '32px 32px 16px', maxWidth: 980, margin: '0 auto' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {SEO_SECTIONS.map((section) => (
-            <article
-              key={section.id}
-              id={section.id}
-              style={{
-                background: '#101010',
-                border: '1px solid #1f1f1f',
-                borderRadius: 8,
-                padding: 20,
-              }}
-            >
-              <h2 style={{ fontSize: 18, color: '#fff', margin: 0, lineHeight: 1.3 }}>
-                {section.title}
-              </h2>
-              <p style={{ fontSize: 14, color: '#9a9a9a', marginTop: 12, lineHeight: 1.65 }}>
-                {section.copy}
-              </p>
-              <a
-                href={section.link}
-                style={{
-                  color: '#d9ecff',
-                  display: 'inline-block',
-                  fontSize: 13,
-                  marginTop: 12,
-                  textDecoration: 'none',
-                }}
-              >
-                {section.linkLabel}
-              </a>
-            </article>
-          ))}
-        </div>
-      </section>
-
       {/* ── Code ────────────────────────────────────────────────────────── */}
       <section id="quick-start" style={{ padding: '48px 32px', maxWidth: 680, margin: '0 auto' }}>
         <div style={{ ...labelStyle, marginBottom: 24, textAlign: 'center' }}>Quick start</div>
@@ -624,6 +638,32 @@ export default function App() {
         >
           {codeForTab(codeTab)}
         </pre>
+      </section>
+
+      {/* ── SEO Content ─────────────────────────────────────────────────── */}
+      <section style={{ padding: '16px 32px 32px', maxWidth: 980, margin: '0 auto' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 14,
+          }}
+        >
+          {SEO_SECTIONS.map((section) => (
+            <a key={section.id} id={section.id} href={section.link} className="seo-card">
+              <h2 style={{ fontSize: 18, color: '#fff', margin: 0, lineHeight: 1.25 }}>
+                {section.title}
+              </h2>
+              <p className="seo-card__copy">{section.copy}</p>
+              <span className="seo-card__link">
+                {section.linkLabel}
+                <span className="seo-card__arrow" aria-hidden="true">
+                  →
+                </span>
+              </span>
+            </a>
+          ))}
+        </div>
       </section>
 
       <footer
