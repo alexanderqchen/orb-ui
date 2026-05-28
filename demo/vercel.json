@@ -53,16 +53,6 @@
       "source": "/guides/voice-ai-customer-support/",
       "destination": "/docs/resources/voice-ai-customer-support",
       "permanent": true
-    },
-    {
-      "source": "/skins",
-      "destination": "/docs/resources/skins",
-      "permanent": true
-    },
-    {
-      "source": "/skins/",
-      "destination": "/docs/resources/skins",
-      "permanent": true
     }
   ],
   "rewrites": [

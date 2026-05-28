@@ -83,8 +83,7 @@
           "examples/voice-orb-ui",
           "resources/voice-agent-platforms",
           "resources/ai-voice-sales-agents",
-          "resources/voice-ai-customer-support",
-          "resources/skins"
+          "resources/voice-ai-customer-support"
         ]
       }
     ]

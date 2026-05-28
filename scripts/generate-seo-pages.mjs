@@ -14,7 +14,6 @@ const sharedNav = [
   ['/docs/vapi-voice-ui/', 'Vapi'],
   ['/docs/elevenlabs-voice-ui/', 'ElevenLabs'],
   ['/compare/voice-agent-platforms/', 'Compare'],
-  ['/skins/', 'Skins'],
 ]
 
 const pages = [
@@ -180,7 +179,7 @@ export function GeminiLiveStatus({ sessionState, volume }) {
     slug: '/docs/vapi-voice-ui/',
     title: 'Vapi Voice UI Components for React | orb-ui',
     description:
-      'Add a Vapi voice UI to a React app with orb-ui. Use the Vapi adapter, animated orb themes, and state-aware voice agent components.',
+      'Add a Vapi voice UI to a React app with orb-ui. Use the Vapi adapter, animated orb visuals, and state-aware voice agent components.',
     eyebrow: 'Docs',
     h1: 'Vapi voice UI components for React',
     intro:
@@ -233,7 +232,7 @@ export function VapiVoiceUI() {
     slug: '/docs/elevenlabs-voice-ui/',
     title: 'ElevenLabs Voice UI Components for React | orb-ui',
     description:
-      'Add an ElevenLabs voice UI to React with orb-ui. Use the ElevenLabs adapter, animated orb themes, and state-aware voice agent visuals.',
+      'Add an ElevenLabs voice UI to React with orb-ui. Use the ElevenLabs adapter, animated orb visuals, and state-aware voice agent visuals.',
     eyebrow: 'Docs',
     h1: 'ElevenLabs voice UI components for React',
     intro:
@@ -422,52 +421,6 @@ export function SupportVoiceStatus({ state, volume }) {
     ],
   },
   {
-    slug: '/skins/',
-    title: 'Voice Agent Skins and Orb UI Themes | orb-ui',
-    description:
-      'Explore the product direction for voice agent skins, custom orb themes, avatar-style UI layers, and a future orb-ui skin marketplace.',
-    eyebrow: 'Product direction',
-    h1: 'Voice agent skins and orb UI themes',
-    intro:
-      'Skins are the product wedge that can make orb-ui feel memorable. Search demand is not proven yet, but the idea is strong: teams should be able to give a voice agent a visual identity without rebuilding the voice stack.',
-    targets: ['voice agent avatar', 'ai voice avatar', 'voice agent skins'],
-    sections: [
-      {
-        h2: 'What a skin means',
-        body: [
-          'In orb-ui, a skin should be more than a color palette. It can define motion, shape, density, idle behavior, listening behavior, speaking behavior, and error treatment. The current circle, bars, and debug themes are the beginning of that system.',
-          'A future skin format should remain portable across providers. Vapi, ElevenLabs, OpenAI Realtime, Gemini Live API, and custom stacks should be able to use the same visual skin if they provide state and volume.',
-        ],
-      },
-      {
-        h2: 'Marketplace path',
-        body: [
-          'A marketplace should come after visible usage. First, build a gallery of polished presets. Then document the theme API. Then invite community submissions. Only after those pieces work should orb-ui consider paid skins, sponsored skins, or revenue share.',
-          'This approach keeps the product grounded while still leaving room for a distinctive creator ecosystem.',
-        ],
-      },
-      {
-        h2: 'SEO reality',
-        body: [
-          'The current keyword data shows modest skin/avatar volume compared with voice agent and provider terms. That means skins should not be the first SEO pillar. They should be a brand and product differentiation page that gives people something to remember.',
-          'If the page starts getting impressions for avatar or assistant skin terms, it can grow into a larger category page.',
-        ],
-      },
-    ],
-    codeTitle: 'Theme-first API',
-    code: `import { Orb } from 'orb-ui'
-
-export function SkinnedVoiceAgent({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="circle" />
-}`,
-    cta: 'Explore orb-ui themes today and follow the path toward voice agent skins.',
-    related: [
-      '/examples/voice-orb-ui/',
-      '/guides/voice-agent-ui/',
-      '/docs/openai-realtime-voice-ui/',
-    ],
-  },
-  {
     slug: '/examples/voice-orb-ui/',
     title: 'Voice Orb UI Example for React | orb-ui',
     description:
@@ -514,7 +467,7 @@ export function VoiceOrbExample() {
   )
 }`,
     cta: 'Use the orb as the visible state layer for your React voice agent.',
-    related: ['/guides/voice-agent-ui/', '/docs/vapi-voice-ui/', '/skins/'],
+    related: ['/guides/voice-agent-ui/', '/docs/vapi-voice-ui/', '/docs/elevenlabs-voice-ui/'],
   },
 ]
 
