@@ -71,8 +71,8 @@
           "adapters/vapi",
           "adapters/elevenlabs",
           "adapters/custom",
-          "providers/openai-realtime",
-          "providers/gemini-live"
+          "adapters/openai-realtime",
+          "adapters/gemini-live"
         ]
       },
       {
@@ -81,9 +81,9 @@
         "pages": [
           "guides/voice-agent-ui",
           "examples/voice-orb-ui",
-          "resources/voice-agent-platforms",
-          "resources/ai-voice-sales-agents",
-          "resources/voice-ai-customer-support"
+          "guides/voice-agent-platforms",
+          "guides/ai-voice-sales-agents",
+          "guides/voice-ai-customer-support"
         ]
       }
     ]
@@ -107,19 +107,59 @@
     },
     {
       "source": "/docs/openai-realtime-voice-ui",
-      "destination": "/docs/providers/openai-realtime"
+      "destination": "/docs/adapters/openai-realtime"
     },
     {
       "source": "/docs/openai-realtime-voice-ui/",
-      "destination": "/docs/providers/openai-realtime"
+      "destination": "/docs/adapters/openai-realtime"
     },
     {
       "source": "/docs/gemini-live-voice-ui",
-      "destination": "/docs/providers/gemini-live"
+      "destination": "/docs/adapters/gemini-live"
     },
     {
       "source": "/docs/gemini-live-voice-ui/",
-      "destination": "/docs/providers/gemini-live"
+      "destination": "/docs/adapters/gemini-live"
+    },
+    {
+      "source": "/docs/providers/openai-realtime",
+      "destination": "/docs/adapters/openai-realtime"
+    },
+    {
+      "source": "/docs/providers/openai-realtime/",
+      "destination": "/docs/adapters/openai-realtime"
+    },
+    {
+      "source": "/docs/providers/gemini-live",
+      "destination": "/docs/adapters/gemini-live"
+    },
+    {
+      "source": "/docs/providers/gemini-live/",
+      "destination": "/docs/adapters/gemini-live"
+    },
+    {
+      "source": "/docs/resources/voice-agent-platforms",
+      "destination": "/docs/guides/voice-agent-platforms"
+    },
+    {
+      "source": "/docs/resources/voice-agent-platforms/",
+      "destination": "/docs/guides/voice-agent-platforms"
+    },
+    {
+      "source": "/docs/resources/ai-voice-sales-agents",
+      "destination": "/docs/guides/ai-voice-sales-agents"
+    },
+    {
+      "source": "/docs/resources/ai-voice-sales-agents/",
+      "destination": "/docs/guides/ai-voice-sales-agents"
+    },
+    {
+      "source": "/docs/resources/voice-ai-customer-support",
+      "destination": "/docs/guides/voice-ai-customer-support"
+    },
+    {
+      "source": "/docs/resources/voice-ai-customer-support/",
+      "destination": "/docs/guides/voice-ai-customer-support"
     }
   ]
 }

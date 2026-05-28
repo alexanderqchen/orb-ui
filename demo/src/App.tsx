@@ -178,7 +178,7 @@ function useConversationSimulation() {
 const NAV_LINKS = [
   { href: '#demo', label: 'Demo' },
   { href: '#quick-start', label: 'Quick Start' },
-  { href: '#providers', label: 'Providers' },
+  { href: '#adapters', label: 'Adapters' },
   { href: '#themes', label: 'Themes' },
   { href: 'https://github.com/alexanderqchen/orb-ui', label: 'GitHub', external: true },
 ] as const
@@ -192,7 +192,7 @@ const SEO_SECTIONS = [
     linkLabel: 'Read the guide',
   },
   {
-    id: 'providers',
+    id: 'adapters',
     title: 'Provider adapters',
     copy: 'Use Vapi and ElevenLabs adapters, or control state and volume yourself.',
     link: '/docs/adapters/vapi',
@@ -215,8 +215,8 @@ const SEO_SECTIONS = [
   {
     id: 'roadmap',
     title: 'OpenAI Realtime + Gemini Live',
-    copy: 'Prototype with controlled mode today; dedicated provider adapters are planned next.',
-    link: '/docs/providers/openai-realtime',
+    copy: 'Prototype with controlled mode today; dedicated adapters are planned next.',
+    link: '/docs/adapters/openai-realtime',
     linkLabel: 'Preview notes',
   },
 ] as const

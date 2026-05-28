@@ -67,31 +67,31 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://orb-ui.com/docs/providers/openai-realtime</loc>
+    <loc>https://orb-ui.com/docs/adapters/openai-realtime</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://orb-ui.com/docs/providers/gemini-live</loc>
+    <loc>https://orb-ui.com/docs/adapters/gemini-live</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://orb-ui.com/docs/resources/voice-agent-platforms</loc>
+    <loc>https://orb-ui.com/docs/guides/voice-agent-platforms</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://orb-ui.com/docs/resources/ai-voice-sales-agents</loc>
+    <loc>https://orb-ui.com/docs/guides/ai-voice-sales-agents</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://orb-ui.com/docs/resources/voice-ai-customer-support</loc>
+    <loc>https://orb-ui.com/docs/guides/voice-ai-customer-support</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

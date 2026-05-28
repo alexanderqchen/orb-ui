@@ -26,32 +26,32 @@
     },
     {
       "source": "/compare/voice-agent-platforms",
-      "destination": "/docs/resources/voice-agent-platforms",
+      "destination": "/docs/guides/voice-agent-platforms",
       "permanent": true
     },
     {
       "source": "/compare/voice-agent-platforms/",
-      "destination": "/docs/resources/voice-agent-platforms",
+      "destination": "/docs/guides/voice-agent-platforms",
       "permanent": true
     },
     {
       "source": "/guides/ai-voice-sales-agents",
-      "destination": "/docs/resources/ai-voice-sales-agents",
+      "destination": "/docs/guides/ai-voice-sales-agents",
       "permanent": true
     },
     {
       "source": "/guides/ai-voice-sales-agents/",
-      "destination": "/docs/resources/ai-voice-sales-agents",
+      "destination": "/docs/guides/ai-voice-sales-agents",
       "permanent": true
     },
     {
       "source": "/guides/voice-ai-customer-support",
-      "destination": "/docs/resources/voice-ai-customer-support",
+      "destination": "/docs/guides/voice-ai-customer-support",
       "permanent": true
     },
     {
       "source": "/guides/voice-ai-customer-support/",
-      "destination": "/docs/resources/voice-ai-customer-support",
+      "destination": "/docs/guides/voice-ai-customer-support",
       "permanent": true
     }
   ],
