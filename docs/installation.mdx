@@ -1,0 +1,45 @@
+---
+title: Installation
+description: Install orb-ui, import the Orb component, and choose the integration path for your voice agent UI.
+---
+
+# Installation
+
+Install orb-ui from npm:
+
+```bash
+npm install orb-ui
+```
+
+orb-ui ships React components and TypeScript types. React and React DOM are peer dependencies, so your app should already include them.
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceAgentStatus() {
+  return <Orb state="idle" theme="circle" />
+}
+```
+
+## Import adapters
+
+Provider adapters live in the `orb-ui/adapters` entrypoint.
+
+```tsx
+import { createVapiAdapter, createElevenLabsAdapter } from 'orb-ui/adapters'
+```
+
+Use an adapter when a supported provider owns the voice session. Use controlled mode when your app already has session state and audio volume.
+
+## Choose an integration path
+
+- Start with [controlled mode](/adapters/custom) when you are prototyping or wiring a custom realtime voice stack.
+- Use the [Vapi adapter](/adapters/vapi) for Vapi assistants.
+- Use the [ElevenLabs adapter](/adapters/elevenlabs) for ElevenLabs conversational agents.
+- Use [OpenAI Realtime](/providers/openai-realtime) or [Gemini Live](/providers/gemini-live) through controlled mode until dedicated adapters ship.
+
+## Next steps
+
+- [Quickstart](/quickstart)
+- [Orb component API](/reference/orb-component)
+- [Themes and states](/themes/voice-states)

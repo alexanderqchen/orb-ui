@@ -57,27 +57,30 @@
       {
         "group": "Start",
         "icon": "rocket",
-        "pages": ["index", "quickstart"]
+        "pages": ["quickstart", "installation"]
       },
       {
-        "group": "Core concepts",
-        "icon": "sparkles",
-        "pages": ["guides/voice-agent-ui", "themes/voice-states", "examples/voice-orb-ui"]
+        "group": "Reference",
+        "icon": "book-open",
+        "pages": ["reference/orb-component", "themes/voice-states"]
       },
       {
         "group": "Adapters",
         "icon": "plug",
-        "pages": ["adapters/vapi", "adapters/elevenlabs", "adapters/custom"]
+        "pages": [
+          "adapters/vapi",
+          "adapters/elevenlabs",
+          "adapters/custom",
+          "providers/openai-realtime",
+          "providers/gemini-live"
+        ]
       },
       {
-        "group": "Provider roadmap",
-        "icon": "radio",
-        "pages": ["providers/openai-realtime", "providers/gemini-live"]
-      },
-      {
-        "group": "Resources",
+        "group": "Guides",
         "icon": "library",
         "pages": [
+          "guides/voice-agent-ui",
+          "examples/voice-orb-ui",
           "resources/voice-agent-platforms",
           "resources/ai-voice-sales-agents",
           "resources/voice-ai-customer-support",

@@ -1,0 +1,66 @@
+---
+title: Orb component API
+description: Reference for the Orb component props, states, themes, and adapter interface.
+---
+
+# Orb component API
+
+`Orb` is the main orb-ui component. It can run in controlled mode with explicit `state` and `volume` props, or through a provider adapter.
+
+```tsx
+import { Orb } from 'orb-ui'
+;<Orb state="listening" volume={0.4} theme="circle" size={240} />
+```
+
+## Props
+
+| Prop        | Type                  | Default                 | Description                                                           |
+| ----------- | --------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `state`     | `OrbState`            | adapter state or `idle` | Current voice agent state. In controlled mode, pass this directly.    |
+| `volume`    | `number`              | adapter volume or `0`   | Audio volume from `0` to `1`. In controlled mode, pass this directly. |
+| `adapter`   | `OrbAdapter`          | none                    | Provider adapter that subscribes to state and volume updates.         |
+| `theme`     | `OrbTheme`            | `debug`                 | Visual theme: `debug`, `circle`, or `bars`.                           |
+| `size`      | `number`              | `200`                   | Component size in pixels.                                             |
+| `className` | `string`              | none                    | Optional class name for the rendered theme.                           |
+| `style`     | `React.CSSProperties` | none                    | Optional inline styles for the rendered theme.                        |
+| `onStart`   | `() => void`          | adapter start           | Start handler used by the debug theme and clickable themes.           |
+| `onStop`    | `() => void`          | adapter stop            | Stop handler used by the debug theme and clickable themes.            |
+
+## States
+
+```ts
+type OrbState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error'
+```
+
+Use these states consistently across providers so your product has one voice UI language even when the underlying SDK changes.
+
+## Themes
+
+```ts
+type OrbTheme = 'debug' | 'circle' | 'bars'
+```
+
+- `debug`: visible state and start/stop controls while integrating.
+- `circle`: the primary animated voice orb.
+- `bars`: waveform-like audio activity.
+
+## Adapter interface
+
+```ts
+interface OrbAdapter {
+  subscribe(callbacks: {
+    onStateChange: (state: OrbState) => void
+    onVolumeChange: (volume: number) => void
+  }): () => void
+  start?: () => void | Promise<void>
+  stop?: () => void | Promise<void>
+}
+```
+
+Adapters normalize provider SDK events into orb-ui state and volume. If a provider is not supported yet, use controlled mode first and turn that mapping into an adapter later.
+
+## Related
+
+- [Themes and states](/themes/voice-states)
+- [Custom integrations](/adapters/custom)
+- [Vapi adapter](/adapters/vapi)
