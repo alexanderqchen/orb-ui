@@ -36,7 +36,7 @@ const adapter = createVapiAdapter(vapi, {
 })
 
 export function VoiceOrb() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`
 
 const ELEVENLABS_CODE = `import { Conversation } from "@elevenlabs/client"
@@ -48,7 +48,7 @@ const adapter = createElevenLabsAdapter(Conversation, {
 })
 
 export function VoiceOrb() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`
 
 const ADAPTER_CODE = `import { Orb } from "orb-ui"
@@ -69,7 +69,7 @@ const adapter: OrbAdapter = {
 }
 
 export function VoiceOrb() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`
 
 const CONTROLLED_CODE = `import { useEffect, useState } from "react"

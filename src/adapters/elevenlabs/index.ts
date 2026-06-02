@@ -4,10 +4,11 @@ import type { OrbAdapter, OrbState, AdapterCallbacks } from '../types'
 // We define minimal interfaces rather than importing @elevenlabs/client directly
 // so orb-ui doesn't pull in the SDK as a hard dependency — users already have it.
 
-type ElevenLabsMode = 'speaking' | 'listening'
-type ElevenLabsStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting'
+export type ElevenLabsMode = 'speaking' | 'listening'
+export type ElevenLabsStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting'
+export type ElevenLabsConnectionType = 'websocket' | 'webrtc'
 
-interface ElevenLabsCallbacks {
+export interface ElevenLabsCallbacks {
   onConnect?: (props: { conversationId: string }) => void
   onDisconnect?: (details: unknown) => void
   onError?: (message: string, context?: unknown) => void
@@ -16,7 +17,7 @@ interface ElevenLabsCallbacks {
   onVadScore?: (props: { vadScore: number }) => void
 }
 
-interface ElevenLabsConversation {
+export interface ElevenLabsConversation {
   endSession(): Promise<void>
   getInputVolume(): number // normalized RMS of mic input (0–1)
   getOutputVolume(): number // normalized RMS of AI audio output (0–1)
@@ -24,28 +25,49 @@ interface ElevenLabsConversation {
   getOutputByteFrequencyData(): Uint8Array
 }
 
-type ElevenLabsConfig = {
-  // Provide either agentId (public) or signedUrl (server-side auth)
-  agentId?: string
-  signedUrl?: string
-  // Any other @elevenlabs/client startSession options are passed through
+type ElevenLabsSessionAuth =
+  | {
+      agentId: string
+      signedUrl?: never
+      conversationToken?: never
+      connectionType?: ElevenLabsConnectionType
+    }
+  | {
+      signedUrl: string
+      agentId?: never
+      conversationToken?: never
+      connectionType?: 'websocket'
+    }
+  | {
+      conversationToken: string
+      agentId?: never
+      signedUrl?: never
+      connectionType?: 'webrtc'
+    }
+
+export type ElevenLabsConfig = ElevenLabsSessionAuth & {
+  /** orb-ui expects a voice conversation, so text-only sessions are intentionally unsupported. */
+  textOnly?: false
+  /** Allow @elevenlabs/client startSession options that orb-ui does not inspect. */
   [key: string]: unknown
 }
 
-// The Conversation class interface (just the static startSession we need)
-interface ElevenLabsConversationClass {
-  startSession(options: ElevenLabsConfig & ElevenLabsCallbacks): Promise<ElevenLabsConversation>
+export type ElevenLabsStartSessionOptions = ElevenLabsConfig & ElevenLabsCallbacks
+
+// The Conversation namespace from @elevenlabs/client (minimal structural interface).
+export interface ElevenLabsConversationClass {
+  startSession(options: ElevenLabsStartSessionOptions): Promise<ElevenLabsConversation>
 }
 
 // ─── Extended adapter interface ───────────────────────────────────────────────
 // ElevenLabs callbacks must be injected at startSession() time, so the adapter
-// owns the session lifecycle and exposes start/stop methods. Pass these to
-// Orb's onStart / onStop props.
+// owns the session lifecycle and exposes start/stop methods that Orb can call
+// automatically when the adapter is passed to the `adapter` prop.
 
 export interface ElevenLabsOrbAdapter extends OrbAdapter {
-  /** Call this from Orb's onStart prop to begin a conversation. */
+  /** Start an ElevenLabs conversation. Called automatically by Orb on click. */
   start(): Promise<void>
-  /** Call this from Orb's onStop prop to end the current conversation. */
+  /** Stop the current ElevenLabs conversation. Called automatically by Orb on click. */
   stop(): Promise<void>
 }
 
@@ -73,7 +95,8 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
  *
  * Unlike createVapiAdapter, this adapter owns the session lifecycle because
  * ElevenLabs requires callbacks to be injected at Conversation.startSession()
- * time. Use the returned start() and stop() methods with Orb's props.
+ * time. Pass the returned adapter to Orb and Orb will call start()/stop()
+ * when the clickable theme is activated.
  *
  * @param ConversationClass - The Conversation class from @elevenlabs/client
  * @param config            - agentId / signedUrl + any other startSession options
@@ -88,14 +111,7 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
  * })
  *
  * function App() {
- *   return (
- *     <Orb
- *       adapter={adapter}
- *       theme="circle"
- *       onStart={() => adapter.start()}
- *       onStop={() => adapter.stop()}
- *     />
- *   )
+ *   return <Orb adapter={adapter} theme="circle" aria-label="Start ElevenLabs assistant" />
  * }
  */
 export function createElevenLabsAdapter(

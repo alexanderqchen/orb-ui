@@ -21,9 +21,17 @@ export function VoiceAgentStatus() {
 }
 ```
 
-## Import adapters
+## Provider SDKs
 
-Provider adapters live in the `orb-ui/adapters` entrypoint.
+Provider adapters live in the `orb-ui/adapters` entrypoint, but orb-ui does not bundle provider SDKs. Install the SDK for the provider you use:
+
+```bash
+# Vapi
+npm install orb-ui @vapi-ai/web
+
+# ElevenLabs Conversational AI
+npm install orb-ui @elevenlabs/client
+```
 
 ```tsx
 import { createVapiAdapter, createElevenLabsAdapter } from 'orb-ui/adapters'

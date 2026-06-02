@@ -11,6 +11,13 @@ Install orb-ui from npm:
 npm install orb-ui
 ```
 
+Provider adapters also need their provider SDK installed in your app:
+
+```bash
+npm install orb-ui @vapi-ai/web
+npm install orb-ui @elevenlabs/client
+```
+
 ## Controlled mode
 
 Controlled mode is the universal fallback. Use it when your app already owns the voice session and can provide a conversation state plus normalized volume.
@@ -46,22 +53,23 @@ const adapter = createVapiAdapter(vapi, {
 })
 
 export function VapiVoiceUI() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Vapi assistant" />
 }
 ```
 
 ## ElevenLabs
 
 ```tsx
+import { Conversation } from '@elevenlabs/client'
 import { Orb } from 'orb-ui'
 import { createElevenLabsAdapter } from 'orb-ui/adapters'
 
-const adapter = createElevenLabsAdapter({
+const adapter = createElevenLabsAdapter(Conversation, {
   agentId: 'your-agent-id',
 })
 
 export function ElevenLabsVoiceUI() {
-  return <Orb adapter={adapter} theme="bars" />
+  return <Orb adapter={adapter} theme="bars" aria-label="Start ElevenLabs assistant" />
 }
 ```
 
@@ -72,5 +80,7 @@ Start with:
 - `circle` for a primary assistant orb.
 - `bars` for waveform-like audio activity.
 - `debug` while verifying state and volume changes.
+
+Clickable `circle` and `bars` themes render as keyboard-accessible buttons when you provide an adapter or `onStart`/`onStop` handler. Add an `aria-label` if the surrounding UI does not already label the control.
 
 Use the [voice states guide](/themes/voice-states) when you are deciding how each state should appear in your product.

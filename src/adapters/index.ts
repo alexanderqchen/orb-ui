@@ -1,4 +1,14 @@
 export { createVapiAdapter } from './vapi'
-export { createElevenLabsAdapter } from './elevenlabs'
-export type { ElevenLabsOrbAdapter } from './elevenlabs'
+export {
+  createElevenLabsAdapter,
+  type ElevenLabsCallbacks,
+  type ElevenLabsConfig,
+  type ElevenLabsConnectionType,
+  type ElevenLabsConversation,
+  type ElevenLabsConversationClass,
+  type ElevenLabsMode,
+  type ElevenLabsOrbAdapter,
+  type ElevenLabsStartSessionOptions,
+  type ElevenLabsStatus,
+} from './elevenlabs'
 export type { OrbAdapter, OrbState, AdapterCallbacks } from './types'

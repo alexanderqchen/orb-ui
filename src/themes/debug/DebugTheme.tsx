@@ -1,11 +1,15 @@
+import type { CSSProperties, HTMLAttributes } from 'react'
 import type { OrbState } from '../../components/Orb/Orb.types'
 
-interface DebugThemeProps {
+type DebugThemeRootProps = Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'>
+
+interface DebugThemeProps extends DebugThemeRootProps {
   state: OrbState
   volume: number
   size: number
   className?: string
-  style?: React.CSSProperties
+  style?: CSSProperties
+  disabled?: boolean
   onStart?: () => void
   onStop?: () => void
 }
@@ -26,11 +30,14 @@ export function DebugTheme({
   size,
   className,
   style,
+  disabled = false,
   onStart,
   onStop,
+  ...rootProps
 }: DebugThemeProps) {
   return (
     <div
+      {...rootProps}
       className={className}
       style={{
         width: size,
@@ -89,6 +96,7 @@ export function DebugTheme({
           {ALL_STATES.map((s) => (
             <button
               key={s}
+              disabled={disabled}
               style={{
                 fontSize: 10,
                 padding: '2px 6px',
@@ -96,7 +104,7 @@ export function DebugTheme({
                 color: state === s ? '#000' : '#888',
                 border: `1px solid ${state === s ? STATE_COLORS[s] : '#333'}`,
                 borderRadius: 3,
-                cursor: 'pointer',
+                cursor: disabled ? 'not-allowed' : 'pointer',
               }}
               // Note: forcing state from the debug panel requires controlled mode.
               // In controlled mode, wire onStateChange to your own state.
@@ -115,6 +123,7 @@ export function DebugTheme({
       {/* Start / Stop */}
       <div style={{ display: 'flex', gap: 6 }}>
         <button
+          disabled={disabled}
           onClick={onStart}
           style={{
             flex: 1,
@@ -123,13 +132,14 @@ export function DebugTheme({
             color: '#40f080',
             border: '1px solid #40f080',
             borderRadius: 4,
-            cursor: 'pointer',
+            cursor: disabled ? 'not-allowed' : 'pointer',
             fontSize: 11,
           }}
         >
           Start
         </button>
         <button
+          disabled={disabled}
           onClick={onStop}
           style={{
             flex: 1,
@@ -138,7 +148,7 @@ export function DebugTheme({
             color: '#f04040',
             border: '1px solid #f04040',
             borderRadius: 4,
-            cursor: 'pointer',
+            cursor: disabled ? 'not-allowed' : 'pointer',
             fontSize: 11,
           }}
         >

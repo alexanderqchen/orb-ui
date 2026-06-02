@@ -1,12 +1,16 @@
 import { useRef, useEffect } from 'react'
-import type { OrbState } from '../../components/Orb/Orb.types'
+import type { CSSProperties } from 'react'
+import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
 
-interface BarsThemeProps {
+interface BarsThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
   className?: string
-  style?: React.CSSProperties
+  style?: CSSProperties
+  disabled?: boolean
+  interactive?: boolean
+  onClick?: () => void
 }
 
 const BAR_COUNT = 5
@@ -38,10 +42,13 @@ export function BarsTheme({
   size,
   className,
   style,
+  disabled = false,
+  interactive = false,
   onClick,
-}: BarsThemeProps & { onClick?: () => void }) {
-  const barRefs = useRef<(HTMLDivElement | null)[]>([])
-  const hoverRef = useRef<HTMLDivElement>(null)
+  ...controlProps
+}: BarsThemeProps) {
+  const barRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const hoverRef = useRef<HTMLSpanElement>(null)
   const rafRef = useRef<number>(0)
   const smoothed = useRef<number[]>(new Array(BAR_COUNT).fill(0))
   const volumeRef = useRef(volume)
@@ -190,63 +197,90 @@ export function BarsTheme({
   const radius = size * 0.03
   const maxH = size * 0.55
   const minH = size * 0.06
-
-  return (
-    <div
-      className={className}
+  const rootStyle: CSSProperties = {
+    width: size,
+    height: size,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    ...style,
+  }
+  const content = (
+    <span
+      ref={hoverRef}
+      onMouseEnter={() => {
+        if (disabled) return
+        hoveredRef.current = true
+        if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1.35)'
+      }}
+      onMouseLeave={() => {
+        hoveredRef.current = false
+        if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1)'
+      }}
+      onTouchEnd={() => {
+        setTimeout(() => {
+          hoveredRef.current = false
+          if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1)'
+        }, 200)
+      }}
       style={{
-        width: size,
-        height: size,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
-        ...style,
+        gap,
+        transition: 'filter 0.3s ease',
+        cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
       }}
     >
-      <div
-        ref={hoverRef}
-        onClick={onClick}
-        onMouseEnter={() => {
-          hoveredRef.current = true
-          if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1.35)'
-        }}
-        onMouseLeave={() => {
-          hoveredRef.current = false
-          if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1)'
-        }}
-        onTouchEnd={() => {
-          setTimeout(() => {
-            hoveredRef.current = false
-            if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1)'
-          }, 200)
-        }}
+      {Array.from({ length: BAR_COUNT }, (_, i) => (
+        <span
+          key={i}
+          ref={(el) => {
+            barRefs.current[i] = el
+          }}
+          style={{
+            width: barW,
+            minHeight: minH,
+            maxHeight: maxH,
+            height: minH,
+            borderRadius: radius,
+            background: STATE_COLORS[state] ?? STATE_COLORS.idle,
+          }}
+        />
+      ))}
+    </span>
+  )
+
+  if (interactive) {
+    return (
+      <button
+        {...controlProps}
+        type="button"
+        className={className}
+        disabled={disabled}
+        onClick={disabled ? undefined : onClick}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap,
-          transition: 'filter 0.3s ease',
-          cursor: onClick ? 'pointer' : 'default',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          border: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          color: 'inherit',
+          font: 'inherit',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          ...rootStyle,
         }}
       >
-        {Array.from({ length: BAR_COUNT }, (_, i) => (
-          <div
-            key={i}
-            ref={(el) => {
-              barRefs.current[i] = el
-            }}
-            style={{
-              width: barW,
-              minHeight: minH,
-              maxHeight: maxH,
-              height: minH,
-              borderRadius: radius,
-              background: STATE_COLORS[state] ?? STATE_COLORS.idle,
-            }}
-          />
-        ))}
-      </div>
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <div {...controlProps} className={className} style={rootStyle}>
+      {content}
     </div>
   )
 }

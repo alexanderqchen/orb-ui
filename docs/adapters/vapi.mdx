@@ -9,6 +9,8 @@ Vapi handles the voice agent platform layer. orb-ui handles the visible React UI
 
 ## Install
 
+Install both orb-ui and the Vapi web SDK used by the adapter:
+
 ```bash
 npm install orb-ui @vapi-ai/web
 ```
@@ -26,7 +28,7 @@ const adapter = createVapiAdapter(vapi, {
 })
 
 export function VapiVoiceUI() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Vapi assistant" />
 }
 ```
 
@@ -38,6 +40,10 @@ The adapter maps Vapi conversation lifecycle events into orb-ui state changes. T
 - listening state
 - assistant speech
 - errors
+
+## Accessibility
+
+When an adapter or `onStart`/`onStop` handler is provided, clickable `circle` and `bars` themes render as `<button type="button">` controls. Pass an `aria-label` when no visible text labels the orb.
 
 ## When to use controlled mode instead
 

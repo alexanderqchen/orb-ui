@@ -88,8 +88,10 @@ export function Orb({
   size = 200,
   className,
   style,
+  disabled = false,
   onStart,
   onStop,
+  ...htmlProps
 }: OrbProps) {
   const [adapterState, setAdapterState] = useState<OrbState>('idle')
   const [adapterVolume, setAdapterVolume] = useState(0)
@@ -149,6 +151,8 @@ export function Orb({
   const isActive = state !== 'idle' && state !== 'error'
 
   const handleClick = useCallback(() => {
+    if (disabled) return
+
     if (isActive) {
       if (onStop) onStop()
       else adapter?.stop?.()
@@ -156,26 +160,46 @@ export function Orb({
       if (onStart) onStart()
       else adapter?.start?.()
     }
-  }, [adapter, isActive, onStart, onStop])
+  }, [adapter, disabled, isActive, onStart, onStop])
 
-  // Only make it clickable if there's a way to handle clicks
-  const clickable = !!(adapter?.start || onStart || onStop)
+  // Only render a clickable control when the current state can be handled.
+  // Disabled controls stay semantic buttons but do not fire handlers.
+  const interactive = isActive ? !!(adapter?.stop || onStop) : !!(adapter?.start || onStart)
+  const clickHandler = interactive && !disabled ? handleClick : undefined
+  const controlProps = {
+    ...htmlProps,
+    'aria-label':
+      htmlProps['aria-label'] ??
+      (interactive ? `${isActive ? 'Stop' : 'Start'} voice session` : undefined),
+  }
 
-  const themeProps = { state, volume, size, className, style }
-  const clickHandler = clickable ? handleClick : undefined
+  const sharedThemeProps = {
+    state,
+    volume,
+    size,
+    className,
+    style,
+    disabled,
+    ...controlProps,
+  }
+
+  const interactiveThemeProps = {
+    ...sharedThemeProps,
+    interactive,
+  }
 
   switch (theme) {
     case 'circle':
-      return <CircleTheme {...themeProps} onClick={clickHandler} />
+      return <CircleTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'bars':
-      return <BarsTheme {...themeProps} onClick={clickHandler} />
+      return <BarsTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'debug':
     default:
       return (
         <DebugTheme
-          {...themeProps}
-          onStart={onStart ?? (() => adapter?.start?.())}
-          onStop={onStop ?? (() => adapter?.stop?.())}
+          {...sharedThemeProps}
+          onStart={disabled ? undefined : (onStart ?? (() => adapter?.start?.()))}
+          onStop={disabled ? undefined : (onStop ?? (() => adapter?.stop?.()))}
         />
       )
   }

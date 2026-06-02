@@ -1,6 +1,6 @@
 # orb-ui
 
-React voice agent UI components for Vapi, ElevenLabs, and custom realtime voice AI apps. One install gives you an animated voice orb, audio-reactive themes, and provider adapters for building polished voice agent interfaces in React.
+React voice agent UI components for Vapi, ElevenLabs, and custom realtime voice AI apps. orb-ui gives you animated voice orbs, audio-reactive themes, accessible clickable controls, and provider adapters for building polished voice agent interfaces in React.
 
 <p align="center">
   <a href="https://orb-ui.com">
@@ -13,20 +13,34 @@ React voice agent UI components for Vapi, ElevenLabs, and custom realtime voice 
 </p>
 
 ```jsx
+import Vapi from '@vapi-ai/web'
 import { Orb } from 'orb-ui'
 import { createVapiAdapter } from 'orb-ui/adapters'
 
-function VoiceOrb({ vapi }) {
-  const adapter = createVapiAdapter(vapi, { assistantId: 'your-id' })
+const vapi = new Vapi('your-public-key')
+const adapter = createVapiAdapter(vapi, { assistantId: 'your-assistant-id' })
 
-  return <Orb adapter={adapter} theme="circle" />
+export function VoiceOrb() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }
 ```
 
 ## Install
 
+Install the component package:
+
 ```bash
 npm install orb-ui
+```
+
+Provider adapters are lightweight wrappers around provider SDKs. Install the SDK for the provider you use:
+
+```bash
+# Vapi
+npm install orb-ui @vapi-ai/web
+
+# ElevenLabs Conversational AI
+npm install orb-ui @elevenlabs/client
 ```
 
 > **Note:** Orb uses React hooks internally — in Next.js App Router, use it in a `'use client'` component.
@@ -46,7 +60,7 @@ const vapi = new Vapi('your-public-key')
 const adapter = createVapiAdapter(vapi, { assistantId: 'your-assistant-id' })
 
 function App() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Vapi assistant" />
 }
 ```
 
@@ -60,7 +74,7 @@ import { createElevenLabsAdapter } from 'orb-ui/adapters'
 const adapter = createElevenLabsAdapter(Conversation, { agentId: 'your-agent-id' })
 
 function App() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start ElevenLabs assistant" />
 }
 ```
 
@@ -86,17 +100,23 @@ function App() {
 | `circle` | Pulsing circle that reacts to volume.                                         |
 | `bars`   | Five bars that animate with voice.                                            |
 
+When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` render as keyboard-accessible `<button type="button">` controls. Pass an `aria-label` when the surrounding UI does not already label the control.
+
 ## Props
 
-| Prop      | Type                            | Default   | Description                                             |
-| --------- | ------------------------------- | --------- | ------------------------------------------------------- |
-| `theme`   | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme                                            |
-| `state`   | `OrbState`                      | `'idle'`  | Conversation state (controlled mode)                    |
-| `volume`  | `number`                        | `0`       | Audio volume, 0–1 (controlled mode)                     |
-| `adapter` | `OrbAdapter`                    | —         | Provider adapter (manages state + volume automatically) |
-| `size`    | `number`                        | `200`     | Size in pixels                                          |
-| `onStart` | `() => void`                    | —         | Custom start handler (overrides adapter.start())        |
-| `onStop`  | `() => void`                    | —         | Custom stop handler (overrides adapter.stop())          |
+| Prop         | Type                            | Default   | Description                                                 |
+| ------------ | ------------------------------- | --------- | ----------------------------------------------------------- |
+| `theme`      | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme                                                |
+| `state`      | `OrbState`                      | `'idle'`  | Conversation state (controlled mode)                        |
+| `volume`     | `number`                        | `0`       | Audio volume, 0–1 (controlled mode)                         |
+| `adapter`    | `OrbAdapter`                    | —         | Provider adapter (manages state + volume automatically)     |
+| `size`       | `number`                        | `200`     | Size in pixels                                              |
+| `className`  | `string`                        | —         | Optional class name for the rendered theme                  |
+| `style`      | `React.CSSProperties`           | —         | Optional inline styles for the rendered theme               |
+| `disabled`   | `boolean`                       | `false`   | Disables clickable themes and debug start/stop controls     |
+| `aria-label` | `string`                        | generated | Accessible label for clickable `circle` and `bars` controls |
+| `onStart`    | `() => void`                    | —         | Custom start handler (overrides adapter.start())            |
+| `onStop`     | `() => void`                    | —         | Custom stop handler (overrides adapter.stop())              |
 
 ## States
 
@@ -127,7 +147,7 @@ pnpm dev:demo
 Useful maintenance commands:
 
 ```bash
-pnpm check        # format check, lint, typecheck, tests, library build, demo build
+pnpm check        # format check, lint, typechecks, tests, library build, demo build
 pnpm format       # format repo files
 pnpm changeset    # add release notes for a user-facing package change
 ```

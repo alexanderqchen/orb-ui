@@ -5,17 +5,17 @@
   "type": "module",
   "main": "./dist/orb-ui.cjs",
   "module": "./dist/orb-ui.js",
-  "types": "./dist/orb-ui.d.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/orb-ui.js",
-      "require": "./dist/orb-ui.cjs",
-      "types": "./dist/orb-ui.d.ts"
+      "require": "./dist/orb-ui.cjs"
     },
     "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
       "import": "./dist/adapters.js",
-      "require": "./dist/adapters.cjs",
-      "types": "./dist/adapters.d.ts"
+      "require": "./dist/adapters.cjs"
     }
   },
   "files": [
@@ -25,12 +25,13 @@
     "build": "tsc && vite build",
     "build:demo": "pnpm --filter orb-ui-demo build",
     "changeset": "changeset",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:demo",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm typecheck:examples && pnpm test && pnpm build && pnpm build:demo",
     "dev": "vite build --watch",
     "dev:demo": "pnpm --filter orb-ui-demo dev",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "typecheck": "tsc --noEmit",
+    "typecheck:examples": "tsc -p tsconfig.type-tests.json --noEmit",
     "lint": "eslint .",
     "release": "pnpm build && changeset publish",
     "test": "vitest run --passWithNoTests",
@@ -42,9 +43,11 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
+    "@elevenlabs/client": "1.9.0",
     "@eslint/js": "^10.0.1",
     "@types/react": "^18.3.29",
     "@types/react-dom": "^18.3.7",
+    "@vapi-ai/web": "2.5.2",
     "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^10.4.0",
     "globals": "^17.6.0",
@@ -87,7 +90,7 @@
   "typesVersions": {
     "*": {
       "adapters": [
-        "./dist/adapters.d.ts"
+        "./dist/adapters/index.d.ts"
       ]
     }
   }

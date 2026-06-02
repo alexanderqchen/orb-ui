@@ -1,12 +1,17 @@
 import { useRef, useEffect, useLayoutEffect } from 'react'
-import type { OrbState } from '../../components/Orb/Orb.types'
+import type { CSSProperties } from 'react'
+import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
 
-interface CircleThemeProps {
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+interface CircleThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
   className?: string
-  style?: React.CSSProperties
+  style?: CSSProperties
+  disabled?: boolean
+  interactive?: boolean
   onClick?: () => void
 }
 
@@ -63,16 +68,26 @@ const LERP = 0.55
 const SETTLE_RATE = 0.12
 const SETTLE_SCALE_EPSILON = 0.002
 
-export function CircleTheme({ state, volume, size, className, style, onClick }: CircleThemeProps) {
-  const circleRef = useRef<HTMLDivElement>(null)
-  const glowRef = useRef<HTMLDivElement>(null)
-  const hoverRef = useRef<HTMLDivElement>(null)
+export function CircleTheme({
+  state,
+  volume,
+  size,
+  className,
+  style,
+  disabled = false,
+  interactive = false,
+  onClick,
+  ...controlProps
+}: CircleThemeProps) {
+  const circleRef = useRef<HTMLSpanElement>(null)
+  const glowRef = useRef<HTMLSpanElement>(null)
+  const hoverRef = useRef<HTMLSpanElement>(null)
   const rafRef = useRef<number>(0)
 
   // Sync adapter volume into a ref so the rAF loop always reads the latest
   // value without being in the useEffect dependency array.
   const volumeRef = useRef(volume)
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     volumeRef.current = volume
   }, [volume])
 
@@ -234,74 +249,104 @@ export function CircleTheme({ state, volume, size, className, style, onClick }: 
   }, [state])
 
   const d = size * 0.55
-
-  return (
-    <div
-      className={className}
-      style={{
-        width: size,
-        height: size,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        ...style,
+  const rootStyle: CSSProperties = {
+    width: size,
+    height: size,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    ...style,
+  }
+  const content = (
+    <span
+      ref={hoverRef}
+      onMouseEnter={() => {
+        if (hoverRef.current && !disabled) {
+          hoverRef.current.style.transform = 'scale(1.06)'
+          hoverRef.current.style.filter = 'brightness(1.12)'
+        }
       }}
-    >
-      <div
-        ref={hoverRef}
-        onClick={onClick}
-        onMouseEnter={() => {
-          if (hoverRef.current) {
-            hoverRef.current.style.transform = 'scale(1.06)'
-            hoverRef.current.style.filter = 'brightness(1.12)'
-          }
-        }}
-        onMouseLeave={() => {
+      onMouseLeave={() => {
+        if (hoverRef.current) {
+          hoverRef.current.style.transform = 'scale(1)'
+          hoverRef.current.style.filter = 'brightness(1)'
+        }
+      }}
+      onTouchEnd={() => {
+        // Reset hover on mobile — touchend fires but mouseleave doesn't
+        setTimeout(() => {
           if (hoverRef.current) {
             hoverRef.current.style.transform = 'scale(1)'
             hoverRef.current.style.filter = 'brightness(1)'
           }
-        }}
-        onTouchEnd={() => {
-          // Reset hover on mobile — touchend fires but mouseleave doesn't
-          setTimeout(() => {
-            if (hoverRef.current) {
-              hoverRef.current.style.transform = 'scale(1)'
-              hoverRef.current.style.filter = 'brightness(1)'
-            }
-          }, 200)
-        }}
+        }, 200)
+      }}
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        transition: 'transform 0.3s ease, filter 0.3s ease',
+        cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
+        borderRadius: '50%',
+        lineHeight: 0,
+      }}
+    >
+      {/* Glow element — behind the circle */}
+      <span
+        ref={glowRef}
         style={{
-          transition: 'transform 0.3s ease, filter 0.3s ease',
-          cursor: onClick ? 'pointer' : 'default',
+          position: 'absolute',
+          display: 'block',
+          width: d,
+          height: d,
           borderRadius: '50%',
-          lineHeight: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Circle — on top */}
+      <span
+        ref={circleRef}
+        style={{
+          position: 'relative',
+          display: 'block',
+          width: d,
+          height: d,
+          borderRadius: '50%',
+          background: STATE_COLORS[state],
+        }}
+      />
+    </span>
+  )
+
+  if (interactive) {
+    return (
+      <button
+        {...controlProps}
+        type="button"
+        className={className}
+        disabled={disabled}
+        onClick={disabled ? undefined : onClick}
+        style={{
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          border: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          color: 'inherit',
+          font: 'inherit',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          ...rootStyle,
         }}
       >
-        {/* Glow element — behind the circle */}
-        <div
-          ref={glowRef}
-          style={{
-            position: 'absolute',
-            width: d,
-            height: d,
-            borderRadius: '50%',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Circle — on top */}
-        <div
-          ref={circleRef}
-          style={{
-            position: 'relative',
-            width: d,
-            height: d,
-            borderRadius: '50%',
-            background: STATE_COLORS[state],
-          }}
-        />
-      </div>
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <div {...controlProps} className={className} style={rootStyle}>
+      {content}
     </div>
   )
 }

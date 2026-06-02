@@ -219,7 +219,7 @@ const adapter = createVapiAdapter(vapi, {
 })
 
 export function VapiVoiceUI() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`,
     cta: 'Install orb-ui and add a polished Vapi voice UI.',
     related: [
@@ -271,7 +271,7 @@ const adapter = createElevenLabsAdapter(Conversation, {
 })
 
 export function ElevenLabsVoiceUI() {
-  return <Orb adapter={adapter} theme="circle" />
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`,
     cta: 'Install orb-ui and add a voice UI to an ElevenLabs agent.',
     related: ['/docs/vapi-voice-ui/', '/examples/voice-orb-ui/', '/guides/voice-agent-ui/'],

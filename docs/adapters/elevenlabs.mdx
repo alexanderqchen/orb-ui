@@ -9,24 +9,29 @@ ElevenLabs can power conversational voice experiences. orb-ui gives those experi
 
 ## Install
 
+Install both orb-ui and the ElevenLabs client package used by the adapter:
+
 ```bash
-npm install orb-ui
+npm install orb-ui @elevenlabs/client
 ```
 
-Install the ElevenLabs client package used by your app, then create the orb-ui adapter.
+## Use the adapter
 
 ```tsx
+import { Conversation } from '@elevenlabs/client'
 import { Orb } from 'orb-ui'
 import { createElevenLabsAdapter } from 'orb-ui/adapters'
 
-const adapter = createElevenLabsAdapter({
+const adapter = createElevenLabsAdapter(Conversation, {
   agentId: 'your-agent-id',
 })
 
 export function ElevenLabsVoiceUI() {
-  return <Orb adapter={adapter} theme="bars" />
+  return <Orb adapter={adapter} theme="bars" aria-label="Start ElevenLabs assistant" />
 }
 ```
+
+For private agents, pass the server-generated `signedUrl` or `conversationToken` option that your app already gives to `Conversation.startSession()`.
 
 ## State mapping
 
@@ -42,9 +47,11 @@ The ElevenLabs adapter is responsible for normalizing provider events into orb-u
 The `circle` theme works well for assistant-style voice interfaces. The `bars` theme is useful when you want a waveform-adjacent feel.
 
 ```tsx
-<Orb adapter={adapter} theme="circle" />
-<Orb adapter={adapter} theme="bars" />
+<Orb adapter={adapter} theme="circle" aria-label="Start ElevenLabs assistant" />
+<Orb adapter={adapter} theme="bars" aria-label="Start ElevenLabs assistant" />
 ```
+
+Clickable themes render as `<button type="button">` controls, so they work with keyboard activation and accept forwarded attributes like `id`, `data-*`, and `aria-label`.
 
 ## Controlled mode
 

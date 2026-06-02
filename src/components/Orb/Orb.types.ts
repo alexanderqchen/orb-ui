@@ -1,3 +1,5 @@
+import type { AriaAttributes, CSSProperties } from 'react'
+
 export type OrbState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error'
 
 export type OrbTheme = 'debug' | 'circle' | 'bars'
@@ -19,7 +21,22 @@ export interface OrbAdapter {
   stop?: () => void | Promise<void>
 }
 
-export interface OrbProps {
+type DataAttributeValue = string | number | boolean | null | undefined
+
+export interface OrbHtmlAttributes extends AriaAttributes {
+  /** Forwarded to the rendered orb control/container. */
+  id?: string
+  /** Forwarded to the rendered orb control/container. */
+  title?: string
+  /** Override the rendered role when you need custom semantics. */
+  role?: string
+  /** Forwarded tab index for non-default keyboard ordering. */
+  tabIndex?: number
+  /** Forward data-* attributes, e.g. data-testid. */
+  [dataAttribute: `data-${string}`]: DataAttributeValue
+}
+
+export interface OrbProps extends OrbHtmlAttributes {
   /**
    * Current conversation state. Required in controlled mode (no adapter).
    * Overrides adapter state if both are provided.
@@ -44,12 +61,24 @@ export interface OrbProps {
   /** Size in pixels. Defaults to 200. */
   size?: number
 
+  /** Optional class name for the rendered orb container/control. */
   className?: string
-  style?: React.CSSProperties
 
-  /** Called when the Start button is clicked (debug theme only). */
+  /** Optional inline styles for the rendered orb container/control. */
+  style?: CSSProperties
+
+  /** Disable clickable themes and debug start/stop controls. */
+  disabled?: boolean
+
+  /**
+   * Called when a clickable theme is activated while idle/error.
+   * Overrides adapter.start() when provided.
+   */
   onStart?: () => void
 
-  /** Called when the Stop button is clicked (debug theme only). */
+  /**
+   * Called when a clickable theme is activated while active.
+   * Overrides adapter.stop() when provided.
+   */
   onStop?: () => void
 }

@@ -14,17 +14,21 @@ import { Orb } from 'orb-ui'
 
 ## Props
 
-| Prop        | Type                  | Default                 | Description                                                           |
-| ----------- | --------------------- | ----------------------- | --------------------------------------------------------------------- |
-| `state`     | `OrbState`            | adapter state or `idle` | Current voice agent state. In controlled mode, pass this directly.    |
-| `volume`    | `number`              | adapter volume or `0`   | Audio volume from `0` to `1`. In controlled mode, pass this directly. |
-| `adapter`   | `OrbAdapter`          | none                    | Provider adapter that subscribes to state and volume updates.         |
-| `theme`     | `OrbTheme`            | `debug`                 | Visual theme: `debug`, `circle`, or `bars`.                           |
-| `size`      | `number`              | `200`                   | Component size in pixels.                                             |
-| `className` | `string`              | none                    | Optional class name for the rendered theme.                           |
-| `style`     | `React.CSSProperties` | none                    | Optional inline styles for the rendered theme.                        |
-| `onStart`   | `() => void`          | adapter start           | Start handler used by the debug theme and clickable themes.           |
-| `onStop`    | `() => void`          | adapter stop            | Stop handler used by the debug theme and clickable themes.            |
+| Prop         | Type                  | Default                 | Description                                                           |
+| ------------ | --------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `state`      | `OrbState`            | adapter state or `idle` | Current voice agent state. In controlled mode, pass this directly.    |
+| `volume`     | `number`              | adapter volume or `0`   | Audio volume from `0` to `1`. In controlled mode, pass this directly. |
+| `adapter`    | `OrbAdapter`          | none                    | Provider adapter that subscribes to state and volume updates.         |
+| `theme`      | `OrbTheme`            | `debug`                 | Visual theme: `debug`, `circle`, or `bars`.                           |
+| `size`       | `number`              | `200`                   | Component size in pixels.                                             |
+| `className`  | `string`              | none                    | Optional class name for the rendered theme.                           |
+| `style`      | `React.CSSProperties` | none                    | Optional inline styles for the rendered theme.                        |
+| `disabled`   | `boolean`             | `false`                 | Disables clickable themes and debug start/stop controls.              |
+| `id`         | `string`              | none                    | Forwarded to the rendered orb control/container.                      |
+| `data-*`     | `string`/primitive    | none                    | Forwarded to the rendered orb control/container, useful for tests.    |
+| `aria-label` | `string`              | generated when needed   | Accessible label for clickable `circle` and `bars` controls.          |
+| `onStart`    | `() => void`          | adapter start           | Start handler used by the debug theme and clickable themes.           |
+| `onStop`     | `() => void`          | adapter stop            | Stop handler used by the debug theme and clickable themes.            |
 
 ## States
 
@@ -43,6 +47,8 @@ type OrbTheme = 'debug' | 'circle' | 'bars'
 - `debug`: visible state and start/stop controls while integrating.
 - `circle`: the primary animated voice orb.
 - `bars`: waveform-like audio activity.
+
+When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` render as `<button type="button">` controls with native keyboard activation. If there is no visible label, pass `aria-label`.
 
 ## Adapter interface
 
