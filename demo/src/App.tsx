@@ -6,6 +6,8 @@ import type { OrbState, OrbTheme } from 'orb-ui'
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'speaking', 'error']
 const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
+const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
+const NPM_PACKAGE_URL = 'https://www.npmjs.com/package/orb-ui'
 
 type DemoMode = 'simulation' | 'sandbox'
 type CodeTab = 'vapi' | 'elevenlabs' | 'adapter' | 'controlled'
@@ -176,11 +178,10 @@ function useConversationSimulation() {
 }
 
 const NAV_LINKS = [
-  { href: '#demo', label: 'Demo' },
-  { href: '#quick-start', label: 'Quick Start' },
-  { href: '#adapters', label: 'Adapters' },
-  { href: '#themes', label: 'Themes' },
-  { href: 'https://github.com/alexanderqchen/orb-ui', label: 'GitHub', external: true },
+  { href: '#demo', label: 'Demo', external: false },
+  { href: '#quick-start', label: 'Quick Start', external: false },
+  { href: '#adapters', label: 'Adapters', external: false },
+  { href: '#themes', label: 'Themes', external: false },
 ] as const
 
 const SEO_SECTIONS = [
@@ -241,6 +242,36 @@ const labelStyle: CSSProperties = {
   color: '#555',
   letterSpacing: '0.1em',
   textTransform: 'uppercase',
+}
+
+function githubButtonStyle(prominent = false): CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: prominent ? '12px 18px' : '8px 13px',
+    borderRadius: 999,
+    background: prominent ? 'linear-gradient(180deg, #fff 0%, #dcdcdc 100%)' : '#fff',
+    color: '#050505',
+    border: '1px solid #fff',
+    boxShadow: prominent
+      ? '0 18px 52px rgba(255, 255, 255, 0.18)'
+      : '0 8px 28px rgba(255, 255, 255, 0.12)',
+    fontSize: prominent ? 15 : 13,
+    fontWeight: 750,
+    lineHeight: 1,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+  }
+}
+
+function GitHubStarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+      <path d="M8 .25a.75.75 0 0 1 .673.418l1.88 3.81 4.205.611a.75.75 0 0 1 .416 1.279l-3.043 2.966.718 4.188a.75.75 0 0 1-1.088.79L8 12.335l-3.761 1.977a.75.75 0 0 1-1.088-.79l.718-4.188L.826 6.368a.75.75 0 0 1 .416-1.279l4.206-.611L7.327.668A.75.75 0 0 1 8 .25Z" />
+    </svg>
+  )
 }
 
 const volumeTextStyle: CSSProperties = {
@@ -436,6 +467,16 @@ export default function App() {
               {link.label}
             </a>
           ))}
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Star orb-ui on GitHub"
+            style={githubButtonStyle()}
+          >
+            <GitHubStarIcon />
+            Star on GitHub
+          </a>
         </div>
       </nav>
 
@@ -457,6 +498,50 @@ export default function App() {
           orb-ui is a React voice agent UI library with animated orb components, audio-reactive
           themes, Vapi and ElevenLabs adapters, and controlled mode for custom realtime voice
           agents.
+        </p>
+        <div
+          style={{
+            marginTop: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Star orb-ui on GitHub"
+            style={githubButtonStyle(true)}
+          >
+            <GitHubStarIcon />
+            Star orb-ui on GitHub
+          </a>
+          <a
+            href={NPM_PACKAGE_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '11px 16px',
+              borderRadius: 999,
+              border: '1px solid #333',
+              color: '#b5b5b5',
+              fontSize: 14,
+              fontWeight: 650,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            View npm package
+          </a>
+        </div>
+        <p style={{ color: '#6f6f6f', fontSize: 13, margin: '12px 0 0' }}>
+          Open source voice UI for React — stars help more builders find it.
         </p>
         <div
           style={{
