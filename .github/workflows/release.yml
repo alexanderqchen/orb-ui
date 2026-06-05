@@ -36,14 +36,12 @@ jobs:
       - name: Run checks
         run: pnpm check
 
-      - name: Create release PR
+      - name: Create release PR or publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm changeset version
+          publish: pnpm release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to npm
-        if: steps.changesets.outputs.hasChangesets == 'false'
-        run: pnpm release
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
