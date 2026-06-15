@@ -5,6 +5,21 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/index",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/index/",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
       "source": "/guides/voice-agent-ui",
       "destination": "/docs/guides/voice-agent-ui",
       "permanent": true
