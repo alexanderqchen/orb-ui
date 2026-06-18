@@ -12,6 +12,8 @@ This repo is intentionally AI-native. Follow `CONTRIBUTING.md` first, then these
 ## Product Direction
 
 - Keep public product planning in `ROADMAP.md`.
+- When making meaningful progress on a roadmap item, update `ROADMAP.md` in the same PR. Mark completed work, adjust status/next steps, or explain in the PR notes why no roadmap update was needed.
+- Treat docs and examples as part of the finished change. If behavior, API, adapters, themes, or project direction changes, update the relevant markdown/docs in the same PR.
 - Do not commit private analytics, credentials, secret keys, internal research notes, or confidential timelines.
 - Use neutral public names for brand-adjacent visual inspiration; avoid third-party brand names in public theme API names.
 - New themes belong in `src/themes/`; new provider adapters belong in `src/adapters/`.

@@ -114,9 +114,10 @@ Because orb-ui is still pre-1.0, breaking changes can be reasonable when they ma
 Public roadmap work lives in [ROADMAP.md](./ROADMAP.md). Keep it useful for contributors and users, not exhaustive:
 
 - Include the next meaningful product directions
+- Update it when meaningful progress lands, not only when direction changes
 - Avoid private analytics, credentials, internal notes, or confidential timelines
 - Use neutral public language for brand-adjacent visual inspiration
-- Update it when a direction changes materially
+- If a PR completes or substantially advances a roadmap item, update the roadmap in that PR or explain why no roadmap change was needed
 
 ---
 
