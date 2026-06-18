@@ -79,10 +79,44 @@ pnpm changeset
 
 ## Ground rules (for everyone)
 
-- Don't break the public API (`Orb` props, `OrbAdapter` interface, `OrbState` union)
+- Treat the public API (`Orb` props, `OrbAdapter` interface, `OrbState` union) carefully. Breaking changes are allowed only when they are intentional, documented, and released with a migration note.
 - New themes go in `src/themes/`, new adapters in `src/adapters/`
 - Run `pnpm check` before opening a PR
 - Keep bundle size in mind — no heavy dependencies without discussion
+
+---
+
+## PR titles and breaking changes
+
+Use Conventional Commit-style PR titles so release notes stay clear after squash merges:
+
+```text
+feat: add a new theme
+fix: normalize ElevenLabs output volume
+docs: clarify custom adapter setup
+refactor: simplify theme animation state
+feat!: introduce signal-based adapter API
+```
+
+Use `!` only when the PR intentionally changes user-facing behavior or public API in a way that may require app code changes. For breaking changes:
+
+- Put `!` in the PR title, for example `feat!: introduce signal-based adapter API`
+- Add a changeset with the migration note
+- Update affected docs and examples
+- Mention what changed, why it changed, and how users should migrate
+
+Because orb-ui is still pre-1.0, breaking changes can be reasonable when they make the library much better. They should still be explicit and easy to follow.
+
+---
+
+## Roadmap
+
+Public roadmap work lives in [ROADMAP.md](./ROADMAP.md). Keep it useful for contributors and users, not exhaustive:
+
+- Include the next meaningful product directions
+- Avoid private analytics, credentials, internal notes, or confidential timelines
+- Use neutral public language for brand-adjacent visual inspiration
+- Update it when a direction changes materially
 
 ---
 
