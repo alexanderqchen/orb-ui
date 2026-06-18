@@ -39,8 +39,11 @@ The ElevenLabs adapter is responsible for normalizing provider events into orb-u
 
 - connecting
 - listening
+- thinking
 - speaking
 - error
+
+ElevenLabs input levels are emitted as `inputVolume` while listening, and output levels are emitted as `outputVolume` while speaking.
 
 ## Theming
 
@@ -55,8 +58,8 @@ Clickable themes render as `<button type="button">` controls, so they work with 
 
 ## Controlled mode
 
-If your app owns more of the ElevenLabs session lifecycle, pass state and volume directly.
+If your app owns more of the ElevenLabs session lifecycle, pass a signal directly.
 
 ```tsx
-<Orb state={state} volume={volume} theme="circle" />
+<Orb signal={{ state, inputVolume, outputVolume }} theme="circle" />
 ```

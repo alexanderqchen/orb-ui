@@ -1,4 +1,4 @@
-import type { OrbAdapter, OrbState, AdapterCallbacks } from '../types'
+import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
 
 // ─── ElevenLabs type interfaces ───────────────────────────────────────────────
 // We define minimal interfaces rather than importing @elevenlabs/client directly
@@ -82,10 +82,9 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
 //   → New OUTPUT_GAIN = 1.8 × (0.95 / 0.64) = 2.7
 //
 // Volume sources:
-//   • onVadScore({ vadScore })  — VAD probability 0–1, fires during listening.
-//     Apply noise gate at 0.05 + EMA to clean up mic bleed between words.
+//   • getInputVolume()          — Web Audio RMS of user input, polled ~30fps.
 //   • getOutputVolume()         — Web Audio RMS of AI output, polled ~30fps.
-//     Apply OUTPUT_GAIN + EMA to match Vapi's dynamic range.
+//     Apply gain to make visual movement readable across providers.
 //
 // EMA config: lighter than Vapi (EL signal is already clean, less smoothing needed)
 //   attack=0.5 (fast rise), release=0.15 (moderate decay)
@@ -121,24 +120,39 @@ export function createElevenLabsAdapter(
   // Active conversation instance + cleanup reference
   let conversation: ElevenLabsConversation | null = null
   let volumeInterval: ReturnType<typeof setInterval> | null = null
+  let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+  let currentState: OrbState = 'idle'
 
   // Subscriber registry — supports multiple simultaneous subscribers
   // (e.g. Orb + signal monitor both subscribing at the same time)
-  const subscribers = new Set<AdapterCallbacks>()
+  const subscribers = new Set<OrbSignalListener>()
 
-  function emitState(s: OrbState) {
-    subscribers.forEach((cb) => cb.onStateChange(s))
+  function emitSignal(nextSignal: OrbSignal) {
+    signal = nextSignal
+    subscribers.forEach((listener) => listener(nextSignal))
   }
-  function emitVolume(v: number) {
-    subscribers.forEach((cb) => cb.onVolumeChange(v))
+
+  function emitPatch(patch: Partial<OrbSignal> & { state?: OrbState }) {
+    signal = { ...signal, ...patch, state: patch.state ?? signal.state }
+    emitSignal(signal)
+  }
+
+  function setState(state: OrbState) {
+    currentState = state
+    emitPatch({ state })
   }
 
   function startVolumePolling() {
     if (volumeInterval) return
     volumeInterval = setInterval(() => {
       if (!conversation) return
-      const raw = conversation.getOutputVolume()
-      emitVolume(Math.min(raw * 2.0, 1.0))
+      if (currentState === 'listening') {
+        const inputVolume = Math.min(conversation.getInputVolume() * 2.0, 1.0)
+        emitPatch({ volume: inputVolume, inputVolume })
+      } else if (currentState === 'speaking') {
+        const outputVolume = Math.min(conversation.getOutputVolume() * 2.0, 1.0)
+        emitPatch({ volume: outputVolume, outputVolume })
+      }
     }, 33) // ~30 fps
   }
 
@@ -147,51 +161,52 @@ export function createElevenLabsAdapter(
       clearInterval(volumeInterval)
       volumeInterval = null
     }
-    emitVolume(0)
+    emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
   }
 
   // ElevenLabs callbacks — injected into startSession
   const elevenLabsCallbacks: ElevenLabsCallbacks = {
     onStatusChange: ({ status }) => {
-      if (status === 'connecting') emitState('connecting')
+      if (status === 'connecting') setState('connecting')
     },
 
     onConnect: () => {
-      emitState('listening')
+      setState('listening')
+      startVolumePolling()
     },
 
     onModeChange: ({ mode }) => {
       if (mode === 'speaking') {
-        emitState('speaking')
+        setState('speaking')
         startVolumePolling()
       } else {
-        emitState('listening')
-        stopVolumePolling()
+        setState('listening')
+        startVolumePolling()
       }
     },
 
     onDisconnect: () => {
       stopVolumePolling()
-      emitState('idle')
-      emitVolume(0)
+      setState('idle')
+      emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
       conversation = null
     },
 
     onError: (message) => {
       console.error('[orb-ui/elevenlabs] Error:', message)
       stopVolumePolling()
-      emitState('error')
-      emitVolume(0)
+      setState('error')
+      emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: message })
       conversation = null
     },
   }
 
   return {
     // ── OrbAdapter.subscribe ────────────────────────────────────────────────
-    subscribe(callbacks: AdapterCallbacks) {
-      subscribers.add(callbacks)
+    subscribe(listener: OrbSignalListener) {
+      subscribers.add(listener)
       return () => {
-        subscribers.delete(callbacks)
+        subscribers.delete(listener)
         if (subscribers.size === 0) stopVolumePolling()
       }
     },
@@ -206,8 +221,8 @@ export function createElevenLabsAdapter(
         })
       } catch (err) {
         console.error('[orb-ui/elevenlabs] startSession failed:', err)
-        emitState('error')
-        emitVolume(0)
+        setState('error')
+        emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: err })
       }
     },
 

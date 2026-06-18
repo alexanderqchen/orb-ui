@@ -12,8 +12,8 @@ Your app owns the Realtime session. orb-ui renders the visual state.
 ```tsx
 import { Orb } from 'orb-ui'
 
-export function OpenAIRealtimeOrb({ realtimeState, outputVolume }) {
-  return <Orb state={realtimeState} volume={outputVolume} theme="circle" />
+export function OpenAIRealtimeOrb({ realtimeSignal }) {
+  return <Orb signal={realtimeSignal} theme="circle" />
 }
 ```
 
@@ -23,6 +23,7 @@ Map your session events into the Orb component:
 
 - connection started -> `connecting`
 - user audio detected -> `listening`
+- model processing -> `thinking`
 - assistant audio output -> `speaking`
 - session idle -> `idle`
 - session failure -> `error`

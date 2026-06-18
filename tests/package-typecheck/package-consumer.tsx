@@ -1,6 +1,6 @@
 import { Orb } from 'orb-ui'
 import { createElevenLabsAdapter } from 'orb-ui/adapters'
-import type { ElevenLabsConversationClass, OrbAdapter } from 'orb-ui/adapters'
+import type { ElevenLabsConversationClass, OrbAdapter, OrbSignal } from 'orb-ui/adapters'
 
 const Conversation: ElevenLabsConversationClass = {
   startSession: async () => ({
@@ -17,7 +17,15 @@ const elevenLabsAdapter = createElevenLabsAdapter(Conversation, {
 })
 
 const customAdapter: OrbAdapter = {
-  subscribe: () => () => undefined,
+  subscribe: (listener) => {
+    listener({ state: 'thinking' })
+    return () => undefined
+  },
+}
+
+const signal: OrbSignal = {
+  state: 'speaking',
+  outputVolume: 0.7,
 }
 
 export function PackageConsumerSmoke() {
@@ -25,6 +33,7 @@ export function PackageConsumerSmoke() {
     <>
       <Orb adapter={elevenLabsAdapter} theme="circle" aria-label="Start ElevenLabs assistant" />
       <Orb adapter={customAdapter} theme="debug" />
+      <Orb signal={signal} theme="circle" />
     </>
   )
 }

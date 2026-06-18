@@ -12,8 +12,8 @@ orb-ui does not ship a dedicated Gemini Live adapter yet.
 ```tsx
 import { Orb } from 'orb-ui'
 
-export function GeminiLiveStatus({ sessionState, volume }) {
-  return <Orb state={sessionState} volume={volume} theme="circle" />
+export function GeminiLiveStatus({ liveSignal }) {
+  return <Orb signal={liveSignal} theme="circle" />
 }
 ```
 
@@ -23,10 +23,11 @@ The useful implementation target is Gemini Live API, Gemini voice API, Gemini Li
 
 ## How orb-ui fits
 
-Your Gemini integration owns the stateful voice session. orb-ui receives normalized UI state and volume:
+Your Gemini integration owns the stateful voice session. orb-ui receives a normalized voice signal:
 
 - `connecting`
 - `listening`
+- `thinking`
 - `speaking`
 - `idle`
 - `error`

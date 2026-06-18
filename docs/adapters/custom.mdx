@@ -16,8 +16,8 @@ Use it when your app already knows:
 ```tsx
 import { Orb } from 'orb-ui'
 
-export function CustomVoiceUI({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="circle" />
+export function CustomVoiceUI({ voiceSignal }) {
+  return <Orb signal={voiceSignal} theme="circle" />
 }
 ```
 
@@ -34,7 +34,7 @@ Controlled mode works well with:
 
 ## Normalize volume
 
-Volume should be normalized from `0` to `1`.
+`volume`, `inputVolume`, and `outputVolume` should be normalized from `0` to `1`.
 
 ```ts
 function normalizeVolume(raw: number) {
@@ -48,10 +48,13 @@ If your integration becomes reusable, wrap it in an adapter.
 
 ```ts
 const adapter = {
-  subscribe(callbacks) {
+  subscribe(listener) {
     const unsubscribe = voiceSession.onChange((event) => {
-      callbacks.onStateChange(event.state)
-      callbacks.onVolumeChange(event.volume)
+      listener({
+        state: event.state,
+        inputVolume: event.inputVolume,
+        outputVolume: event.outputVolume,
+      })
     })
 
     return unsubscribe

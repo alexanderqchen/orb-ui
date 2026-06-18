@@ -14,12 +14,13 @@ interface DebugThemeProps extends DebugThemeRootProps {
   onStop?: () => void
 }
 
-const ALL_STATES: OrbState[] = ['idle', 'connecting', 'listening', 'speaking', 'error']
+const ALL_STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 
 const STATE_COLORS: Record<OrbState, string> = {
   idle: '#888',
   connecting: '#f0c040',
   listening: '#40c0f0',
+  thinking: '#c084fc',
   speaking: '#40f080',
   error: '#f04040',
 }
@@ -107,7 +108,7 @@ export function DebugTheme({
                 cursor: disabled ? 'not-allowed' : 'pointer',
               }}
               // Note: forcing state from the debug panel requires controlled mode.
-              // In controlled mode, wire onStateChange to your own state.
+              // In controlled mode, wire this to your own state setter.
               onClick={() => {
                 console.warn(
                   `[orb-ui debug] To force state '${s}', use controlled mode: <Orb state="${s}" />`,

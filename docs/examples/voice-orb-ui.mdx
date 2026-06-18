@@ -36,11 +36,11 @@ export function ProviderOrb() {
 
 ## Custom controlled orb
 
-Use controlled mode when a custom stack supplies state and volume.
+Use controlled mode when a custom stack supplies a voice signal.
 
 ```tsx
-export function CustomOrb({ voiceState, outputLevel }) {
-  return <Orb state={voiceState} volume={outputLevel} theme="bars" />
+export function CustomOrb({ voiceSignal }) {
+  return <Orb signal={voiceSignal} theme="bars" />
 }
 ```
 
@@ -48,5 +48,6 @@ export function CustomOrb({ voiceState, outputLevel }) {
 
 - Do not animate aggressively while idle.
 - Make listening and speaking visually distinct.
+- Use thinking for processing gaps between user input and assistant speech.
 - Keep error states obvious but not alarming.
 - Pair the orb with a transcript or status label when users need more precision.

@@ -2,6 +2,7 @@ import Vapi from '@vapi-ai/web'
 import { Conversation } from '@elevenlabs/client'
 import { Orb } from '../../src'
 import { createElevenLabsAdapter, createVapiAdapter } from '../../src/adapters'
+import type { LegacyOrbAdapter, OrbAdapter, OrbSignal } from '../../src/adapters'
 
 const vapi = new Vapi('public-key')
 const vapiAdapter = createVapiAdapter(vapi, {
@@ -19,6 +20,28 @@ const signedUrlElevenLabsAdapter = createElevenLabsAdapter(Conversation, {
 const tokenElevenLabsAdapter = createElevenLabsAdapter(Conversation, {
   conversationToken: 'conversation-token',
 })
+
+const customSignalAdapter: OrbAdapter = {
+  subscribe(listener) {
+    listener({ state: 'thinking' })
+    listener({ state: 'speaking', outputVolume: 0.7 })
+    return () => undefined
+  },
+}
+
+const legacyAdapter: LegacyOrbAdapter = {
+  subscribe(callbacks) {
+    callbacks.onStateChange('listening')
+    callbacks.onVolumeChange(0.4)
+    return () => undefined
+  },
+}
+
+const signal: OrbSignal = {
+  state: 'speaking',
+  inputVolume: 0.1,
+  outputVolume: 0.7,
+}
 
 // @ts-expect-error ElevenLabs sessions require agentId, signedUrl, or conversationToken.
 createElevenLabsAdapter(Conversation, {})
@@ -62,6 +85,9 @@ export function ProviderAdapterSmokeExamples() {
         theme="circle"
         aria-label="Start token-based ElevenLabs voice assistant"
       />
+      <Orb adapter={customSignalAdapter} theme="circle" aria-label="Start custom voice assistant" />
+      <Orb adapter={legacyAdapter} theme="debug" />
+      <Orb signal={signal} theme="circle" />
       <Orb state="listening" volume={0.4} theme="debug" id="controlled-orb" />
     </>
   )

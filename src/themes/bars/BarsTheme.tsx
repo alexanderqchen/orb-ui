@@ -24,6 +24,7 @@ const STATE_COLORS: Record<string, string> = {
   idle: '#cccccc',
   connecting: '#cccccc',
   listening: '#999999',
+  thinking: '#d8d8d8',
   speaking: '#e8e8e8',
   error: '#f87171',
 }
@@ -157,8 +158,8 @@ export function BarsTheme({
       return () => cancelAnimationFrame(rafRef.current)
     }
 
-    // connecting — regular wave animation (loading feel)
-    if (state === 'connecting') {
+    // connecting / thinking — regular wave animation (loading feel)
+    if (state === 'connecting' || state === 'thinking') {
       const startTime = Date.now()
       const animate = () => {
         const t = (Date.now() - startTime) / 1000

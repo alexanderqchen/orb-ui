@@ -1,4 +1,4 @@
-import type { OrbAdapter, OrbState, AdapterCallbacks } from '../types'
+import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
 
 // Minimal interface for the Vapi client from @vapi-ai/web.
 // We define our own so orb-ui doesn't require @vapi-ai/web as a dependency —
@@ -95,8 +95,8 @@ function makeStateEmitter(onStateChange: (s: OrbState) => void) {
  *   call-end                               → 'idle'
  *   error                                  → 'error'
  *
- * Volume: raw Vapi values are normalized (noise gate + EMA) before being
- * passed to onVolumeChange, so themes receive a clean 0–1 signal.
+ * Volume: raw Vapi values are normalized (noise gate + EMA) before being emitted
+ * as outputVolume while the assistant is speaking.
  *
  * @param client  - A Vapi instance from @vapi-ai/web
  * @param options - Optional config (e.g. assistantId to pass to vapi.start())
@@ -129,8 +129,19 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       client.stop()
     },
 
-    subscribe({ onStateChange, onVolumeChange }: AdapterCallbacks) {
-      const { emitState, clearTimer } = makeStateEmitter(onStateChange)
+    subscribe(listener: OrbSignalListener) {
+      let signal: OrbSignal = { state: 'idle', volume: 0, outputVolume: 0 }
+
+      function emitSignal(nextSignal: OrbSignal) {
+        signal = nextSignal
+        listener(nextSignal)
+      }
+
+      function emitPatch(patch: Partial<OrbSignal> & { state?: OrbState }) {
+        emitSignal({ ...signal, ...patch, state: patch.state ?? signal.state })
+      }
+
+      const { emitState, clearTimer } = makeStateEmitter((state) => emitPatch({ state }))
 
       // Track current state so we can gate volume sources
       let currentState: OrbState = 'idle'
@@ -140,6 +151,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         callActive = true
         currentState = 'listening'
         emitState('listening')
+        emitPatch({ volume: 0, outputVolume: 0 })
       }
 
       const onCallEnd = () => {
@@ -147,7 +159,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         currentState = 'idle'
         stopVolLoop()
         emitState('idle')
-        onVolumeChange(0)
+        emitPatch({ volume: 0, outputVolume: 0 })
         emaVol = 0
       }
 
@@ -155,6 +167,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         if (!callActive) return
         currentState = 'speaking'
         emitState('speaking')
+        emitPatch({ volume: 0, outputVolume: 0 })
         startVolLoop()
       }
 
@@ -174,7 +187,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       const volLoop = () => {
         if (currentState === 'speaking') {
           currentVol += (targetVol - currentVol) * 0.1
-          onVolumeChange(currentVol)
+          emitPatch({ volume: currentVol, outputVolume: currentVol })
         }
         volRaf = requestAnimationFrame(volLoop)
       }
@@ -208,7 +221,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         console.error('[orb-ui/vapi] Error:', error)
         stopVolLoop()
         emitState('error')
-        onVolumeChange(0)
+        emitPatch({ volume: 0, outputVolume: 0, error })
         emaVol = 0
       }
 

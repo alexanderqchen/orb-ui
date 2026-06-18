@@ -31,6 +31,7 @@ const STATE_COLORS: Record<OrbState, string> = {
   idle: '#cccccc',
   connecting: '#cccccc',
   listening: '#999999',
+  thinking: '#d8d8d8',
   speaking: '#e8e8e8',
   error: '#f87171',
 }
@@ -84,7 +85,7 @@ export function CircleTheme({
   const hoverRef = useRef<HTMLSpanElement>(null)
   const rafRef = useRef<number>(0)
 
-  // Sync adapter volume into a ref so the rAF loop always reads the latest
+  // Sync signal volume into a ref so the rAF loop always reads the latest
   // value without being in the useEffect dependency array.
   const volumeRef = useRef(volume)
   useIsomorphicLayoutEffect(() => {
@@ -115,7 +116,7 @@ export function CircleTheme({
   }, [])
 
   // ─── rAF loop (listening + speaking) ─────────────────────────────────────
-  // Runs at display rate (~60 fps). Reads adapter volume via ref, interpolates
+  // Runs at display rate (~60 fps). Reads signal volume via ref, interpolates
   // toward target scale/glow/color, writes directly to DOM style.
   useEffect(() => {
     const el = circleRef.current
@@ -231,7 +232,7 @@ export function CircleTheme({
 
           if (state === 'idle') {
             el.style.animation = 'orb-circle-idle-pulse 3s ease-in-out infinite alternate'
-          } else if (state === 'connecting') {
+          } else if (state === 'connecting' || state === 'thinking') {
             el.style.animation = 'orb-circle-connecting-pulse 1.5s ease-in-out infinite'
           } else {
             el.style.animation = 'none'

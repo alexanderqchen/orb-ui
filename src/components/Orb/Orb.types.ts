@@ -1,23 +1,43 @@
 import type { AriaAttributes, CSSProperties } from 'react'
 
-export type OrbState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error'
+export type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
 
 export type OrbTheme = 'debug' | 'circle' | 'bars'
 
+export interface OrbSignal {
+  state: OrbState
+  volume?: number
+  inputVolume?: number
+  outputVolume?: number
+  error?: unknown
+}
+
+export type OrbSignalListener = (signal: OrbSignal) => void
+
 export interface OrbAdapter {
   /**
-   * Subscribe to state and volume changes from a voice provider.
+   * Subscribe to normalized signal changes from a voice provider.
    * Returns an unsubscribe function to clean up listeners.
    */
-  subscribe(callbacks: {
-    onStateChange: (state: OrbState) => void
-    onVolumeChange: (volume: number) => void // normalized 0–1
-  }): () => void
+  subscribe(listener: OrbSignalListener): () => void
 
   /** Start the voice session. Called internally by Orb on click. */
   start?: () => void | Promise<void>
 
   /** Stop the voice session. Called internally by Orb on click. */
+  stop?: () => void | Promise<void>
+}
+
+/** @deprecated Use signal-based OrbAdapter.subscribe(listener). */
+export interface AdapterCallbacks {
+  onStateChange: (state: OrbState) => void
+  onVolumeChange: (volume: number) => void
+}
+
+/** @deprecated Callback-object adapters will be removed in 0.5.0. */
+export interface LegacyOrbAdapter {
+  subscribe(callbacks: AdapterCallbacks): () => void
+  start?: () => void | Promise<void>
   stop?: () => void | Promise<void>
 }
 
@@ -38,22 +58,28 @@ export interface OrbHtmlAttributes extends AriaAttributes {
 
 export interface OrbProps extends OrbHtmlAttributes {
   /**
+   * Current voice signal. Use this controlled mode when your app has separate
+   * input and output volume levels.
+   */
+  signal?: OrbSignal
+
+  /**
    * Current conversation state. Required in controlled mode (no adapter).
-   * Overrides adapter state if both are provided.
+   * Overrides signal and adapter state if provided.
    */
   state?: OrbState
 
   /**
    * Current audio volume, normalized 0–1.
-   * Overrides adapter volume if both are provided.
+   * Overrides signal and adapter volume if provided.
    */
   volume?: number
 
   /**
    * Provider adapter (Vapi, ElevenLabs, etc.).
-   * Handles state and volume automatically from the SDK.
+   * Handles signal updates automatically from the SDK.
    */
-  adapter?: OrbAdapter
+  adapter?: OrbAdapter | LegacyOrbAdapter
 
   /** Visual theme. Defaults to 'debug'. */
   theme?: OrbTheme

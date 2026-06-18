@@ -35,10 +35,21 @@ The state can be one of:
 - `idle`
 - `connecting`
 - `listening`
+- `thinking`
 - `speaking`
 - `error`
 
 Volume should be a number from `0` to `1`.
+
+Use `signal` when your app has separate user input and assistant output levels:
+
+```tsx
+import { Orb } from 'orb-ui'
+
+export function VoiceAgentStatus({ signal }) {
+  return <Orb signal={signal} theme="circle" size={240} />
+}
+```
 
 ## Vapi
 

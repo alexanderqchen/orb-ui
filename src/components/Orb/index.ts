@@ -1,2 +1,11 @@
 export { Orb } from './Orb'
-export type { OrbProps, OrbState, OrbTheme, OrbAdapter } from './Orb.types'
+export type {
+  AdapterCallbacks,
+  LegacyOrbAdapter,
+  OrbAdapter,
+  OrbProps,
+  OrbSignal,
+  OrbSignalListener,
+  OrbState,
+  OrbTheme,
+} from './Orb.types'

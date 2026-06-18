@@ -11,4 +11,11 @@ export {
   type ElevenLabsStartSessionOptions,
   type ElevenLabsStatus,
 } from './elevenlabs'
-export type { OrbAdapter, OrbState, AdapterCallbacks } from './types'
+export type {
+  AdapterCallbacks,
+  LegacyOrbAdapter,
+  OrbAdapter,
+  OrbSignal,
+  OrbSignalListener,
+  OrbState,
+} from './types'

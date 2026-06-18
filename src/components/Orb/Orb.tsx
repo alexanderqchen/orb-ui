@@ -1,86 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { OrbProps, OrbState } from './Orb.types'
-import { normalizeMicVolume } from '../../adapters/types'
+import { useCallback, useEffect, useState } from 'react'
+import type { OrbProps, OrbSignal } from './Orb.types'
+import { createOrbSignalListener, deriveOrbState, deriveOrbVolume } from './signals'
 import { DebugTheme } from '../../themes/debug'
 import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
 
-// ─── Mic monitor ──────────────────────────────────────────────────────────────
-// Shared mic volume monitoring via Web Audio API. Runs at 60fps when active.
-// Lives in Orb so it's provider-agnostic — no mic code in adapters.
-
-function createMicMonitor() {
-  let context: AudioContext | null = null
-  let analyser: AnalyserNode | null = null
-  let source: MediaStreamAudioSourceNode | null = null
-  let raf: number = 0
-  let ema = 0
-  let stream: MediaStream | null = null
-
-  // Intercept getUserMedia to capture the mic stream
-  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-    const _origGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
-    navigator.mediaDevices.getUserMedia = async (constraints) => {
-      const s = await _origGUM(constraints)
-      if (constraints?.audio) stream = s
-      return s
-    }
-  }
-
-  function start(onVolume: (v: number) => void) {
-    if (!stream || analyser) return
-    try {
-      context = new AudioContext()
-      analyser = context.createAnalyser()
-      analyser.fftSize = 256
-      source = context.createMediaStreamSource(stream)
-      source.connect(analyser)
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-
-      const poll = () => {
-        if (!analyser) return
-        analyser.getByteFrequencyData(dataArray)
-        let sum = 0
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i] * dataArray[i]
-        const rms = Math.sqrt(sum / dataArray.length) / 255
-        const rate = rms > ema ? 0.7 : 0.3
-        ema += (rms - ema) * rate
-        onVolume(normalizeMicVolume(ema))
-        raf = requestAnimationFrame(poll)
-      }
-      raf = requestAnimationFrame(poll)
-    } catch (e) {
-      console.warn('[orb-ui] Mic monitor failed:', e)
-    }
-  }
-
-  function stop() {
-    cancelAnimationFrame(raf)
-    raf = 0
-    ema = 0
-    source?.disconnect()
-    source = null
-    analyser = null
-  }
-
-  function release() {
-    stop()
-    if (context) {
-      context.close().catch(() => {})
-      context = null
-    }
-    stream?.getTracks().forEach((track) => {
-      if (track.readyState === 'live') track.stop()
-    })
-    stream = null
-  }
-
-  return { start, stop, release }
-}
-
 // ─── Orb component ────────────────────────────────────────────────────────────
 
+let legacyAdapterWarningShown = false
+
+function isProductionEnvironment() {
+  const globalProcess = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process
+  return globalProcess?.env?.NODE_ENV === 'production'
+}
+
+function warnLegacyAdapter() {
+  if (legacyAdapterWarningShown || isProductionEnvironment()) return
+  legacyAdapterWarningShown = true
+  console.warn(
+    '[orb-ui] Callback-object adapters are deprecated. Use subscribe(listener) and emit OrbSignal objects instead. Legacy adapters will be removed in 0.5.0.',
+  )
+}
+
 export function Orb({
+  signal: signalProp,
   state: stateProp,
   volume: volumeProp,
   adapter,
@@ -93,60 +36,20 @@ export function Orb({
   onStop,
   ...htmlProps
 }: OrbProps) {
-  const [adapterState, setAdapterState] = useState<OrbState>('idle')
-  const [adapterVolume, setAdapterVolume] = useState(0)
-  const [micVolume, setMicVolume] = useState(0)
-  const micMonitorRef = useRef(createMicMonitor())
-  const micActiveRef = useRef(false)
+  const [adapterSignal, setAdapterSignal] = useState<OrbSignal>({ state: 'idle' })
 
   useEffect(() => {
-    // Reset state when adapter changes (e.g. provider switch)
-    setAdapterState('idle')
-    setAdapterVolume(0)
-    setMicVolume(0)
+    setAdapterSignal({ state: 'idle' })
 
     if (!adapter) return
-    const unsubscribe = adapter.subscribe({
-      onStateChange: setAdapterState,
-      onVolumeChange: setAdapterVolume,
-    })
+    const listener = createOrbSignalListener(setAdapterSignal, warnLegacyAdapter)
+    const unsubscribe = adapter.subscribe(listener)
     return unsubscribe
   }, [adapter])
 
-  // Controlled props override adapter values
-  const state: OrbState = stateProp ?? adapterState
-
-  // Mic monitor: start when listening, stop otherwise
-  useEffect(() => {
-    const mic = micMonitorRef.current
-
-    if (state === 'listening' && adapter) {
-      // Small delay to let the adapter's SDK acquire the mic first
-      const timer = setTimeout(() => {
-        mic.start(setMicVolume)
-        micActiveRef.current = true
-      }, 500)
-      return () => {
-        clearTimeout(timer)
-        mic.stop()
-        micActiveRef.current = false
-        setMicVolume(0)
-      }
-    } else {
-      mic.stop()
-      micActiveRef.current = false
-      setMicVolume(0)
-    }
-  }, [state, adapter])
-
-  // Release mic on unmount
-  useEffect(() => {
-    return () => micMonitorRef.current.release()
-  }, [])
-
-  // Use mic volume when listening, adapter volume otherwise
-  const volume: number =
-    volumeProp ?? (state === 'listening' && micActiveRef.current ? micVolume : adapterVolume)
+  const activeSignal = signalProp ?? adapterSignal
+  const state = deriveOrbState(stateProp, signalProp, adapterSignal)
+  const volume = deriveOrbVolume(volumeProp, state, activeSignal)
 
   const isActive = state !== 'idle' && state !== 'error'
 

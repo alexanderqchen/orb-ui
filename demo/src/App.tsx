@@ -4,7 +4,7 @@ import { Orb } from 'orb-ui'
 import type { OrbState, OrbTheme } from 'orb-ui'
 
 // Constants
-const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'speaking', 'error']
+const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#eab308'
@@ -20,8 +20,9 @@ interface SimulationStep {
 const SIMULATION_STEPS: SimulationStep[] = [
   { state: 'idle', duration: 1300 },
   { state: 'connecting', duration: 1000 },
-  { state: 'speaking', duration: 3400 },
   { state: 'listening', duration: 2600 },
+  { state: 'thinking', duration: 900 },
+  { state: 'speaking', duration: 3400 },
 ]
 
 const SIMULATION_DURATION = SIMULATION_STEPS.reduce((total, step) => total + step.duration, 0)
@@ -57,14 +58,16 @@ const ADAPTER_CODE = `import { Orb } from "orb-ui"
 import type { OrbAdapter } from "orb-ui"
 
 const adapter: OrbAdapter = {
-  subscribe({ onStateChange, onVolumeChange }) {
-    voiceClient.on("state", onStateChange)
-    voiceClient.on("volume", onVolumeChange)
+  subscribe(listener) {
+    const unsubscribe = voiceClient.on("signal", (signal) => {
+      listener({
+        state: signal.state,
+        inputVolume: signal.inputVolume,
+        outputVolume: signal.outputVolume
+      })
+    })
 
-    return () => {
-      voiceClient.off("state", onStateChange)
-      voiceClient.off("volume", onVolumeChange)
-    }
+    return unsubscribe
   },
   start: () => voiceClient.start(),
   stop: () => voiceClient.stop()
@@ -76,12 +79,12 @@ export function VoiceOrb() {
 
 const CONTROLLED_CODE = `import { useEffect, useState } from "react"
 import { Orb } from "orb-ui"
-import type { OrbState } from "orb-ui"
+import type { OrbSignal } from "orb-ui"
 
 export function PreviewOrb() {
-  const [signal, setSignal] = useState({
-    state: "listening" as OrbState,
-    volume: 0
+  const [signal, setSignal] = useState<OrbSignal>({
+    state: "listening",
+    inputVolume: 0
   })
 
   useEffect(() => {
@@ -92,7 +95,11 @@ export function PreviewOrb() {
       const state = Math.floor(t / 3) % 2 === 0 ? "speaking" : "listening"
       const volume = Math.max(0, Math.min(1, 0.45 + Math.sin(t * 9) * 0.3))
 
-      setSignal({ state, volume })
+      setSignal(
+        state === "speaking"
+          ? { state, outputVolume: volume }
+          : { state, inputVolume: volume }
+      )
       frame = requestAnimationFrame(tick)
     }
 
@@ -101,7 +108,7 @@ export function PreviewOrb() {
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  return <Orb state={signal.state} volume={signal.volume} theme="circle" />
+  return <Orb signal={signal} theme="circle" />
 }`
 
 function clamp(value: number, min = 0, max = 1) {
@@ -195,7 +202,7 @@ const SEO_SECTIONS = [
   {
     id: 'adapters',
     title: 'Provider adapters',
-    copy: 'Use Vapi and ElevenLabs adapters, or control state and volume yourself.',
+    copy: 'Use Vapi and ElevenLabs adapters, or control voice signals yourself.',
     link: '/docs/adapters/vapi',
     linkLabel: 'Explore adapters',
   },

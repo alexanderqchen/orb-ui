@@ -92,6 +92,16 @@ function App() {
 }
 ```
 
+Use `signal` when your integration has separate input and output levels:
+
+```jsx
+import { Orb } from 'orb-ui'
+
+function App() {
+  return <Orb signal={{ state: 'speaking', outputVolume: 0.7 }} theme="circle" />
+}
+```
+
 ## Themes
 
 | Theme    | Description                                                                   |
@@ -107,9 +117,10 @@ When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` r
 | Prop         | Type                            | Default   | Description                                                 |
 | ------------ | ------------------------------- | --------- | ----------------------------------------------------------- |
 | `theme`      | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme                                                |
+| `signal`     | `OrbSignal`                     | —         | Rich controlled signal with state/input/output volume       |
 | `state`      | `OrbState`                      | `'idle'`  | Conversation state (controlled mode)                        |
-| `volume`     | `number`                        | `0`       | Audio volume, 0–1 (controlled mode)                         |
-| `adapter`    | `OrbAdapter`                    | —         | Provider adapter (manages state + volume automatically)     |
+| `volume`     | `number`                        | `0`       | Audio volume, 0–1. Overrides signal/adapter volume.         |
+| `adapter`    | `OrbAdapter`                    | —         | Provider adapter (manages signal updates automatically)     |
 | `size`       | `number`                        | `200`     | Size in pixels                                              |
 | `className`  | `string`                        | —         | Optional class name for the rendered theme                  |
 | `style`      | `React.CSSProperties`           | —         | Optional inline styles for the rendered theme               |
@@ -120,15 +131,15 @@ When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` r
 
 ## States
 
-`idle` · `connecting` · `listening` · `speaking` · `error`
+`idle` · `connecting` · `listening` · `thinking` · `speaking` · `error`
 
 ## Supported Providers
 
-| Provider                                              | Adapter                                                  |
-| ----------------------------------------------------- | -------------------------------------------------------- |
-| [Vapi](https://vapi.ai)                               | `createVapiAdapter` from `orb-ui/adapters`               |
-| [ElevenLabs](https://elevenlabs.io/conversational-ai) | `createElevenLabsAdapter` from `orb-ui/adapters`         |
-| Custom                                                | Use controlled mode — pass `state` and `volume` directly |
+| Provider                                              | Adapter                                                               |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| [Vapi](https://vapi.ai)                               | `createVapiAdapter` from `orb-ui/adapters`                            |
+| [ElevenLabs](https://elevenlabs.io/conversational-ai) | `createElevenLabsAdapter` from `orb-ui/adapters`                      |
+| Custom                                                | Use controlled mode — pass `signal`, or `state` and `volume` directly |
 
 ## Development
 
