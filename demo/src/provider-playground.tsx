@@ -211,13 +211,39 @@ function ProviderPlayground() {
     setConfig((current) => ({ ...current, [key]: value }))
   }, [])
 
-  const resetConfig = useCallback(() => {
-    setConfig(readConfig())
-  }, [])
+  const resetProviderConfig = useCallback(() => {
+    const defaultConfig = readConfig()
 
-  const clearConfig = useCallback(() => {
-    setConfig({ vapiPublicKey: '', vapiAssistantId: '', elevenLabsAgentId: '' })
-  }, [])
+    setConfig((current) => {
+      if (provider === 'vapi') {
+        return {
+          ...current,
+          vapiPublicKey: defaultConfig.vapiPublicKey,
+          vapiAssistantId: defaultConfig.vapiAssistantId,
+        }
+      }
+
+      if (provider === 'elevenlabs') {
+        return { ...current, elevenLabsAgentId: defaultConfig.elevenLabsAgentId }
+      }
+
+      return current
+    })
+  }, [provider])
+
+  const clearProviderConfig = useCallback(() => {
+    setConfig((current) => {
+      if (provider === 'vapi') {
+        return { ...current, vapiPublicKey: '', vapiAssistantId: '' }
+      }
+
+      if (provider === 'elevenlabs') {
+        return { ...current, elevenLabsAgentId: '' }
+      }
+
+      return current
+    })
+  }, [provider])
 
   const recordSignal = useCallback((nextProvider: ProviderId, signal: OrbSignal) => {
     setLatestSignal(signal)
@@ -464,46 +490,63 @@ function ProviderPlayground() {
           </section>
 
           <aside className="provider-sidebar" aria-label="Provider diagnostics">
-            <section className="provider-panel provider-diagnostics">
-              <span className="provider-label">Provider Config</span>
-              <div className="provider-field-list">
-                <ConfigField
-                  id="config-vapi-public-key"
-                  label="Vapi public key"
-                  onChange={(value) => updateConfig('vapiPublicKey', value)}
-                  type="password"
-                  value={config.vapiPublicKey}
-                />
-                <ConfigField
-                  id="config-vapi-assistant-id"
-                  label="Vapi assistant ID"
-                  onChange={(value) => updateConfig('vapiAssistantId', value)}
-                  value={config.vapiAssistantId}
-                />
-                <ConfigField
-                  id="config-elevenlabs-agent-id"
-                  label="ElevenLabs agent ID"
-                  onChange={(value) => updateConfig('elevenLabsAgentId', value)}
-                  value={config.elevenLabsAgentId}
-                />
-              </div>
-              <div className="provider-config-actions">
-                <button className="provider-button" onClick={resetConfig} type="button">
-                  Use env defaults
-                </button>
-                <button className="provider-button" onClick={clearConfig} type="button">
-                  Clear
-                </button>
-              </div>
-              <div className="provider-env-list">
-                <EnvRow label="Vapi public key" ready={Boolean(activeConfig.vapiPublicKey)} />
-                <EnvRow label="Vapi assistant ID" ready={Boolean(activeConfig.vapiAssistantId)} />
-                <EnvRow
-                  label="ElevenLabs agent ID"
-                  ready={Boolean(activeConfig.elevenLabsAgentId)}
-                />
-              </div>
-            </section>
+            {provider !== 'manual' ? (
+              <section className="provider-panel provider-diagnostics">
+                <span className="provider-label">
+                  {provider === 'vapi' ? 'Vapi Config' : 'ElevenLabs Config'}
+                </span>
+                <div className="provider-field-list">
+                  {provider === 'vapi' ? (
+                    <>
+                      <ConfigField
+                        id="config-vapi-public-key"
+                        label="Vapi public key"
+                        onChange={(value) => updateConfig('vapiPublicKey', value)}
+                        type="password"
+                        value={config.vapiPublicKey}
+                      />
+                      <ConfigField
+                        id="config-vapi-assistant-id"
+                        label="Vapi assistant ID"
+                        onChange={(value) => updateConfig('vapiAssistantId', value)}
+                        value={config.vapiAssistantId}
+                      />
+                    </>
+                  ) : (
+                    <ConfigField
+                      id="config-elevenlabs-agent-id"
+                      label="ElevenLabs agent ID"
+                      onChange={(value) => updateConfig('elevenLabsAgentId', value)}
+                      value={config.elevenLabsAgentId}
+                    />
+                  )}
+                </div>
+                <div className="provider-config-actions">
+                  <button className="provider-button" onClick={resetProviderConfig} type="button">
+                    Use env defaults
+                  </button>
+                  <button className="provider-button" onClick={clearProviderConfig} type="button">
+                    Clear
+                  </button>
+                </div>
+                <div className="provider-env-list">
+                  {provider === 'vapi' ? (
+                    <>
+                      <EnvRow label="Vapi public key" ready={Boolean(activeConfig.vapiPublicKey)} />
+                      <EnvRow
+                        label="Vapi assistant ID"
+                        ready={Boolean(activeConfig.vapiAssistantId)}
+                      />
+                    </>
+                  ) : (
+                    <EnvRow
+                      label="ElevenLabs agent ID"
+                      ready={Boolean(activeConfig.elevenLabsAgentId)}
+                    />
+                  )}
+                </div>
+              </section>
+            ) : null}
 
             <section className="provider-panel provider-diagnostics">
               <span className="provider-label">Latest Signal</span>
