@@ -114,6 +114,29 @@ describe('Vapi adapter signals', () => {
     animationFrame.flush()
     expect(signals).toHaveLength(signalCount)
   })
+
+  it('keeps volume smoothing independent for each subscriber', () => {
+    const animationFrame = installAnimationFrameStub()
+    const client = new FakeVapiClient()
+    const adapter = createVapiAdapter(client as unknown as VapiClientLike)
+    const firstSignals: OrbSignal[] = []
+    const secondSignals: OrbSignal[] = []
+
+    const unsubscribeFirst = adapter.subscribe((signal) => firstSignals.push(signal))
+    const unsubscribeSecond = adapter.subscribe((signal) => secondSignals.push(signal))
+
+    client.emit('call-start')
+    client.emit('speech-start')
+    client.emit('volume-level', 1)
+    animationFrame.flush()
+
+    expect(lastSignal(firstSignals).outputVolume).toBeCloseTo(
+      lastSignal(secondSignals).outputVolume ?? 0,
+    )
+
+    unsubscribeFirst()
+    unsubscribeSecond()
+  })
 })
 
 describe('ElevenLabs adapter signals', () => {
@@ -230,5 +253,99 @@ describe('ElevenLabs adapter signals', () => {
 
     await adapter.stop()
     expect(newConversation.endSession).toHaveBeenCalledOnce()
+  })
+
+  it('cancels an in-flight ElevenLabs start when stopped while connecting', async () => {
+    let sessionOptions: ElevenLabsStartSessionOptions | undefined
+    let resolveStartSession: ((conversation: ElevenLabsConversation) => void) | undefined
+    const conversation: ElevenLabsConversation = {
+      endSession: vi.fn(async () => undefined),
+      getInputVolume: () => 0,
+      getOutputVolume: () => 0,
+      getInputByteFrequencyData: () => new Uint8Array(),
+      getOutputByteFrequencyData: () => new Uint8Array(),
+    }
+    const ConversationClass: ElevenLabsConversationClass = {
+      startSession: vi.fn((options) => {
+        sessionOptions = options
+        return new Promise<ElevenLabsConversation>((resolve) => {
+          resolveStartSession = resolve
+        })
+      }),
+    }
+    const adapter = createElevenLabsAdapter(ConversationClass, {
+      agentId: 'agent-id',
+    })
+    const signals: OrbSignal[] = []
+
+    adapter.subscribe((signal) => signals.push(signal))
+    const startPromise = adapter.start()
+
+    sessionOptions?.onStatusChange?.({ status: 'connecting' })
+    expect(lastSignal(signals)).toMatchObject({ state: 'connecting' })
+
+    const stopPromise = adapter.stop()
+    expect(lastSignal(signals)).toMatchObject({ state: 'idle' })
+
+    resolveStartSession?.(conversation)
+    await startPromise
+    await stopPromise
+
+    expect(conversation.endSession).toHaveBeenCalledOnce()
+
+    sessionOptions?.onConnect?.({ conversationId: 'stale-conversation-id' })
+    expect(lastSignal(signals)).toMatchObject({ state: 'idle' })
+  })
+
+  it('replays state and restarts volume polling when resubscribing during a call', async () => {
+    vi.useFakeTimers()
+
+    let sessionOptions: ElevenLabsStartSessionOptions | undefined
+    let inputVolume = 0.2
+    const conversation: ElevenLabsConversation = {
+      endSession: vi.fn(async () => undefined),
+      getInputVolume: () => inputVolume,
+      getOutputVolume: () => 0,
+      getInputByteFrequencyData: () => new Uint8Array(),
+      getOutputByteFrequencyData: () => new Uint8Array(),
+    }
+    const ConversationClass: ElevenLabsConversationClass = {
+      startSession: vi.fn(async (options) => {
+        sessionOptions = options
+        return conversation
+      }),
+    }
+    const adapter = createElevenLabsAdapter(ConversationClass, {
+      agentId: 'agent-id',
+    })
+    const firstSignals: OrbSignal[] = []
+
+    const unsubscribe = adapter.subscribe((signal) => firstSignals.push(signal))
+    await adapter.start()
+    sessionOptions?.onConnect?.({ conversationId: 'conversation-id' })
+    vi.advanceTimersByTime(33)
+
+    expect(lastSignal(firstSignals)).toMatchObject({
+      state: 'listening',
+      inputVolume: 0.4,
+    })
+
+    unsubscribe()
+    inputVolume = 0.3
+
+    const secondSignals: OrbSignal[] = []
+    adapter.subscribe((signal) => secondSignals.push(signal))
+
+    expect(lastSignal(secondSignals)).toMatchObject({
+      state: 'listening',
+      inputVolume: 0,
+    })
+
+    vi.advanceTimersByTime(33)
+
+    expect(lastSignal(secondSignals)).toMatchObject({
+      state: 'listening',
+      inputVolume: 0.6,
+    })
   })
 })

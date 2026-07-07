@@ -108,18 +108,6 @@ interface VapiAdapterOptions {
 }
 
 export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptions): OrbAdapter {
-  // ── Per-adapter EMA state ────────────────────────────────────────────────
-  // Kept inside the factory so multiple adapter instances never share state.
-  let emaVol = 0
-
-  function normalizeVapiVolume(raw: number): number {
-    const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
-    // Light EMA to bridge Vapi's alternating loud/silent artifact
-    const rate = gated > emaVol ? 0.8 : 0.5
-    emaVol = emaVol + (gated - emaVol) * rate
-    return emaVol
-  }
-
   return {
     async start() {
       await client.start(options?.assistantId)
@@ -131,6 +119,15 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
     subscribe(listener: OrbSignalListener) {
       let signal: OrbSignal = { state: 'idle', volume: 0, outputVolume: 0 }
+      let emaVol = 0
+
+      function normalizeVapiVolume(raw: number): number {
+        const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
+        // Light EMA to bridge Vapi's alternating loud/silent artifact
+        const rate = gated > emaVol ? 0.8 : 0.5
+        emaVol = emaVol + (gated - emaVol) * rate
+        return emaVol
+      }
 
       function emitSignal(nextSignal: OrbSignal) {
         signal = nextSignal

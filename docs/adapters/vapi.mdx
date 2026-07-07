@@ -42,6 +42,9 @@ The adapter maps Vapi conversation lifecycle events into orb-ui state changes. T
 - errors
 
 Vapi assistant audio levels are emitted as `outputVolume` while the assistant is speaking.
+The Vapi web SDK does not currently expose local microphone input levels through the
+adapter event stream, so this adapter does not emit `inputVolume` while listening. If your
+app already meters the microphone separately, pass a controlled `signal` to `Orb`.
 
 ## Accessibility
 

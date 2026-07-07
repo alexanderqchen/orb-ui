@@ -225,6 +225,10 @@ export function createElevenLabsAdapter(
     // ── OrbAdapter.subscribe ────────────────────────────────────────────────
     subscribe(listener: OrbSignalListener) {
       subscribers.add(listener)
+      listener(signal)
+      if (conversation && (currentState === 'listening' || currentState === 'speaking')) {
+        startVolumePolling()
+      }
       return () => {
         subscribers.delete(listener)
         if (subscribers.size === 0) stopVolumePolling()
@@ -263,7 +267,15 @@ export function createElevenLabsAdapter(
 
     async stop() {
       const activeConversation = conversation
-      if (!activeConversation) return
+      if (!activeConversation) {
+        if (startPromise) {
+          activeSessionId += 1
+          clearVolumePolling()
+          emitIdleSignal()
+          await startPromise
+        }
+        return
+      }
       const sessionId = activeSessionId
       clearVolumePolling()
       try {
