@@ -137,6 +137,25 @@ describe('Vapi adapter signals', () => {
     unsubscribeFirst()
     unsubscribeSecond()
   })
+
+  it('keeps Vapi connecting signals after another subscriber unsubscribes', async () => {
+    const client = new FakeVapiClient()
+    const adapter = createVapiAdapter(client as unknown as VapiClientLike)
+    const firstSignals: OrbSignal[] = []
+    const secondSignals: OrbSignal[] = []
+
+    const unsubscribeFirst = adapter.subscribe((signal) => firstSignals.push(signal))
+    const unsubscribeSecond = adapter.subscribe((signal) => secondSignals.push(signal))
+
+    unsubscribeFirst()
+    await adapter.start?.()
+
+    expect(firstSignals).toHaveLength(0)
+    expect(lastSignal(secondSignals)).toMatchObject({ state: 'connecting' })
+    expect(client.startMock).toHaveBeenCalledOnce()
+
+    unsubscribeSecond()
+  })
 })
 
 describe('ElevenLabs adapter signals', () => {

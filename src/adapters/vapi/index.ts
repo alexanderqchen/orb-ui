@@ -108,6 +108,26 @@ interface VapiAdapterOptions {
 }
 
 export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptions): OrbAdapter {
+  const startListeners = new Set<() => void>()
+  let originalStart: VapiClient['start'] | null = null
+
+  function ensureStartIntercept() {
+    if (originalStart) return
+
+    originalStart = client.start.bind(client)
+    client.start = async (...args) => {
+      startListeners.forEach((listener) => listener())
+      return originalStart!(...args)
+    }
+  }
+
+  function restoreStartInterceptIfUnused() {
+    if (startListeners.size > 0 || !originalStart) return
+
+    client.start = originalStart
+    originalStart = null
+  }
+
   return {
     async start() {
       await client.start(options?.assistantId)
@@ -139,6 +159,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       }
 
       const { emitState, clearTimer } = makeStateEmitter((state) => emitPatch({ state }))
+      const onStart = () => emitState('connecting')
 
       // Track current state so we can gate volume sources
       let currentState: OrbState = 'idle'
@@ -235,11 +256,8 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       client.on('error', onError)
 
       // Intercept vapi.start() to emit 'connecting' immediately
-      const originalStart = client.start.bind(client)
-      client.start = async (...args) => {
-        emitState('connecting')
-        return originalStart(...args)
-      }
+      startListeners.add(onStart)
+      ensureStartIntercept()
 
       return () => {
         clearTimer()
@@ -252,7 +270,8 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         client.removeListener('volume-level', onVolumeLevel as (...args: unknown[]) => void)
         client.removeListener('message', onMessage as (...args: unknown[]) => void)
         client.removeListener('error', onError as (...args: unknown[]) => void)
-        client.start = originalStart
+        startListeners.delete(onStart)
+        restoreStartInterceptIfUnused()
       }
     },
   }

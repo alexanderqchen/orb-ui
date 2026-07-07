@@ -105,15 +105,17 @@ function writeStoredConfig(config: ProviderConfig) {
   }
 }
 
-function readConfig(): ProviderConfig {
-  const envConfig = {
+function readEnvConfig(): ProviderConfig {
+  return {
     vapiPublicKey: import.meta.env.VITE_VAPI_PUBLIC_KEY ?? '',
     vapiAssistantId: import.meta.env.VITE_VAPI_ASSISTANT_ID ?? '',
     elevenLabsAgentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID ?? '',
   }
+}
 
+function readConfig(): ProviderConfig {
   return {
-    ...envConfig,
+    ...readEnvConfig(),
     ...readStoredConfig(),
   }
 }
@@ -293,7 +295,7 @@ function ProviderPlayground() {
   }, [])
 
   const resetProviderConfig = useCallback(() => {
-    const defaultConfig = readConfig()
+    const defaultConfig = readEnvConfig()
 
     setConfig((current) => {
       if (provider === 'vapi') {
