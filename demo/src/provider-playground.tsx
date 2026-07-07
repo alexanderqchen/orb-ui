@@ -1,6 +1,6 @@
 import { StrictMode, useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import Vapi from '@vapi-ai/web'
+import VapiImport from '@vapi-ai/web'
 import { Conversation } from '@elevenlabs/client'
 import { Orb } from 'orb-ui'
 import type { OrbAdapter, OrbSignal, OrbState, OrbTheme } from 'orb-ui'
@@ -22,6 +22,9 @@ interface EventEntry {
   time: string
 }
 
+type VapiClient = Parameters<typeof createVapiAdapter>[0]
+type VapiConstructor = new (apiToken: string) => VapiClient
+
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: 'manual', label: 'Manual Signal' },
   { id: 'vapi', label: 'Vapi' },
@@ -32,20 +35,94 @@ const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 
 const EMPTY_SIGNAL: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+const CONFIG_STORAGE_KEY = 'orb-ui:provider-playground-config'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isVapiConstructor(value: unknown): value is VapiConstructor {
+  return typeof value === 'function'
+}
+
+function getVapiConstructor(): VapiConstructor {
+  const vapiExport: unknown = VapiImport
+  if (isVapiConstructor(vapiExport)) return vapiExport
+
+  if (isRecord(vapiExport)) {
+    const defaultExport = vapiExport.default
+    if (isVapiConstructor(defaultExport)) return defaultExport
+
+    if (isRecord(defaultExport) && isVapiConstructor(defaultExport.default)) {
+      return defaultExport.default
+    }
+  }
+
+  throw new TypeError('Vapi constructor export was not found.')
+}
+
+function getStorage() {
+  if (typeof window === 'undefined') return undefined
+
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
+  }
+}
+
+function readStoredConfig(): Partial<ProviderConfig> {
+  const storage = getStorage()
+  if (!storage) return {}
+
+  try {
+    const parsed = JSON.parse(storage.getItem(CONFIG_STORAGE_KEY) ?? '{}')
+    if (!isRecord(parsed)) return {}
+
+    const storedConfig: Partial<ProviderConfig> = {}
+    if (typeof parsed.vapiPublicKey === 'string') storedConfig.vapiPublicKey = parsed.vapiPublicKey
+    if (typeof parsed.vapiAssistantId === 'string') {
+      storedConfig.vapiAssistantId = parsed.vapiAssistantId
+    }
+    if (typeof parsed.elevenLabsAgentId === 'string') {
+      storedConfig.elevenLabsAgentId = parsed.elevenLabsAgentId
+    }
+
+    return storedConfig
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredConfig(config: ProviderConfig) {
+  const storage = getStorage()
+  if (!storage) return
+
+  try {
+    storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config))
+  } catch {
+    // Storage can be disabled or full in some browser modes.
+  }
+}
 
 function readConfig(): ProviderConfig {
-  return {
+  const envConfig = {
     vapiPublicKey: import.meta.env.VITE_VAPI_PUBLIC_KEY ?? '',
     vapiAssistantId: import.meta.env.VITE_VAPI_ASSISTANT_ID ?? '',
     elevenLabsAgentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID ?? '',
+  }
+
+  return {
+    ...envConfig,
+    ...readStoredConfig(),
   }
 }
 
 function normalizeConfig(config: ProviderConfig): ProviderConfig {
   return {
-    vapiPublicKey: config.vapiPublicKey.trim(),
-    vapiAssistantId: config.vapiAssistantId.trim(),
-    elevenLabsAgentId: config.elevenLabsAgentId.trim(),
+    vapiPublicKey: (config.vapiPublicKey ?? '').trim(),
+    vapiAssistantId: (config.vapiAssistantId ?? '').trim(),
+    elevenLabsAgentId: (config.elevenLabsAgentId ?? '').trim(),
   }
 }
 
@@ -121,7 +198,7 @@ function createProviderAdapter(
 ): OrbAdapter | undefined {
   if (provider === 'vapi' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
-      createVapiAdapter(new Vapi(config.vapiPublicKey), {
+      createVapiAdapter(new (getVapiConstructor())(config.vapiPublicKey), {
         assistantId: config.vapiAssistantId,
       }),
     )
@@ -199,6 +276,10 @@ function ProviderPlayground() {
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
   const [latestSignal, setLatestSignal] = useState<OrbSignal>(EMPTY_SIGNAL)
   const [events, setEvents] = useState<EventEntry[]>([])
+
+  useEffect(() => {
+    writeStoredConfig(config)
+  }, [config])
 
   const activeConfig = useMemo(() => normalizeConfig(config), [config])
   const providerReady = getProviderReady(provider, activeConfig)
