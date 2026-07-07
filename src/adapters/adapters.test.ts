@@ -70,6 +70,7 @@ afterEach(() => {
 
 describe('Vapi adapter signals', () => {
   it('emits output volume while speaking and cancels interpolation on unsubscribe', async () => {
+    vi.useFakeTimers()
     const animationFrame = installAnimationFrameStub()
     const client = new FakeVapiClient()
     const adapter = createVapiAdapter(client as unknown as VapiClientLike, {
@@ -92,6 +93,19 @@ describe('Vapi adapter signals', () => {
 
     expect(lastSignal(signals).state).toBe('speaking')
     expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
+
+    client.emit('speech-end')
+    expect(lastSignal(signals)).toMatchObject({
+      volume: 0,
+      outputVolume: 0,
+    })
+
+    vi.advanceTimersByTime(350)
+    expect(lastSignal(signals)).toMatchObject({
+      state: 'listening',
+      volume: 0,
+      outputVolume: 0,
+    })
 
     const signalCount = signals.length
     unsubscribe()
@@ -158,5 +172,63 @@ describe('ElevenLabs adapter signals', () => {
       inputVolume: 0,
       outputVolume: 0,
     })
+  })
+
+  it('does not let a stale stop clear a newer ElevenLabs session', async () => {
+    let resolveOldEndSession: (() => void) | undefined
+    const sessionOptions: ElevenLabsStartSessionOptions[] = []
+    const oldConversation: ElevenLabsConversation = {
+      endSession: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveOldEndSession = resolve
+          }),
+      ),
+      getInputVolume: () => 0,
+      getOutputVolume: () => 0,
+      getInputByteFrequencyData: () => new Uint8Array(),
+      getOutputByteFrequencyData: () => new Uint8Array(),
+    }
+    const newConversation: ElevenLabsConversation = {
+      endSession: vi.fn(async () => undefined),
+      getInputVolume: () => 0,
+      getOutputVolume: () => 0,
+      getInputByteFrequencyData: () => new Uint8Array(),
+      getOutputByteFrequencyData: () => new Uint8Array(),
+    }
+    const ConversationClass: ElevenLabsConversationClass = {
+      startSession: vi.fn(async (options) => {
+        sessionOptions.push(options)
+        return sessionOptions.length === 1 ? oldConversation : newConversation
+      }),
+    }
+    const adapter = createElevenLabsAdapter(ConversationClass, {
+      agentId: 'agent-id',
+    })
+    const signals: OrbSignal[] = []
+
+    adapter.subscribe((signal) => signals.push(signal))
+
+    await adapter.start()
+    sessionOptions[0]?.onConnect?.({ conversationId: 'old-conversation-id' })
+    expect(lastSignal(signals)).toMatchObject({ state: 'listening' })
+
+    const stopPromise = adapter.stop()
+    expect(oldConversation.endSession).toHaveBeenCalledOnce()
+
+    sessionOptions[0]?.onDisconnect?.({})
+    expect(lastSignal(signals)).toMatchObject({ state: 'idle' })
+
+    await adapter.start()
+    sessionOptions[1]?.onConnect?.({ conversationId: 'new-conversation-id' })
+    expect(lastSignal(signals)).toMatchObject({ state: 'listening' })
+
+    resolveOldEndSession?.()
+    await stopPromise
+
+    expect(lastSignal(signals)).toMatchObject({ state: 'listening' })
+
+    await adapter.stop()
+    expect(newConversation.endSession).toHaveBeenCalledOnce()
   })
 })

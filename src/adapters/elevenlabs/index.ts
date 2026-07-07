@@ -119,6 +119,8 @@ export function createElevenLabsAdapter(
 ): ElevenLabsOrbAdapter {
   // Active conversation instance + cleanup reference
   let conversation: ElevenLabsConversation | null = null
+  let activeSessionId = 0
+  let startPromise: Promise<void> | null = null
   let volumeInterval: ReturnType<typeof setInterval> | null = null
   let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
   let currentState: OrbState = 'idle'
@@ -173,50 +175,50 @@ export function createElevenLabsAdapter(
     emitPatch({ state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 })
   }
 
-  function shouldEmitIdle(activeConversation: ElevenLabsConversation) {
-    return (
-      conversation === activeConversation ||
-      currentState !== 'idle' ||
-      signal.volume !== 0 ||
-      signal.inputVolume !== 0 ||
-      signal.outputVolume !== 0
-    )
+  function isActiveSession(sessionId: number) {
+    return sessionId === activeSessionId
   }
 
-  // ElevenLabs callbacks — injected into startSession
-  const elevenLabsCallbacks: ElevenLabsCallbacks = {
-    onStatusChange: ({ status }) => {
-      if (status === 'connecting') setState('connecting')
-    },
+  function createElevenLabsCallbacks(sessionId: number): ElevenLabsCallbacks {
+    return {
+      onStatusChange: ({ status }) => {
+        if (!isActiveSession(sessionId)) return
+        if (status === 'connecting') setState('connecting')
+      },
 
-    onConnect: () => {
-      setState('listening')
-      startVolumePolling()
-    },
-
-    onModeChange: ({ mode }) => {
-      if (mode === 'speaking') {
-        setState('speaking')
-        startVolumePolling()
-      } else {
+      onConnect: () => {
+        if (!isActiveSession(sessionId)) return
         setState('listening')
         startVolumePolling()
-      }
-    },
+      },
 
-    onDisconnect: () => {
-      clearVolumePolling()
-      conversation = null
-      emitIdleSignal()
-    },
+      onModeChange: ({ mode }) => {
+        if (!isActiveSession(sessionId)) return
+        if (mode === 'speaking') {
+          setState('speaking')
+          startVolumePolling()
+        } else {
+          setState('listening')
+          startVolumePolling()
+        }
+      },
 
-    onError: (message) => {
-      console.error('[orb-ui/elevenlabs] Error:', message)
-      clearVolumePolling()
-      currentState = 'error'
-      emitPatch({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error: message })
-      conversation = null
-    },
+      onDisconnect: () => {
+        if (!isActiveSession(sessionId)) return
+        clearVolumePolling()
+        conversation = null
+        emitIdleSignal()
+      },
+
+      onError: (message) => {
+        if (!isActiveSession(sessionId)) return
+        console.error('[orb-ui/elevenlabs] Error:', message)
+        clearVolumePolling()
+        currentState = 'error'
+        emitPatch({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error: message })
+        conversation = null
+      },
+    }
   }
 
   return {
@@ -231,29 +233,45 @@ export function createElevenLabsAdapter(
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
     async start() {
-      if (conversation) return // already running
-      try {
-        conversation = await ConversationClass.startSession({
-          ...config,
-          ...elevenLabsCallbacks,
-        })
-      } catch (err) {
-        console.error('[orb-ui/elevenlabs] startSession failed:', err)
-        setState('error')
-        emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: err })
-      }
+      if (conversation || startPromise) return startPromise ?? undefined // already running
+      activeSessionId += 1
+      const sessionId = activeSessionId
+      startPromise = (async () => {
+        try {
+          const nextConversation = await ConversationClass.startSession({
+            ...config,
+            ...createElevenLabsCallbacks(sessionId),
+          })
+          if (!isActiveSession(sessionId)) {
+            await nextConversation.endSession().catch((err: unknown) => {
+              console.error('[orb-ui/elevenlabs] stale session cleanup failed:', err)
+            })
+            return
+          }
+          conversation = nextConversation
+        } catch (err) {
+          if (!isActiveSession(sessionId)) return
+          console.error('[orb-ui/elevenlabs] startSession failed:', err)
+          setState('error')
+          emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: err })
+        } finally {
+          startPromise = null
+        }
+      })()
+      return startPromise
     },
 
     async stop() {
       const activeConversation = conversation
       if (!activeConversation) return
+      const sessionId = activeSessionId
       clearVolumePolling()
       try {
         await activeConversation.endSession()
       } catch (err) {
         console.error('[orb-ui/elevenlabs] endSession failed:', err)
       }
-      if (shouldEmitIdle(activeConversation)) {
+      if (conversation === activeConversation && isActiveSession(sessionId)) {
         conversation = null
         emitIdleSignal()
       }

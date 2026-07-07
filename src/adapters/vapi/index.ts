@@ -175,6 +175,8 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         if (!callActive) return
         stopVolLoop()
         currentState = 'listening'
+        emitPatch({ volume: 0, outputVolume: 0 })
+        emaVol = 0
         emitState('listening')
       }
 
