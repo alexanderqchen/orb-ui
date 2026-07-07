@@ -252,9 +252,47 @@ input {
 }
 
 .provider-env-list,
+.provider-field-list,
 .provider-signal-list,
 .provider-event-list {
   display: grid;
+  gap: 8px;
+}
+
+.provider-field-list {
+  gap: 12px;
+}
+
+.provider-field {
+  display: grid;
+  gap: 6px;
+  color: #b9b9b9;
+  font-size: 13px;
+}
+
+.provider-field span {
+  color: #9d9d9d;
+}
+
+.provider-input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #080808;
+  color: #f4f4f4;
+  padding: 8px 10px;
+}
+
+.provider-input:focus {
+  border-color: #bfeea2;
+  outline: 2px solid rgb(191 238 162 / 24%);
+  outline-offset: 1px;
+}
+
+.provider-config-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

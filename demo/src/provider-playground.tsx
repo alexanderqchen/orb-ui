@@ -41,6 +41,14 @@ function readConfig(): ProviderConfig {
   }
 }
 
+function normalizeConfig(config: ProviderConfig): ProviderConfig {
+  return {
+    vapiPublicKey: config.vapiPublicKey.trim(),
+    vapiAssistantId: config.vapiAssistantId.trim(),
+    elevenLabsAgentId: config.elevenLabsAgentId.trim(),
+  }
+}
+
 function formatVolume(value: number | undefined) {
   return (value ?? 0).toFixed(2)
 }
@@ -57,20 +65,74 @@ function getProviderReady(provider: ProviderId, config: ProviderConfig) {
   return Boolean(config.elevenLabsAgentId)
 }
 
+function createLazyAdapter(factory: () => OrbAdapter): OrbAdapter {
+  let activeAdapter: OrbAdapter | undefined
+  let unsubscribeActiveAdapter: (() => void) | undefined
+  const listeners = new Set<(signal: OrbSignal) => void>()
+
+  function emit(signal: OrbSignal) {
+    listeners.forEach((listener) => listener(signal))
+  }
+
+  function getActiveAdapter() {
+    if (!activeAdapter) {
+      activeAdapter = factory()
+      unsubscribeActiveAdapter = activeAdapter.subscribe(emit)
+    }
+
+    return activeAdapter
+  }
+
+  function disposeActiveAdapter() {
+    void activeAdapter?.stop?.()
+    unsubscribeActiveAdapter?.()
+    activeAdapter = undefined
+    unsubscribeActiveAdapter = undefined
+  }
+
+  return {
+    subscribe(listener) {
+      listeners.add(listener)
+
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) disposeActiveAdapter()
+      }
+    },
+
+    async start() {
+      try {
+        await getActiveAdapter().start?.()
+      } catch (error) {
+        console.error('[orb-ui/demo] Provider start failed:', error)
+        emit({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error })
+      }
+    },
+
+    async stop() {
+      await activeAdapter?.stop?.()
+    },
+  }
+}
+
 function createProviderAdapter(
   provider: ProviderId,
   config: ProviderConfig,
 ): OrbAdapter | undefined {
   if (provider === 'vapi' && getProviderReady(provider, config)) {
-    return createVapiAdapter(new Vapi(config.vapiPublicKey), {
-      assistantId: config.vapiAssistantId,
-    })
+    return createLazyAdapter(() =>
+      createVapiAdapter(new Vapi(config.vapiPublicKey), {
+        assistantId: config.vapiAssistantId,
+      }),
+    )
   }
 
   if (provider === 'elevenlabs' && getProviderReady(provider, config)) {
-    return createElevenLabsAdapter(Conversation, {
-      agentId: config.elevenLabsAgentId,
-    })
+    return createLazyAdapter(() =>
+      createElevenLabsAdapter(Conversation, {
+        agentId: config.elevenLabsAgentId,
+      }),
+    )
   }
 
   return undefined
@@ -96,8 +158,40 @@ function SignalRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ConfigField({
+  id,
+  label,
+  onChange,
+  type = 'text',
+  value,
+}: {
+  id: string
+  label: string
+  onChange: (value: string) => void
+  type?: 'password' | 'text'
+  value: string
+}) {
+  return (
+    <label className="provider-field" htmlFor={id}>
+      <span>{label}</span>
+      <input
+        autoCapitalize="none"
+        autoComplete="off"
+        autoCorrect="off"
+        className="provider-input"
+        data-testid={id}
+        id={id}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        spellCheck={false}
+        type={type}
+        value={value}
+      />
+    </label>
+  )
+}
+
 function ProviderPlayground() {
-  const config = useMemo(readConfig, [])
+  const [config, setConfig] = useState<ProviderConfig>(() => readConfig())
   const [provider, setProvider] = useState<ProviderId>('manual')
   const [theme, setTheme] = useState<OrbTheme>('circle')
   const [manualState, setManualState] = useState<OrbState>('listening')
@@ -106,8 +200,24 @@ function ProviderPlayground() {
   const [latestSignal, setLatestSignal] = useState<OrbSignal>(EMPTY_SIGNAL)
   const [events, setEvents] = useState<EventEntry[]>([])
 
-  const providerReady = getProviderReady(provider, config)
-  const providerAdapter = useMemo(() => createProviderAdapter(provider, config), [config, provider])
+  const activeConfig = useMemo(() => normalizeConfig(config), [config])
+  const providerReady = getProviderReady(provider, activeConfig)
+  const providerAdapter = useMemo(
+    () => createProviderAdapter(provider, activeConfig),
+    [activeConfig, provider],
+  )
+
+  const updateConfig = useCallback((key: keyof ProviderConfig, value: string) => {
+    setConfig((current) => ({ ...current, [key]: value }))
+  }, [])
+
+  const resetConfig = useCallback(() => {
+    setConfig(readConfig())
+  }, [])
+
+  const clearConfig = useCallback(() => {
+    setConfig({ vapiPublicKey: '', vapiAssistantId: '', elevenLabsAgentId: '' })
+  }, [])
 
   const recordSignal = useCallback((nextProvider: ProviderId, signal: OrbSignal) => {
     setLatestSignal(signal)
@@ -355,11 +465,43 @@ function ProviderPlayground() {
 
           <aside className="provider-sidebar" aria-label="Provider diagnostics">
             <section className="provider-panel provider-diagnostics">
-              <span className="provider-label">Environment</span>
+              <span className="provider-label">Provider Config</span>
+              <div className="provider-field-list">
+                <ConfigField
+                  id="config-vapi-public-key"
+                  label="Vapi public key"
+                  onChange={(value) => updateConfig('vapiPublicKey', value)}
+                  type="password"
+                  value={config.vapiPublicKey}
+                />
+                <ConfigField
+                  id="config-vapi-assistant-id"
+                  label="Vapi assistant ID"
+                  onChange={(value) => updateConfig('vapiAssistantId', value)}
+                  value={config.vapiAssistantId}
+                />
+                <ConfigField
+                  id="config-elevenlabs-agent-id"
+                  label="ElevenLabs agent ID"
+                  onChange={(value) => updateConfig('elevenLabsAgentId', value)}
+                  value={config.elevenLabsAgentId}
+                />
+              </div>
+              <div className="provider-config-actions">
+                <button className="provider-button" onClick={resetConfig} type="button">
+                  Use env defaults
+                </button>
+                <button className="provider-button" onClick={clearConfig} type="button">
+                  Clear
+                </button>
+              </div>
               <div className="provider-env-list">
-                <EnvRow label="VAPI public key" ready={Boolean(config.vapiPublicKey)} />
-                <EnvRow label="VAPI assistant ID" ready={Boolean(config.vapiAssistantId)} />
-                <EnvRow label="ElevenLabs agent ID" ready={Boolean(config.elevenLabsAgentId)} />
+                <EnvRow label="Vapi public key" ready={Boolean(activeConfig.vapiPublicKey)} />
+                <EnvRow label="Vapi assistant ID" ready={Boolean(activeConfig.vapiAssistantId)} />
+                <EnvRow
+                  label="ElevenLabs agent ID"
+                  ready={Boolean(activeConfig.elevenLabsAgentId)}
+                />
               </div>
             </section>
 

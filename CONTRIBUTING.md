@@ -68,13 +68,17 @@ pnpm dev:demo
 For real adapter testing before merge or release:
 
 ```bash
-cp demo/.env.example demo/.env.local
-# Fill in VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID, and/or VITE_ELEVENLABS_AGENT_ID.
 pnpm build
 pnpm dev:demo
 ```
 
-Then open `http://localhost:5173/provider-playground.html`. The playground is intentionally local-first: it reads `VITE_*` values in the browser, so use development agents and never commit `.env.local`.
+Then open `http://localhost:5173/provider-playground.html` and paste a Vapi public key plus
+assistant ID, or an ElevenLabs agent ID, into the Provider Config panel.
+
+The playground is intentionally local-first. Pasted values stay in the running page only. To
+prefill the fields during local development, copy `demo/.env.example` to `demo/.env.local`, fill
+in any `VITE_*` defaults, and restart the demo server. Use development agents and never commit
+`.env.local`.
 
 Before opening a PR, run:
 
