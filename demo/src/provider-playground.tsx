@@ -271,7 +271,7 @@ function ProviderPlayground() {
   const [config, setConfig] = useState<ProviderConfig>(() => readConfig())
   const [provider, setProvider] = useState<ProviderId>('manual')
   const [theme, setTheme] = useState<OrbTheme>('circle')
-  const [manualState, setManualState] = useState<OrbState>('listening')
+  const [manualState, setManualState] = useState<OrbState>('idle')
   const [manualInputVolume, setManualInputVolume] = useState(0.35)
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
   const [latestSignal, setLatestSignal] = useState<OrbSignal>(EMPTY_SIGNAL)
@@ -360,16 +360,11 @@ function ProviderPlayground() {
   )
 
   useEffect(() => {
-    if (provider === 'manual') recordSignal('manual', manualSignal)
-  }, [manualSignal, provider, recordSignal])
-
-  useEffect(() => {
-    if (provider !== 'manual') {
-      setLatestSignal(EMPTY_SIGNAL)
-      setEvents([])
-    }
+    setLatestSignal(EMPTY_SIGNAL)
+    setEvents([])
   }, [provider])
 
+  const displayedSignal = provider === 'manual' ? manualSignal : latestSignal
   const activeState = provider === 'manual' ? manualSignal.state : latestSignal.state
   const activeVolume =
     provider === 'manual'
@@ -379,6 +374,33 @@ function ProviderPlayground() {
         : activeState === 'speaking'
           ? (latestSignal.outputVolume ?? latestSignal.volume)
           : latestSignal.volume
+
+  const updateManualState = useCallback(
+    (state: OrbState) => {
+      const signal = createManualSignal(state, manualInputVolume, manualOutputVolume)
+      setManualState(state)
+      recordSignal('manual', signal)
+    },
+    [manualInputVolume, manualOutputVolume, recordSignal],
+  )
+
+  const updateManualInputVolume = useCallback(
+    (inputVolume: number) => {
+      const signal = createManualSignal(manualState, inputVolume, manualOutputVolume)
+      setManualInputVolume(inputVolume)
+      recordSignal('manual', signal)
+    },
+    [manualOutputVolume, manualState, recordSignal],
+  )
+
+  const updateManualOutputVolume = useCallback(
+    (outputVolume: number) => {
+      const signal = createManualSignal(manualState, manualInputVolume, outputVolume)
+      setManualOutputVolume(outputVolume)
+      recordSignal('manual', signal)
+    },
+    [manualInputVolume, manualState, recordSignal],
+  )
 
   return (
     <main className="provider-page">
@@ -468,13 +490,13 @@ function ProviderPlayground() {
               <div className="provider-status-item">
                 <span className="provider-status-label">Input</span>
                 <span className="provider-status-value" data-testid="qa-input-volume">
-                  {formatVolume(latestSignal.inputVolume)}
+                  {formatVolume(displayedSignal.inputVolume)}
                 </span>
               </div>
               <div className="provider-status-item">
                 <span className="provider-status-label">Output</span>
                 <span className="provider-status-value" data-testid="qa-output-volume">
-                  {formatVolume(latestSignal.outputVolume)}
+                  {formatVolume(displayedSignal.outputVolume)}
                 </span>
               </div>
             </div>
@@ -488,7 +510,7 @@ function ProviderPlayground() {
                       <button
                         className={`provider-button ${manualState === item ? 'is-selected' : ''}`}
                         key={item}
-                        onClick={() => setManualState(item)}
+                        onClick={() => updateManualState(item)}
                         type="button"
                       >
                         {item}
@@ -503,7 +525,9 @@ function ProviderPlayground() {
                     <input
                       max={1}
                       min={0}
-                      onChange={(event) => setManualInputVolume(Number(event.currentTarget.value))}
+                      onChange={(event) =>
+                        updateManualInputVolume(Number(event.currentTarget.value))
+                      }
                       step={0.01}
                       type="range"
                       value={manualInputVolume}
@@ -515,7 +539,9 @@ function ProviderPlayground() {
                     <input
                       max={1}
                       min={0}
-                      onChange={(event) => setManualOutputVolume(Number(event.currentTarget.value))}
+                      onChange={(event) =>
+                        updateManualOutputVolume(Number(event.currentTarget.value))
+                      }
                       step={0.01}
                       type="range"
                       value={manualOutputVolume}
@@ -594,12 +620,15 @@ function ProviderPlayground() {
             <section className="provider-panel provider-diagnostics">
               <span className="provider-label">Latest Signal</span>
               <div className="provider-signal-list">
-                <SignalRow label="state" value={latestSignal.state} />
-                <SignalRow label="volume" value={formatVolume(latestSignal.volume)} />
-                <SignalRow label="inputVolume" value={formatVolume(latestSignal.inputVolume)} />
-                <SignalRow label="outputVolume" value={formatVolume(latestSignal.outputVolume)} />
+                <SignalRow label="state" value={displayedSignal.state} />
+                <SignalRow label="volume" value={formatVolume(displayedSignal.volume)} />
+                <SignalRow label="inputVolume" value={formatVolume(displayedSignal.inputVolume)} />
+                <SignalRow
+                  label="outputVolume"
+                  value={formatVolume(displayedSignal.outputVolume)}
+                />
               </div>
-              <pre className="provider-code">{JSON.stringify(latestSignal, null, 2)}</pre>
+              <pre className="provider-code">{JSON.stringify(displayedSignal, null, 2)}</pre>
             </section>
 
             <section className="provider-panel provider-diagnostics">
