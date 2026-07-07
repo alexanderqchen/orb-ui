@@ -192,36 +192,6 @@ input {
   border-top: 1px solid #202020;
 }
 
-.provider-action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.provider-action {
-  min-height: 38px;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  background: #191919;
-  color: #f0f0f0;
-  cursor: pointer;
-  padding: 8px 14px;
-  font-weight: 700;
-}
-
-.provider-action:hover:not(:disabled) {
-  border-color: #bfeea2;
-}
-
-.provider-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.provider-action.is-danger:hover:not(:disabled) {
-  border-color: #ff8b8b;
-}
-
 .provider-sliders {
   display: grid;
   gap: 12px;

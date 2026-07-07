@@ -299,24 +299,6 @@ function ProviderPlayground() {
           ? (latestSignal.outputVolume ?? latestSignal.volume)
           : latestSignal.volume
 
-  const handleStart = useCallback(() => {
-    if (provider === 'manual') {
-      setManualState('listening')
-      return
-    }
-
-    monitoredAdapter?.start?.()
-  }, [monitoredAdapter, provider])
-
-  const handleStop = useCallback(() => {
-    if (provider === 'manual') {
-      setManualState('idle')
-      return
-    }
-
-    monitoredAdapter?.stop?.()
-  }, [monitoredAdapter, provider])
-
   return (
     <main className="provider-page">
       <div className="provider-shell">
@@ -416,77 +398,57 @@ function ProviderPlayground() {
               </div>
             </div>
 
-            <div className="provider-controls">
-              <div className="provider-control-group">
-                <span className="provider-label">Session</span>
-                <div className="provider-action-row">
-                  <button
-                    className="provider-action"
-                    disabled={provider !== 'manual' && !providerReady}
-                    onClick={handleStart}
-                    type="button"
-                  >
-                    Start
-                  </button>
-                  <button
-                    className="provider-action is-danger"
-                    disabled={provider !== 'manual' && !providerReady}
-                    onClick={handleStop}
-                    type="button"
-                  >
-                    Stop
-                  </button>
+            {provider === 'manual' ? (
+              <div className="provider-controls">
+                <div className="provider-control-group">
+                  <span className="provider-label">Manual Signal</span>
+                  <div className="provider-segment">
+                    {STATES.map((item) => (
+                      <button
+                        className={`provider-button ${manualState === item ? 'is-selected' : ''}`}
+                        key={item}
+                        onClick={() => setManualState(item)}
+                        type="button"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="provider-control-group provider-sliders">
+                  <label className="provider-slider-row">
+                    <span>Input</span>
+                    <input
+                      max={1}
+                      min={0}
+                      onChange={(event) => setManualInputVolume(Number(event.currentTarget.value))}
+                      step={0.01}
+                      type="range"
+                      value={manualInputVolume}
+                    />
+                    <span>{manualInputVolume.toFixed(2)}</span>
+                  </label>
+                  <label className="provider-slider-row">
+                    <span>Output</span>
+                    <input
+                      max={1}
+                      min={0}
+                      onChange={(event) => setManualOutputVolume(Number(event.currentTarget.value))}
+                      step={0.01}
+                      type="range"
+                      value={manualOutputVolume}
+                    />
+                    <span>{manualOutputVolume.toFixed(2)}</span>
+                  </label>
+                </div>
+
+                <div className="provider-control-group">
+                  <span className="provider-label">Active Volume</span>
+                  <pre className="provider-code">{formatVolume(activeVolume)}</pre>
                 </div>
               </div>
-
-              <div className="provider-control-group">
-                <span className="provider-label">Manual Signal</span>
-                <div className="provider-segment">
-                  {STATES.map((item) => (
-                    <button
-                      className={`provider-button ${manualState === item ? 'is-selected' : ''}`}
-                      key={item}
-                      onClick={() => setManualState(item)}
-                      type="button"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="provider-control-group provider-sliders">
-                <label className="provider-slider-row">
-                  <span>Input</span>
-                  <input
-                    max={1}
-                    min={0}
-                    onChange={(event) => setManualInputVolume(Number(event.currentTarget.value))}
-                    step={0.01}
-                    type="range"
-                    value={manualInputVolume}
-                  />
-                  <span>{manualInputVolume.toFixed(2)}</span>
-                </label>
-                <label className="provider-slider-row">
-                  <span>Output</span>
-                  <input
-                    max={1}
-                    min={0}
-                    onChange={(event) => setManualOutputVolume(Number(event.currentTarget.value))}
-                    step={0.01}
-                    type="range"
-                    value={manualOutputVolume}
-                  />
-                  <span>{manualOutputVolume.toFixed(2)}</span>
-                </label>
-              </div>
-
-              <div className="provider-control-group">
-                <span className="provider-label">Active Volume</span>
-                <pre className="provider-code">{formatVolume(activeVolume)}</pre>
-              </div>
-            </div>
+            ) : null}
           </section>
 
           <aside className="provider-sidebar" aria-label="Provider diagnostics">
