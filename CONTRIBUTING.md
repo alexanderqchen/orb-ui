@@ -63,6 +63,19 @@ pnpm build
 pnpm dev:demo
 ```
 
+### Local provider QA playground
+
+For real adapter testing before merge or release:
+
+```bash
+cp demo/.env.example demo/.env.local
+# Fill in VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID, and/or VITE_ELEVENLABS_AGENT_ID.
+pnpm build
+pnpm dev:demo
+```
+
+Then open `http://localhost:5173/provider-playground.html`. The playground is intentionally local-first: it reads `VITE_*` values in the browser, so use development agents and never commit `.env.local`.
+
 Before opening a PR, run:
 
 ```bash
