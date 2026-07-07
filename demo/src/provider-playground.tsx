@@ -411,7 +411,7 @@ function ProviderPlayground() {
           <div>
             <h1 className="provider-title">Provider QA Playground</h1>
             <p className="provider-subtitle">
-              Local adapter bench for comparing real signal behavior across providers.
+              Adapter bench for comparing real signal behavior across providers.
             </p>
           </div>
           <a className="provider-link" href="/">

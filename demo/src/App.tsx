@@ -195,6 +195,7 @@ const NAV_LINKS = [
   { href: '#quick-start', label: 'Quick Start', external: false },
   { href: '#adapters', label: 'Adapters', external: false },
   { href: '#themes', label: 'Themes', external: false },
+  { href: '/playground', label: 'Playground', external: false },
 ] as const
 
 const SEO_SECTIONS = [

@@ -20,6 +20,26 @@
       "permanent": true
     },
     {
+      "source": "/provider-playground",
+      "destination": "/playground",
+      "permanent": true
+    },
+    {
+      "source": "/provider-playground/",
+      "destination": "/playground",
+      "permanent": true
+    },
+    {
+      "source": "/provider-playground.html",
+      "destination": "/playground",
+      "permanent": true
+    },
+    {
+      "source": "/playground/index.html",
+      "destination": "/playground",
+      "permanent": true
+    },
+    {
       "source": "/guides/voice-agent-ui",
       "destination": "/docs/guides/voice-agent-ui",
       "permanent": true
@@ -161,6 +181,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/playground",
+      "destination": "/playground/index.html"
+    },
+    {
+      "source": "/playground/",
+      "destination": "/playground/index.html"
+    },
     {
       "source": "/docs",
       "destination": "https://experimentalsoftware.mintlify.dev/docs"
