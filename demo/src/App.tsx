@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Orb } from 'orb-ui'
-import type { OrbState, OrbTheme } from 'orb-ui'
+import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
@@ -162,6 +162,12 @@ function getSimulationFrame(startedAt: number, now: number) {
     state: 'idle' as OrbState,
     volume: 0,
   }
+}
+
+function signalFromStateVolume(state: OrbState, volume: number): OrbSignal {
+  if (state === 'listening') return { state, inputVolume: volume }
+  if (state === 'speaking') return { state, outputVolume: volume }
+  return { state, volume }
 }
 
 function useConversationSimulation() {
@@ -354,6 +360,7 @@ export default function App() {
         mode: 'Sandbox',
         state: sandboxState,
         volume: sandboxVolume,
+        signal: signalFromStateVolume(sandboxState, sandboxVolume),
       }
     }
 
@@ -361,6 +368,7 @@ export default function App() {
       mode: 'Simulation',
       state: simulation.state,
       volume: simulation.volume,
+      signal: signalFromStateVolume(simulation.state, simulation.volume),
     }
   }, [mode, sandboxState, sandboxVolume, simulation])
 
@@ -374,9 +382,9 @@ export default function App() {
     setSandboxState(nextState)
 
     if (nextState === 'listening') {
-      setSandboxVolume((volume) => (volume === 0 ? 0.35 : volume))
+      setSandboxVolume(0.35)
     } else if (nextState === 'speaking') {
-      setSandboxVolume((volume) => (volume === 0 ? 0.65 : volume))
+      setSandboxVolume(0.65)
     } else {
       setSandboxVolume(0)
     }
@@ -566,14 +574,20 @@ export default function App() {
             justifyContent: 'center',
           }}
         >
-          <Orb theme={theme} size={280} state={activeOrb.state} volume={activeOrb.volume} />
+          <Orb theme={theme} size={280} signal={activeOrb.signal} data-testid="orb-demo-visual" />
 
           <div style={statusStripStyle}>
-            <span style={statusCellStyle}>{activeOrb.mode}</span>
+            <span data-testid="orb-demo-mode" style={statusCellStyle}>
+              {activeOrb.mode}
+            </span>
             <span style={statusSeparatorStyle}>/</span>
-            <span style={statusCellStyle}>{activeOrb.state}</span>
+            <span data-testid="orb-demo-state" style={statusCellStyle}>
+              {activeOrb.state}
+            </span>
             <span style={statusSeparatorStyle}>/</span>
-            <span style={volumeTextStyle}>{activeOrb.volume.toFixed(2)}</span>
+            <span data-testid="orb-demo-volume" style={volumeTextStyle}>
+              {activeOrb.volume.toFixed(2)}
+            </span>
           </div>
         </div>
 

@@ -156,12 +156,31 @@ export function createElevenLabsAdapter(
     }, 33) // ~30 fps
   }
 
-  function stopVolumePolling() {
+  function clearVolumePolling() {
     if (volumeInterval) {
       clearInterval(volumeInterval)
       volumeInterval = null
     }
+  }
+
+  function stopVolumePolling() {
+    clearVolumePolling()
     emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
+  }
+
+  function emitIdleSignal() {
+    currentState = 'idle'
+    emitPatch({ state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 })
+  }
+
+  function shouldEmitIdle(activeConversation: ElevenLabsConversation) {
+    return (
+      conversation === activeConversation ||
+      currentState !== 'idle' ||
+      signal.volume !== 0 ||
+      signal.inputVolume !== 0 ||
+      signal.outputVolume !== 0
+    )
   }
 
   // ElevenLabs callbacks — injected into startSession
@@ -186,17 +205,16 @@ export function createElevenLabsAdapter(
     },
 
     onDisconnect: () => {
-      stopVolumePolling()
-      setState('idle')
-      emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
+      clearVolumePolling()
       conversation = null
+      emitIdleSignal()
     },
 
     onError: (message) => {
       console.error('[orb-ui/elevenlabs] Error:', message)
-      stopVolumePolling()
-      setState('error')
-      emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: message })
+      clearVolumePolling()
+      currentState = 'error'
+      emitPatch({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error: message })
       conversation = null
     },
   }
@@ -227,14 +245,18 @@ export function createElevenLabsAdapter(
     },
 
     async stop() {
-      if (!conversation) return
-      stopVolumePolling()
+      const activeConversation = conversation
+      if (!activeConversation) return
+      clearVolumePolling()
       try {
-        await conversation.endSession()
+        await activeConversation.endSession()
       } catch (err) {
         console.error('[orb-ui/elevenlabs] endSession failed:', err)
       }
-      conversation = null
+      if (shouldEmitIdle(activeConversation)) {
+        conversation = null
+        emitIdleSignal()
+      }
     },
   }
 }

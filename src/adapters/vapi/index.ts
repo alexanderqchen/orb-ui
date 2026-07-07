@@ -219,9 +219,11 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
       const onError = (error: unknown) => {
         console.error('[orb-ui/vapi] Error:', error)
+        callActive = false
+        currentState = 'error'
+        clearTimer()
         stopVolLoop()
-        emitState('error')
-        emitPatch({ volume: 0, outputVolume: 0, error })
+        emitPatch({ state: 'error', volume: 0, outputVolume: 0, error })
         emaVol = 0
       }
 
@@ -242,6 +244,8 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
       return () => {
         clearTimer()
+        stopVolLoop()
+        emaVol = 0
         client.removeListener('call-start', onCallStart as () => void)
         client.removeListener('call-end', onCallEnd as () => void)
         client.removeListener('speech-start', onSpeechStart as () => void)
