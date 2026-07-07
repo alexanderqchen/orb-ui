@@ -68,6 +68,7 @@ input {
 
 .provider-layout {
   display: grid;
+  align-items: start;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 20px;
   padding-top: 20px;
@@ -257,6 +258,12 @@ input {
 .provider-event-list {
   display: grid;
   gap: 8px;
+}
+
+.provider-event-list {
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .provider-field-list {
