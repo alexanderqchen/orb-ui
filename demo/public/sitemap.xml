@@ -61,6 +61,24 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://orb-ui.com/docs/adapters/overview</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://orb-ui.com/docs/adapters/livekit</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://orb-ui.com/docs/adapters/pipecat</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://orb-ui.com/docs/adapters/custom</loc>
     <lastmod>2026-05-28</lastmod>
     <changefreq>weekly</changefreq>
@@ -68,13 +86,13 @@
   </url>
   <url>
     <loc>https://orb-ui.com/docs/adapters/openai-realtime</loc>
-    <lastmod>2026-05-28</lastmod>
+    <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://orb-ui.com/docs/adapters/gemini-live</loc>
-    <lastmod>2026-05-28</lastmod>
+    <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
