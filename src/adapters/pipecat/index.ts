@@ -61,6 +61,16 @@ const PIPECAT_EVENTS = {
   botTtsStarted: 'botTtsStarted',
 } as const
 
+// Daily/Pipecat reports audio gain in the full 0-1 range, but conversational
+// speech commonly occupies only the bottom few hundredths of that range. Shape
+// those values before they reach a theme so quiet speech still produces useful
+// motion, then smooth the 100 ms level updates without making speech feel laggy.
+const AUDIO_LEVEL_NOISE_FLOOR = 0.002
+const AUDIO_LEVEL_GAIN = 4
+const AUDIO_LEVEL_EXPONENT = 0.8
+const AUDIO_LEVEL_ATTACK = 0.6
+const AUDIO_LEVEL_RELEASE = 0.2
+
 function stateFromTransport(state: string): OrbState | undefined {
   switch (state) {
     case 'initializing':
@@ -82,8 +92,19 @@ function stateFromTransport(state: string): OrbState | undefined {
   }
 }
 
-function normalizeLevel(level: unknown): number {
-  return typeof level === 'number' && Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 0
+function shapeAudioLevel(level: unknown): number {
+  if (typeof level !== 'number' || !Number.isFinite(level) || level <= AUDIO_LEVEL_NOISE_FLOOR) {
+    return 0
+  }
+
+  const gated = Math.min(1, Math.max(0, level - AUDIO_LEVEL_NOISE_FLOOR))
+  return Math.pow(Math.min(1, gated * AUDIO_LEVEL_GAIN), AUDIO_LEVEL_EXPONENT)
+}
+
+function smoothAudioLevel(level: unknown, previous: number): number {
+  const shaped = shapeAudioLevel(level)
+  const rate = shaped > previous ? AUDIO_LEVEL_ATTACK : AUDIO_LEVEL_RELEASE
+  return previous + (shaped - previous) * rate
 }
 
 function isMediaStreamTrack(track: unknown): track is MediaStreamTrack {
@@ -114,6 +135,8 @@ export function createPipecatAdapter(
     outputVolume: 0,
   }
   let listening = false
+  let inputLevel = 0
+  let outputLevel = 0
 
   function emit(next: OrbSignal) {
     signal = next
@@ -121,6 +144,8 @@ export function createPipecatAdapter(
   }
 
   function emitState(state: OrbState, error?: unknown) {
+    inputLevel = 0
+    outputLevel = 0
     emit({
       state,
       volume: 0,
@@ -132,7 +157,8 @@ export function createPipecatAdapter(
 
   function emitInputVolume(level: unknown) {
     if (signal.state !== 'listening') return
-    const inputVolume = normalizeLevel(level)
+    inputLevel = smoothAudioLevel(level, inputLevel)
+    const inputVolume = inputLevel
     emit({ ...signal, volume: inputVolume, inputVolume, outputVolume: 0 })
   }
 
@@ -146,7 +172,8 @@ export function createPipecatAdapter(
       }
     }
 
-    const outputVolume = normalizeLevel(level)
+    outputLevel = smoothAudioLevel(level, outputLevel)
+    const outputVolume = outputLevel
     emit({ ...signal, volume: outputVolume, inputVolume: 0, outputVolume })
   }
 

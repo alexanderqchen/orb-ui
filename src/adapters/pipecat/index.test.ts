@@ -45,10 +45,10 @@ describe('createPipecatAdapter', () => {
     client.emit('localAudioLevel', 0.35)
     expect(signals.at(-1)).toMatchObject({
       state: 'listening',
-      volume: 0.35,
-      inputVolume: 0.35,
       outputVolume: 0,
     })
+    expect(signals.at(-1)?.volume).toBeCloseTo(0.6)
+    expect(signals.at(-1)?.inputVolume).toBeCloseTo(0.6)
 
     client.emit('userStoppedSpeaking')
     expect(signals.at(-1)).toMatchObject({ state: 'thinking' })
@@ -57,10 +57,10 @@ describe('createPipecatAdapter', () => {
     client.emit('remoteAudioLevel', 0.7, { id: 'bot', local: false })
     expect(signals.at(-1)).toMatchObject({
       state: 'speaking',
-      volume: 0.7,
       inputVolume: 0,
-      outputVolume: 0.7,
     })
+    expect(signals.at(-1)?.volume).toBeCloseTo(0.6)
+    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.6)
 
     client.emit('botStoppedSpeaking')
     expect(signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
@@ -88,7 +88,48 @@ describe('createPipecatAdapter', () => {
     expect(signals).toHaveLength(count)
 
     client.emit('remoteAudioLevel', 0.8, { id: 'bot', local: false })
-    expect(signals.at(-1)?.outputVolume).toBe(0.8)
+    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.6)
+  })
+
+  it('amplifies realistic low levels and smooths attack and release independently', () => {
+    const client = new FakePipecatClient()
+    const adapter = createPipecatAdapter(client)
+    const signals: OrbSignal[] = []
+    adapter.subscribe((signal) => signals.push(signal))
+
+    client.emit('botReady')
+    client.emit('localAudioLevel', 0.02)
+    const firstInput = signals.at(-1)?.inputVolume ?? 0
+    expect(firstInput).toBeGreaterThan(0.07)
+
+    client.emit('localAudioLevel', 0.02)
+    const secondInput = signals.at(-1)?.inputVolume ?? 0
+    expect(secondInput).toBeGreaterThan(firstInput)
+
+    client.emit('localAudioLevel', 0)
+    const releasedInput = signals.at(-1)?.inputVolume ?? 0
+    expect(releasedInput).toBeLessThan(secondInput)
+    expect(releasedInput).toBeGreaterThan(0)
+
+    client.emit('botStartedSpeaking')
+    client.emit('remoteAudioLevel', 0.05, { id: 'bot', local: false })
+    const output = signals.at(-1)?.outputVolume ?? 0
+    expect(output).toBeGreaterThan(0.15)
+    expect(signals.at(-1)?.inputVolume).toBe(0)
+  })
+
+  it('gates invalid and near-silent levels', () => {
+    const client = new FakePipecatClient()
+    const adapter = createPipecatAdapter(client)
+    const signals: OrbSignal[] = []
+    adapter.subscribe((signal) => signals.push(signal))
+
+    client.emit('botReady')
+    client.emit('localAudioLevel', Number.NaN)
+    expect(signals.at(-1)?.inputVolume).toBe(0)
+
+    client.emit('localAudioLevel', 0.002)
+    expect(signals.at(-1)?.inputVolume).toBe(0)
   })
 
   it('emits errors from the client and failed starts', async () => {
