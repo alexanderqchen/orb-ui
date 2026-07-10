@@ -281,7 +281,7 @@ const SEO_SECTIONS = [
     id: 'adapters',
     title: 'Provider adapters',
     copy: 'Use adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, and Gemini Live.',
-    link: '/docs/adapters/vapi',
+    link: '/docs/adapters/overview',
     linkLabel: 'Explore adapters',
   },
   {

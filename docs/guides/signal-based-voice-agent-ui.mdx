@@ -1,0 +1,204 @@
+---
+title: Signal-based voice agent UI in React
+description: Build a provider-agnostic React voice agent UI with OrbSignal, OrbAdapter, normalized state, separate input and output volume, and custom adapters.
+---
+
+# Build a provider-agnostic, signal-based voice agent UI in React
+
+A voice UI should not need to know whether its session comes from WebRTC, WebSocket, a provider
+SDK, or a custom backend. orb-ui creates that boundary with two small types: `OrbSignal` describes
+what the conversation is doing, and `OrbAdapter` delivers those signals and optionally controls the
+session.
+
+## The actual signal contract
+
+These are the public types exported by `orb-ui` and `orb-ui/adapters`:
+
+```ts
+type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
+
+interface OrbSignal {
+  state: OrbState
+  volume?: number
+  inputVolume?: number
+  outputVolume?: number
+  error?: unknown
+}
+
+type OrbSignalListener = (signal: OrbSignal) => void
+
+interface OrbAdapter {
+  subscribe(listener: OrbSignalListener): () => void
+  start?: () => void | Promise<void>
+  stop?: () => void | Promise<void>
+}
+```
+
+`subscribe` must return a cleanup function. Emit a complete current signal, not a partial patch:
+orb-ui stores the latest object as the adapter signal. `start` and `stop` are optional because an
+app may already own the session controls.
+
+## Normalize provider states at the boundary
+
+Keep provider-specific names out of components. Map them once in the adapter:
+
+```ts
+import type { OrbState } from 'orb-ui'
+
+function toOrbState(state: string): OrbState {
+  switch (state) {
+    case 'joining':
+      return 'connecting'
+    case 'user-speaking':
+      return 'listening'
+    case 'agent-processing':
+      return 'thinking'
+    case 'agent-speaking':
+      return 'speaking'
+    case 'failed':
+      return 'error'
+    default:
+      return 'idle'
+  }
+}
+```
+
+Use `error` for the normalized UI state and attach the original failure to `signal.error` for logs
+or nearby error messaging. Do not invent provider-specific visual states unless the product needs
+to render them differently.
+
+## Input volume and output volume are different signals
+
+Normalize audio levels to `0`–`1`. `inputVolume` represents the user's microphone; `outputVolume`
+represents assistant playback. Keeping them separate prevents microphone noise from animating the
+orb while the assistant is speaking.
+
+`Orb` selects `inputVolume` in `listening` and `outputVolume` in `speaking`. The legacy `volume`
+field is a fallback for integrations with only one meter. The explicit `volume` prop has the
+highest priority when supplied. Outside listening and speaking, volume falls back to `signal.volume`
+or zero.
+
+Clamp provider values before emitting them:
+
+```ts
+const normalizeVolume = (value: number) => Math.max(0, Math.min(value, 1))
+```
+
+Raw browser microphone measurements may need additional noise gating, smoothing, or calibration.
+Do that at the adapter boundary so themes receive stable normalized data.
+
+## Adapter mode versus controlled mode
+
+Use adapter mode when a provider client owns events and session lifecycle. Without an explicit
+`aria-label`, orb-ui supplies the matching “Start voice session” or “Stop voice session” label:
+
+```tsx
+<Orb adapter={adapter} theme="circle" />
+```
+
+Use controlled mode when React state already contains the current signal:
+
+```tsx
+import type { OrbSignal } from 'orb-ui'
+import { Orb } from 'orb-ui'
+
+export function VoiceStatus({ signal }: { signal: OrbSignal }) {
+  return <Orb signal={signal} theme="circle" />
+}
+```
+
+The `state` and `volume` props can override signal or adapter values, but prefer one ownership model
+per component. Controlled mode is the shortest route for a one-off integration. An adapter becomes
+valuable when the mapping and cleanup logic is reused.
+
+## Build a real custom adapter
+
+This example wraps a small event-driven voice session. It keeps one current signal, supports
+multiple subscribers, removes provider listeners when the final orb unsubscribes, and exposes the
+session controls.
+
+```ts
+import type { OrbAdapter, OrbSignal, OrbState } from 'orb-ui/adapters'
+
+interface VoiceSessionEvent {
+  state: string
+  inputLevel?: number
+  outputLevel?: number
+  error?: unknown
+}
+
+interface VoiceSession {
+  on(event: 'change', listener: (event: VoiceSessionEvent) => void): void
+  off(event: 'change', listener: (event: VoiceSessionEvent) => void): void
+  start(): Promise<void>
+  stop(): Promise<void>
+}
+
+const clamp = (value: number) => Math.max(0, Math.min(value, 1))
+
+function normalizeState(state: string): OrbState {
+  if (state === 'joining') return 'connecting'
+  if (state === 'recording') return 'listening'
+  if (state === 'processing') return 'thinking'
+  if (state === 'playing') return 'speaking'
+  if (state === 'failed') return 'error'
+  return 'idle'
+}
+
+export function createVoiceSessionAdapter(session: VoiceSession): OrbAdapter {
+  const listeners = new Set<(signal: OrbSignal) => void>()
+  let current: OrbSignal = { state: 'idle' }
+
+  const handleChange = (event: VoiceSessionEvent) => {
+    current = {
+      state: normalizeState(event.state),
+      inputVolume: event.inputLevel === undefined ? undefined : clamp(event.inputLevel),
+      outputVolume: event.outputLevel === undefined ? undefined : clamp(event.outputLevel),
+      error: event.error,
+    }
+    listeners.forEach((listener) => listener(current))
+  }
+
+  return {
+    subscribe(listener) {
+      if (listeners.size === 0) session.on('change', handleChange)
+      listeners.add(listener)
+      listener(current)
+
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) session.off('change', handleChange)
+      }
+    },
+    start: () => session.start(),
+    stop: () => session.stop(),
+  }
+}
+```
+
+Create the adapter outside render or memoize it so React does not resubscribe on every render:
+
+```tsx
+import { useMemo } from 'react'
+import { Orb } from 'orb-ui'
+
+export function VoiceAgent({ session }: { session: VoiceSession }) {
+  const adapter = useMemo(() => createVoiceSessionAdapter(session), [session])
+  return <Orb adapter={adapter} theme="bars" />
+}
+```
+
+## Choose and migrate deliberately
+
+- Choose a [built-in provider adapter](/adapters/overview) when it matches your provider and desired
+  session ownership.
+- Start in [controlled mode](/adapters/custom) when your existing store already exposes normalized
+  state and volume.
+- Extract a custom adapter when provider event mapping, lifecycle, or audio normalization begins to
+  leak into multiple React components.
+- When migrating from the callback-object adapter removed in orb-ui 0.5.0, replace
+  `subscribe({ onStateChange, onVolumeChange })` with `subscribe(listener)` and emit `OrbSignal`
+  objects. Split the old single volume into input and output meters when the provider exposes both.
+
+Test the adapter with the `debug` theme first. Verify every provider state, unsubscribe cleanup,
+start/stop failures, and that only the active speaker's meter drives the UI.

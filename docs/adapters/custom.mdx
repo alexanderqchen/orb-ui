@@ -46,6 +46,9 @@ function normalizeVolume(raw: number) {
 
 If your integration becomes reusable, wrap it in an adapter.
 
+See the [signal-based voice agent UI guide](/guides/signal-based-voice-agent-ui) for the complete
+contract, state and volume normalization guidance, and a production-shaped adapter with cleanup.
+
 ```ts
 const adapter = {
   subscribe(listener) {

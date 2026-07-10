@@ -1,9 +1,13 @@
 ---
-title: Adapter overview
-description: Compare orb-ui provider adapters, understand what each adapter owns, and choose the simplest setup for your voice agent.
+title: React voice agent adapters
+description: Compare orb-ui adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, and custom React voice agent UIs.
 ---
 
-# Provider adapter overview
+# React voice agent adapter overview
+
+Choose an orb-ui adapter when a provider SDK owns your voice session but your React UI needs one
+consistent state and audio-level contract. The provider guides linked here are the canonical setup
+pages for each integration.
 
 Every provider integration follows the same UI pattern:
 
@@ -19,7 +23,7 @@ The orb subscribes to the adapter and calls its `start()` and `stop()` methods. 
 provider events into `idle`, `connecting`, `listening`, `thinking`, `speaking`, and `error` signals,
 including normalized input and output volume when the provider exposes audio.
 
-## Setup at a glance
+## Compare providers and integration styles
 
 | Provider        | Browser code you provide                               | What orb-ui owns                                                                  |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
@@ -29,6 +33,16 @@ including normalized input and output volume when the provider exposes audio.
 | Pipecat         | A configured `PipecatClient` and its connect callback  | RTVI state mapping, remote playback, and both volume levels                       |
 | OpenAI Realtime | A callback that returns a fresh client secret          | Browser WebRTC, microphone, playback, state, and both volume levels               |
 | Gemini Live     | A callback that opens the official Google Live session | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
+
+Choose based on who should own the session:
+
+- If your app already uses Vapi or Pipecat's browser client, wrap that existing client.
+- If you want orb-ui to own browser media and connection lifecycle, use OpenAI Realtime or a
+  managed ElevenLabs or LiveKit setup.
+- If the provider requires an app-owned SDK connection, use Gemini Live's `connect` callback.
+- If your application already normalizes session state, use [controlled mode](/adapters/custom).
+- If the mapping will be shared across screens or projects, build a custom `OrbAdapter` using the
+  [signal architecture guide](/guides/signal-based-voice-agent-ui).
 
 Provider authentication stays explicit. Standard OpenAI and Gemini API keys belong on your server;
 the browser should receive only short-lived provider credentials. LiveKit participant tokens should
@@ -117,3 +131,7 @@ provider lifecycle.
 - [Pipecat](/adapters/pipecat)
 - [OpenAI Realtime](/adapters/openai-realtime)
 - [Gemini Live](/adapters/gemini-live)
+- [Custom integrations and controlled mode](/adapters/custom)
+
+To understand the provider-independent API behind every option, read [Build a provider-agnostic,
+signal-based voice agent UI in React](/guides/signal-based-voice-agent-ui).

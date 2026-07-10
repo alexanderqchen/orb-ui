@@ -14,8 +14,8 @@ Target direction:
 - Add a `signal` prop for controlled usage
 - Support `inputVolume` and `outputVolume`
 - Add a `thinking` voice state
-- Document migration from callback-object adapters
-- Remove callback-object adapter compatibility in 0.5.0
+- Document migration from callback-object adapters — complete
+- Remove callback-object adapter compatibility in 0.5.0 — complete
 - Remove surprising global audio behavior from `Orb`
 
 ### LiveKit adapter — complete

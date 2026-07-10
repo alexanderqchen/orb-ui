@@ -9,7 +9,7 @@ React voice agent UI components for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI R
 </p>
 
 <p align="center">
-  <a href="https://orb-ui.com">Live Demo</a> · <a href="https://orb-ui.com/docs/guides/voice-agent-ui">Voice Agent UI Guide</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">GitHub</a>
+  <a href="https://orb-ui.com">Live Demo</a> · <a href="https://orb-ui.com/docs/adapters/overview">Adapter Guide</a> · <a href="https://orb-ui.com/docs/guides/signal-based-voice-agent-ui">Signal Architecture</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">GitHub</a>
 </p>
 
 ```jsx

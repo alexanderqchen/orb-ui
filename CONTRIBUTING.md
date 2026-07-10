@@ -126,6 +126,15 @@ pnpm changeset
 - Run `pnpm check` before opening a PR
 - Keep bundle size in mind — no heavy dependencies without discussion
 
+## Adapter release and distribution checklist
+
+- [ ] Update the provider adapter doc, adapter overview, homepage adapter link/copy, and README.
+- [ ] Add or update working examples and release notes; include migration notes for breaking changes.
+- [ ] After deployment, request indexing for the canonical provider doc and confirm sitemap discovery.
+- [ ] Measure impressions/clicks in Google Search Console and adoption/navigation in PostHog.
+- [ ] Seek relevant provider ecosystem directories, integration galleries, and community listings after
+      release; follow each community's disclosure and self-promotion rules.
+
 ---
 
 ## PR titles and breaking changes

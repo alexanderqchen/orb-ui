@@ -90,6 +90,7 @@
         "icon": "library",
         "pages": [
           "guides/voice-agent-ui",
+          "guides/signal-based-voice-agent-ui",
           "examples/voice-orb-ui",
           "guides/voice-agent-platforms",
           "guides/ai-voice-sales-agents",
