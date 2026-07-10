@@ -25,7 +25,7 @@
     "build": "tsc && vite build",
     "build:demo": "pnpm --filter orb-ui-demo build",
     "changeset": "changeset",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm typecheck:examples && pnpm test && pnpm build && pnpm typecheck:package && pnpm typecheck:demo && pnpm build:demo",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm typecheck:examples && pnpm test && pnpm build && pnpm typecheck:package && pnpm typecheck:demo && pnpm build:demo && pnpm test:e2e:built",
     "dev": "vite build --watch",
     "dev:demo": "pnpm --filter orb-ui-demo dev",
     "format": "prettier . --write",
@@ -37,6 +37,8 @@
     "lint": "eslint .",
     "release": "pnpm build && changeset publish",
     "test": "vitest run --passWithNoTests",
+    "test:e2e": "pnpm build && pnpm test:e2e:built",
+    "test:e2e:built": "tsc -p tests/e2e/tsconfig.json --noEmit && playwright test",
     "test:watch": "vitest"
   },
   "peerDependencies": {
@@ -47,6 +49,7 @@
     "@changesets/cli": "^2.31.0",
     "@elevenlabs/client": "1.9.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.61.1",
     "@types/react": "^18.3.29",
     "@types/react-dom": "^18.3.7",
     "@vapi-ai/web": "2.5.2",

@@ -63,7 +63,7 @@ pnpm build
 pnpm dev:demo
 ```
 
-### Local provider QA playground
+### Provider QA playground
 
 For real adapter testing before merge or release:
 
@@ -72,20 +72,37 @@ pnpm build
 pnpm dev:demo
 ```
 
-Then open `http://localhost:5173/playground` and paste provider test config into the Provider
-Config panel: a Vapi public key plus assistant ID, an ElevenLabs agent ID, or LiveKit sandbox
-token server ID plus agent name.
+Then open `http://localhost:5173/playground`. The same `/playground` path is available on preview
+deployments and the production site. Paste provider test config into the Provider Config panel: a
+Vapi public key plus assistant ID, an ElevenLabs agent ID, or LiveKit sandbox token server ID plus
+agent name.
 
-The playground is intentionally local-first. Pasted values are saved in browser local storage for
-that local origin, and the Clear button removes the selected provider's saved values. To prefill
-the fields during local development, copy `demo/.env.example` to `demo/.env.local`, fill in any
-`VITE_*` defaults, and restart the demo server. Use development agents and never commit
-`.env.local`.
+Pasted values are saved in browser local storage for that origin, and the Clear button removes the
+selected provider's saved values. To prefill the fields during local development, copy
+`demo/.env.example` to `demo/.env.local`, fill in any `VITE_*` defaults, and restart the demo
+server. Use development agents and never commit `.env.local`.
+
+### Verification
 
 Before opening a PR, run:
 
 ```bash
 pnpm check
+```
+
+The verification layers have separate jobs:
+
+- `pnpm test` covers component, signal, and provider-adapter behavior with fast unit tests.
+- Typechecks validate source examples, provider SDK compatibility, and the declarations emitted by
+  the built package.
+- The demo typecheck and build validate the deployed site and playground as a real consumer.
+- `pnpm test:e2e` builds the published package entry points, loads them in Google Chrome, and
+  exercises controlled signals plus adapter start/stop behavior.
+
+Run the browser check by itself with:
+
+```bash
+pnpm test:e2e
 ```
 
 If your change affects users, add a changeset:

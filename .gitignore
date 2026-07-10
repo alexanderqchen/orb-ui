@@ -7,3 +7,5 @@ demo/dist
 volume-debug.log
 demo/.env
 outputs
+playwright-report
+test-results

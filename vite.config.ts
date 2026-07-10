@@ -42,6 +42,9 @@ function patchDeclarationImportExtensions(emittedFiles: Map<string, string>) {
 }
 
 export default defineConfig({
+  test: {
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
   plugins: [
     react(),
     dts({
