@@ -72,7 +72,6 @@ optional dependency. orb-ui receives the connected session through one callback:
 
 ```tsx
 const adapter = createGeminiLiveAdapter({
-  manualActivityDetection: true,
   connect: async (callbacks) => {
     const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((response) =>
       response.json(),
@@ -86,9 +85,10 @@ const adapter = createGeminiLiveAdapter({
 })
 ```
 
-When `manualActivityDetection` is enabled, the matching Gemini session config must disable automatic
-activity detection. The adapter then sends explicit activity start/end markers using its local voice
-detector.
+The adapter uses client-side activity detection by default, so the matching Gemini session config
+must disable automatic activity detection. The adapter sends explicit activity start/end markers
+using its local voice detector. Set `activityDetection: 'server'` only when the Gemini session keeps
+automatic activity detection enabled.
 
 ## Advanced options stay optional
 

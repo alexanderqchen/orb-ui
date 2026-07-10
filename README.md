@@ -185,7 +185,6 @@ import { Orb } from 'orb-ui'
 import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
 const adapter = createGeminiLiveAdapter({
-  manualActivityDetection: true,
   connect: async (callbacks) => {
     const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((res) =>
       res.json(),
@@ -201,7 +200,7 @@ const adapter = createGeminiLiveAdapter({
 
 Mint one-use Gemini Live tokens on your server. See the
 [Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live) for the matching server config that
-disables automatic activity detection.
+disables automatic activity detection. The adapter handles client-side turn detection by default.
 
 The examples above show the intended happy paths. Transport overrides, custom browser runtimes,
 existing-session modes, and audio calibration hooks are optional and documented in the individual

@@ -1,6 +1,10 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
 import { calibrateOutputVolume } from '../audio-level'
-import type { OutputVolumeCalibrationSource, OutputVolumeSample } from '../audio-level'
+import type {
+  OutputVolumeCalibration,
+  OutputVolumeCalibrationSource,
+  OutputVolumeSample,
+} from '../audio-level'
 
 export interface GeminiLiveInlineData {
   data?: string
@@ -48,8 +52,8 @@ export interface GeminiLiveAdapterConfig {
   speechThreshold?: number
   /** Defaults to 500 ms before listening transitions to thinking. */
   speechEndDelayMs?: number
-  /** Send explicit activity markers instead of relying on server-side VAD. Defaults to false. */
-  manualActivityDetection?: boolean
+  /** Defaults to client-side detection. Use `server` with Gemini automatic activity detection. */
+  activityDetection?: 'client' | 'server'
   /** Runtime override for tests or custom browser wrappers. */
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
   /** Runtime override for tests or custom browser wrappers. */
@@ -66,6 +70,13 @@ export interface GeminiLiveOrbAdapter extends OrbAdapter {
 }
 
 const DEFAULT_INPUT_SAMPLE_RATE = 16_000
+const DEFAULT_GEMINI_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
+  noiseFloor: 0.003,
+  gain: 4,
+  exponent: 0.8,
+  attack: 0.3,
+  release: 0.1,
+}
 
 function calculateRms(samples: Float32Array) {
   let sumSquares = 0
@@ -149,6 +160,18 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
   let turnComplete = false
   let stopping = false
 
+  function usesClientActivityDetection() {
+    return config.activityDetection !== 'server'
+  }
+
+  function getOutputVolumeCalibration() {
+    const overrides =
+      typeof config.outputVolumeCalibration === 'function'
+        ? config.outputVolumeCalibration()
+        : config.outputVolumeCalibration
+    return { ...DEFAULT_GEMINI_OUTPUT_CALIBRATION, ...overrides }
+  }
+
   function emit(next: OrbSignal) {
     signal = next
     listeners.forEach((listener) => listener(next))
@@ -175,7 +198,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
   function handleInputVolume(inputVolume: number) {
     const threshold = config.speechThreshold ?? 0.04
     if (inputVolume > threshold) {
-      if (!userSpeaking && config.manualActivityDetection) {
+      if (!userSpeaking && usesClientActivityDetection()) {
         session?.sendRealtimeInput({ activityStart: {} })
       }
       userSpeaking = true
@@ -185,7 +208,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       speechEndTimer = setTimeout(() => {
         speechEndTimer = null
         userSpeaking = false
-        if (config.manualActivityDetection) {
+        if (usesClientActivityDetection()) {
           session?.sendRealtimeInput({ activityEnd: {} })
         }
         if (signal.state === 'listening') emitState('thinking')
@@ -278,7 +301,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       const sample = calibrateOutputVolume(
         calculateRms(samples),
         outputVolumeLevel,
-        config.outputVolumeCalibration,
+        getOutputVolumeCalibration,
       )
       outputVolumeLevel = sample.normalized
       config.onOutputVolumeSample?.(sample)
@@ -386,7 +409,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     async stop() {
       stopping = true
       try {
-        if (userSpeaking && config.manualActivityDetection) {
+        if (userSpeaking && usesClientActivityDetection()) {
           session?.sendRealtimeInput({ activityEnd: {} })
         }
         session?.sendRealtimeInput({ audioStreamEnd: true })

@@ -68,7 +68,6 @@ import { Orb } from 'orb-ui'
 import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
 const adapter = createGeminiLiveAdapter({
-  manualActivityDetection: true,
   connect: async (callbacks) => {
     const response = await fetch('/api/gemini-live-token', { method: 'POST' })
     const token = await response.json()
@@ -91,10 +90,11 @@ export function GeminiLiveVoiceUI() {
 }
 ```
 
-The two activity-detection settings are paired: the server configuration disables automatic VAD,
-and `manualActivityDetection` makes the adapter send explicit `activityStart` and `activityEnd`
-markers from its local speech detector. This is the tested, deterministic voice-turn path. If your
-Gemini session uses server-side VAD instead, omit both settings.
+The server configuration disables automatic VAD because the adapter uses client-side activity
+detection by default. It sends explicit `activityStart` and `activityEnd` markers from its local
+speech detector, which is the tested, deterministic voice-turn path. If your Gemini session uses
+server-side VAD instead, keep automatic activity detection enabled and set
+`activityDetection: 'server'` in the adapter.
 
 ## Audio behavior
 

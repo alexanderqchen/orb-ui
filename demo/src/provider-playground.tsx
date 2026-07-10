@@ -565,7 +565,6 @@ function createProviderAdapter(
       createGeminiLiveAdapter({
         outputVolumeCalibration: outputCalibration?.get,
         onOutputVolumeSample: outputCalibration?.onSample,
-        manualActivityDetection: true,
         connect: async (callbacks) => {
           const { GoogleGenAI } = await import('@google/genai')
           const token = await postProviderJson<{

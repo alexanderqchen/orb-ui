@@ -35,6 +35,7 @@ class FakeAudioContext {
   state: AudioContextState = 'running'
   sampleRate = 48_000
   currentTime = 1
+  outputSample = 0
   destination = new FakeAudioNode() as unknown as AudioDestinationNode
   processor = new FakeScriptProcessor()
   sources: FakeBufferSource[] = []
@@ -59,7 +60,7 @@ class FakeAudioContext {
     }
     node.fftSize = 512
     node.smoothingTimeConstant = 0
-    node.getFloatTimeDomainData = (samples) => samples.fill(0)
+    node.getFloatTimeDomainData = (samples) => samples.fill(this.outputSample)
     return node as unknown as AnalyserNode
   })
   createBuffer = vi.fn((_channels: number, length: number, sampleRate: number) => {
@@ -87,7 +88,9 @@ describe('createGeminiLiveAdapter', () => {
     const track = { stop: vi.fn() } as unknown as MediaStreamTrack
     const stream = { getTracks: () => [track] } as unknown as MediaStream
     const context = new FakeAudioContext()
+    context.outputSample = 0.01
     let callbacks: GeminiLiveCallbacks | undefined
+    const outputSamples: Array<{ raw: number; shaped: number; normalized: number }> = []
     const sent: Array<Parameters<GeminiLiveSession['sendRealtimeInput']>[0]> = []
     const session: GeminiLiveSession = {
       sendRealtimeInput: vi.fn((input) => sent.push(input)),
@@ -100,6 +103,7 @@ describe('createGeminiLiveAdapter', () => {
       },
       getUserMedia: async () => stream,
       createAudioContext: () => context as unknown as AudioContext,
+      onOutputVolumeSample: (sample) => outputSamples.push(sample),
     })
     const signals: OrbSignal[] = []
     adapter.subscribe((signal) => signals.push(signal))
@@ -127,6 +131,11 @@ describe('createGeminiLiveAdapter', () => {
     })
     expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
     expect(context.sources).toHaveLength(1)
+    vi.advanceTimersByTime(33)
+    const expectedShaped = Math.pow((0.01 - 0.003) * 4, 0.8)
+    expect(outputSamples.at(-1)?.raw).toBeCloseTo(0.01)
+    expect(outputSamples.at(-1)?.shaped).toBeCloseTo(expectedShaped)
+    expect(outputSamples.at(-1)?.normalized).toBeCloseTo(expectedShaped * 0.3)
 
     const speakingSignalCount = signals.length
     callbacks?.onmessage({
@@ -187,7 +196,7 @@ describe('createGeminiLiveAdapter', () => {
     expect(signals.at(-1)).toMatchObject({ state: 'error', error })
   })
 
-  it('can send explicit activity markers for deterministic turn detection', async () => {
+  it('sends explicit activity markers by default for deterministic turn detection', async () => {
     vi.useFakeTimers()
     const context = new FakeAudioContext()
     const sent: Array<Parameters<GeminiLiveSession['sendRealtimeInput']>[0]> = []
@@ -199,7 +208,6 @@ describe('createGeminiLiveAdapter', () => {
       connect: async () => session,
       getUserMedia: async () => ({ getTracks: () => [] }) as unknown as MediaStream,
       createAudioContext: () => context as unknown as AudioContext,
-      manualActivityDetection: true,
     })
 
     await adapter.start()
@@ -211,6 +219,31 @@ describe('createGeminiLiveAdapter', () => {
     vi.advanceTimersByTime(500)
     expect(sent.at(-1)).toEqual({ activityEnd: {} })
 
+    await adapter.stop()
+    expect(sent.at(-1)).toEqual({ audioStreamEnd: true })
+  })
+
+  it('can defer activity detection to the Gemini server', async () => {
+    vi.useFakeTimers()
+    const context = new FakeAudioContext()
+    const sent: Array<Parameters<GeminiLiveSession['sendRealtimeInput']>[0]> = []
+    const session: GeminiLiveSession = {
+      sendRealtimeInput: vi.fn((input) => sent.push(input)),
+      close: vi.fn(),
+    }
+    const adapter = createGeminiLiveAdapter({
+      activityDetection: 'server',
+      connect: async () => session,
+      getUserMedia: async () => ({ getTracks: () => [] }) as unknown as MediaStream,
+      createAudioContext: () => context as unknown as AudioContext,
+    })
+
+    await adapter.start()
+    context.processor.process(new Float32Array(4096).fill(0.2))
+    context.processor.process(new Float32Array(4096))
+    vi.advanceTimersByTime(500)
+
+    expect(sent.some((input) => input.activityStart || input.activityEnd)).toBe(false)
     await adapter.stop()
     expect(sent.at(-1)).toEqual({ audioStreamEnd: true })
   })
