@@ -8,3 +8,5 @@ volume-debug.log
 demo/.env
 demo/.vercel
 outputs
+playwright-report
+test-results
