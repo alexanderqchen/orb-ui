@@ -31,6 +31,8 @@ export interface GeminiLiveSession {
   sendRealtimeInput(input: {
     audio?: { data: string; mimeType: string }
     audioStreamEnd?: boolean
+    activityStart?: Record<string, never>
+    activityEnd?: Record<string, never>
   }): void
   close(): void
 }
@@ -46,6 +48,8 @@ export interface GeminiLiveAdapterConfig {
   speechThreshold?: number
   /** Defaults to 500 ms before listening transitions to thinking. */
   speechEndDelayMs?: number
+  /** Send explicit activity markers instead of relying on server-side VAD. Defaults to false. */
+  manualActivityDetection?: boolean
   /** Runtime override for tests or custom browser wrappers. */
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
   /** Runtime override for tests or custom browser wrappers. */
@@ -171,6 +175,9 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
   function handleInputVolume(inputVolume: number) {
     const threshold = config.speechThreshold ?? 0.04
     if (inputVolume > threshold) {
+      if (!userSpeaking && config.manualActivityDetection) {
+        session?.sendRealtimeInput({ activityStart: {} })
+      }
       userSpeaking = true
       clearSpeechEndTimer()
       if (signal.state !== 'listening') emitState('listening')
@@ -178,6 +185,9 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       speechEndTimer = setTimeout(() => {
         speechEndTimer = null
         userSpeaking = false
+        if (config.manualActivityDetection) {
+          session?.sendRealtimeInput({ activityEnd: {} })
+        }
         if (signal.state === 'listening') emitState('thinking')
       }, config.speechEndDelayMs ?? 500)
     }
@@ -376,6 +386,9 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     async stop() {
       stopping = true
       try {
+        if (userSpeaking && config.manualActivityDetection) {
+          session?.sendRealtimeInput({ activityEnd: {} })
+        }
         session?.sendRealtimeInput({ audioStreamEnd: true })
       } catch {
         // The session may already be closed.

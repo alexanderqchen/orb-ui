@@ -186,4 +186,32 @@ describe('createGeminiLiveAdapter', () => {
     callbacks?.onerror?.(error)
     expect(signals.at(-1)).toMatchObject({ state: 'error', error })
   })
+
+  it('can send explicit activity markers for deterministic turn detection', async () => {
+    vi.useFakeTimers()
+    const context = new FakeAudioContext()
+    const sent: Array<Parameters<GeminiLiveSession['sendRealtimeInput']>[0]> = []
+    const session: GeminiLiveSession = {
+      sendRealtimeInput: vi.fn((input) => sent.push(input)),
+      close: vi.fn(),
+    }
+    const adapter = createGeminiLiveAdapter({
+      connect: async () => session,
+      getUserMedia: async () => ({ getTracks: () => [] }) as unknown as MediaStream,
+      createAudioContext: () => context as unknown as AudioContext,
+      manualActivityDetection: true,
+    })
+
+    await adapter.start()
+    context.processor.process(new Float32Array(4096).fill(0.2))
+    expect(sent.at(-2)).toEqual({ activityStart: {} })
+    expect(sent.at(-1)?.audio).toBeDefined()
+
+    context.processor.process(new Float32Array(4096))
+    vi.advanceTimersByTime(500)
+    expect(sent.at(-1)).toEqual({ activityEnd: {} })
+
+    await adapter.stop()
+    expect(sent.at(-1)).toEqual({ audioStreamEnd: true })
+  })
 })

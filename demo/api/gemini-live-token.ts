@@ -43,6 +43,11 @@ export default {
       systemInstruction:
         body.instructions?.trim() ||
         'You are a concise, friendly voice assistant helping test a realtime React UI.',
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          disabled: true,
+        },
+      },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
     }
