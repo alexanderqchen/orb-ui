@@ -48,11 +48,38 @@ npm install orb-ui livekit-client
 # Pipecat (choose the transport used by your agent)
 npm install orb-ui @pipecat-ai/client-js @pipecat-ai/small-webrtc-transport
 
+# OpenAI Realtime uses browser WebRTC and has no additional client SDK
+npm install orb-ui
+
 # Gemini Live
 npm install orb-ui @google/genai
 ```
 
 > **Note:** Orb uses React hooks internally — in Next.js App Router, use it in a `'use client'` component.
+
+## How provider adapters are created
+
+Every provider ends at the same React API:
+
+```jsx
+<Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
+```
+
+The only difference is how the adapter obtains a provider session:
+
+| Provider        | Required browser setup                                                   |
+| --------------- | ------------------------------------------------------------------------ |
+| Vapi            | Pass a configured Vapi client plus `assistantId`                         |
+| ElevenLabs      | Pass `Conversation` plus an `agentId`, signed URL, or conversation token |
+| LiveKit         | Pass LiveKit runtime helpers plus a token source or endpoint             |
+| Pipecat         | Pass a configured `PipecatClient` plus its connect callback              |
+| OpenAI Realtime | Return a fresh short-lived client secret from `getClientSecret`          |
+| Gemini Live     | Open the official Google Live session in `connect`                       |
+
+The adapter owns provider event mapping and emits one consistent `OrbSignal`. OpenAI and Gemini
+standard API keys, and LiveKit participant-token signing, stay on your server. See the
+[adapter overview](https://orb-ui.com/docs/adapters/overview) for the responsibility boundary and
+advanced setup shapes.
 
 ## Quick Start
 
@@ -124,6 +151,10 @@ const client = new PipecatClient({ transport: new SmallWebRTCTransport(), enable
 const adapter = createPipecatAdapter(client, {
   connect: () => client.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
 })
+
+function App() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Pipecat assistant" />
+}
 ```
 
 The Pipecat adapter consumes the standard RTVI event surface, so it also works with Pipecat Cloud,
@@ -154,6 +185,7 @@ import { Orb } from 'orb-ui'
 import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
 const adapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
   connect: async (callbacks) => {
     const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((res) =>
       res.json(),
@@ -168,7 +200,12 @@ const adapter = createGeminiLiveAdapter({
 ```
 
 Mint one-use Gemini Live tokens on your server. See the
-[Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live).
+[Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live) for the matching server config that
+disables automatic activity detection.
+
+The examples above show the intended happy paths. Transport overrides, custom browser runtimes,
+existing-session modes, and audio calibration hooks are optional and documented in the individual
+adapter guides.
 
 ### Controlled mode (custom integration)
 

@@ -139,6 +139,7 @@ import { Orb } from "orb-ui"
 import { createGeminiLiveAdapter } from "orb-ui/adapters"
 
 const adapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
   connect: async (callbacks) => {
     const token = await fetch("/api/gemini-live-token", { method: "POST" })
       .then((response) => response.json())

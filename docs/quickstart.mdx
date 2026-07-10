@@ -21,6 +21,10 @@ npm install orb-ui @pipecat-ai/client-js @pipecat-ai/small-webrtc-transport
 npm install orb-ui @google/genai
 ```
 
+OpenAI Realtime uses browser WebRTC and does not require an additional client SDK. Standard OpenAI
+and Gemini API keys stay on your server. See the [adapter overview](/adapters/overview) for a concise
+comparison of what each provider setup requires.
+
 ## Controlled mode
 
 Controlled mode is the universal fallback. Use it when your app already owns the voice session and can provide a conversation state plus normalized volume.
@@ -162,6 +166,7 @@ import { Orb } from 'orb-ui'
 import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
 const adapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
   connect: async (callbacks) => {
     const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((res) =>
       res.json(),
@@ -179,7 +184,8 @@ export function GeminiLiveVoiceUI() {
 }
 ```
 
-See the [Gemini Live adapter guide](/adapters/gemini-live) for ephemeral token creation.
+See the [Gemini Live adapter guide](/adapters/gemini-live) for ephemeral token creation and the
+matching server-side activity-detection config.
 
 ## Themes
 

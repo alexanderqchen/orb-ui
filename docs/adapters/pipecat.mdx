@@ -9,6 +9,13 @@ description: Connect Pipecat Cloud, Daily, or self-hosted SmallWebRTC voice agen
 transport-agnostic: the same orb-ui adapter works with Pipecat Cloud and Daily, self-hosted
 SmallWebRTC, or another Pipecat client transport.
 
+## The simple setup
+
+Pipecat applications already choose a client transport. Configure that normal `PipecatClient`, then
+give orb-ui the client and the callback your app uses to connect it. The adapter owns RTVI event
+mapping, remote audio playback, input/output level shaping, and cleanup. Transport selection and
+agent deployment remain in your application.
+
 ## Install
 
 Install Pipecat's client and the transport used by your agent:
@@ -90,7 +97,8 @@ export function PipecatVoiceUI() {
 - disconnected -> `idle`
 
 RTVI `LocalAudioLevel` becomes `inputVolume`; bot `RemoteAudioLevel` becomes `outputVolume`. The
-adapter attaches remote bot audio tracks automatically. Use `isBotParticipant` to filter audio in a
+adapter shapes Pipecat's typically low raw gain values so both sides remain visually responsive and
+attaches remote bot audio tracks automatically. Use `isBotParticipant` to filter audio in a
 multi-participant session, or set `playRemoteAudio: false` when your app owns playback.
 
 ## Custom session startup

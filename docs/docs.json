@@ -75,6 +75,7 @@
         "group": "Adapters",
         "icon": "plug",
         "pages": [
+          "adapters/overview",
           "adapters/vapi",
           "adapters/elevenlabs",
           "adapters/livekit",

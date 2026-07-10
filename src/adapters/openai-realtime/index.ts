@@ -1,6 +1,10 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
 import { calibrateOutputVolume } from '../audio-level'
-import type { OutputVolumeCalibrationSource, OutputVolumeSample } from '../audio-level'
+import type {
+  OutputVolumeCalibration,
+  OutputVolumeCalibrationSource,
+  OutputVolumeSample,
+} from '../audio-level'
 
 export interface OpenAIRealtimeClientSecret {
   value: string
@@ -46,6 +50,13 @@ interface VolumeMeter {
 const DEFAULT_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
 const OUTPUT_SPEECH_THRESHOLD = 0.015
 const OUTPUT_SILENCE_TICKS = 8
+const DEFAULT_OPENAI_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
+  noiseFloor: 0.003,
+  gain: 4,
+  exponent: 0.8,
+  attack: 0.55,
+  release: 0.1,
+}
 
 function defaultCreateAudioContext() {
   const AudioContextClass = window.AudioContext
@@ -116,6 +127,14 @@ export function createOpenAIRealtimeAdapter(
   let outputVolumeLevel = 0
   let stopping = false
 
+  function getOutputVolumeCalibration() {
+    const overrides =
+      typeof config.outputVolumeCalibration === 'function'
+        ? config.outputVolumeCalibration()
+        : config.outputVolumeCalibration
+    return { ...DEFAULT_OPENAI_OUTPUT_CALIBRATION, ...overrides }
+  }
+
   function emit(next: OrbSignal) {
     signal = next
     listeners.forEach((listener) => listener(next))
@@ -143,7 +162,7 @@ export function createOpenAIRealtimeAdapter(
     const sample = calibrateOutputVolume(
       rawOutputVolume,
       outputVolumeLevel,
-      config.outputVolumeCalibration,
+      getOutputVolumeCalibration,
     )
     outputVolumeLevel = sample.normalized
     config.onOutputVolumeSample?.(sample)

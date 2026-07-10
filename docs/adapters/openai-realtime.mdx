@@ -12,6 +12,12 @@ still owns the standard OpenAI API key and creates a short-lived Realtime client
 The adapter targets the GA Realtime API. New browser integrations should use
 `/v1/realtime/client_secrets` and `/v1/realtime/calls`, not the older beta session flow.
 
+## The simple setup
+
+Your browser provides one function: `getClientSecret`. orb-ui owns everything after that callback,
+including microphone permission, WebRTC negotiation, remote playback, conversation state, audio
+metering, and cleanup. Most applications do not need any other adapter option.
+
 ## Create a client secret on your server
 
 This example uses the current general voice-agent model and the `marin` voice. Keep
@@ -62,7 +68,7 @@ export function OpenAIRealtimeVoiceUI() {
 }
 ```
 
-Call `getClientSecret` must mint a fresh secret for every start. Do not put a standard OpenAI API
+`getClientSecret` must mint a fresh secret for every start. Do not put a standard OpenAI API
 key in browser code or a `VITE_*`/`NEXT_PUBLIC_*` variable.
 
 ## State and volume mapping
@@ -77,6 +83,24 @@ key in browser code or a `VITE_*`/`NEXT_PUBLIC_*` variable.
 
 The adapter meters the local microphone into `inputVolume` while listening and the remote WebRTC
 track into `outputVolume` while speaking. It also attaches and plays the model audio automatically.
+
+## Output calibration
+
+OpenAI Realtime ships with tuned output defaults for noise floor, gain, curve, attack, and release.
+Most applications should use those defaults. If your audio environment needs different shaping,
+pass a partial `outputVolumeCalibration` object:
+
+```tsx
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret,
+  outputVolumeCalibration: {
+    release: 0.14,
+  },
+})
+```
+
+Pass a getter instead of an object to update calibration while a session is active. The optional
+`onOutputVolumeSample` callback reports raw RMS, shaped, and smoothed values for diagnostics.
 
 ## Runtime overrides
 

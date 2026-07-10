@@ -1,0 +1,105 @@
+---
+title: Adapter overview
+description: Compare orb-ui provider adapters, understand what each adapter owns, and choose the simplest setup for your voice agent.
+---
+
+# Provider adapter overview
+
+Every provider integration follows the same UI pattern:
+
+```tsx
+const adapter = createProviderAdapter(/* provider connection */)
+
+export function VoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
+}
+```
+
+The orb subscribes to the adapter and calls its `start()` and `stop()` methods. The adapter converts
+provider events into `idle`, `connecting`, `listening`, `thinking`, `speaking`, and `error` signals,
+including normalized input and output volume when the provider exposes audio.
+
+## Setup at a glance
+
+| Provider        | Browser code you provide                                | What orb-ui owns                                                                  |
+| --------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Vapi            | A configured `Vapi` client and assistant ID             | Provider event mapping and output metering                                        |
+| ElevenLabs      | The `Conversation` class and agent/session credential   | Session lifecycle, state mapping, playback, and both volume levels                |
+| LiveKit         | LiveKit runtime helpers plus a token source or endpoint | Room lifecycle, agent discovery, playback, and both volume levels                 |
+| Pipecat         | A configured `PipecatClient` and its connect callback   | RTVI state mapping, remote playback, and both volume levels                       |
+| OpenAI Realtime | A callback that returns a fresh client secret           | Browser WebRTC, microphone, playback, state, and both volume levels               |
+| Gemini Live     | A callback that opens the official Google Live session  | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
+
+Provider authentication stays explicit. Standard OpenAI and Gemini API keys belong on your server;
+the browser should receive only short-lived provider credentials. LiveKit participant tokens should
+also be minted on a server. Pipecat Cloud can use its public agent-start key in the browser while
+private deployment credentials remain server-side.
+
+## The three connection shapes
+
+Most adapters fit one of three small patterns.
+
+### Wrap an existing provider client
+
+Vapi and Pipecat already have a browser client. Pass that client to orb-ui:
+
+```tsx
+const adapter = createVapiAdapter(vapi, { assistantId })
+
+const pipecatAdapter = createPipecatAdapter(pipecatClient, {
+  connect: () => pipecatClient.connect({ webrtcUrl: '/api/offer' }),
+})
+```
+
+### Let orb-ui own the browser session
+
+OpenAI Realtime uses native browser WebRTC, so the only required integration seam is a fresh client
+secret:
+
+```tsx
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: () =>
+    fetch('/api/openai-realtime-token', { method: 'POST' })
+      .then((response) => response.json())
+      .then((data) => data.value),
+})
+```
+
+### Let the official SDK open the session
+
+Gemini Live session creation stays in the application because `@google/genai` is an app-owned,
+optional dependency. orb-ui receives the connected session through one callback:
+
+```tsx
+const adapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
+  connect: async (callbacks) => {
+    const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((response) =>
+      response.json(),
+    )
+    const client = new GoogleGenAI({
+      apiKey: token.value,
+      httpOptions: { apiVersion: 'v1alpha' },
+    })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  },
+})
+```
+
+When `manualActivityDetection` is enabled, the matching Gemini session config must disable automatic
+activity detection. The adapter then sends explicit activity start/end markers using its local voice
+detector.
+
+## Advanced options stay optional
+
+The adapter guides document alternate transports, existing-session modes, runtime overrides, and
+audio calibration hooks. Those options are escape hatches. Start with the first example in each
+guide and add advanced configuration only when your application already owns that part of the
+provider lifecycle.
+
+- [Vapi](/adapters/vapi)
+- [ElevenLabs](/adapters/elevenlabs)
+- [LiveKit](/adapters/livekit)
+- [Pipecat](/adapters/pipecat)
+- [OpenAI Realtime](/adapters/openai-realtime)
+- [Gemini Live](/adapters/gemini-live)

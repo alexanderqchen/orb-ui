@@ -12,6 +12,13 @@ client and the short-lived Live API token.
 The examples use `gemini-3.1-flash-live-preview`, the current low-latency voice-first Live model,
 with the `Kore` voice.
 
+## The simple setup
+
+The browser provides one `connect` callback that returns an official Google Live session. orb-ui
+then owns microphone capture, PCM streaming and playback, local turn detection, state mapping,
+audio metering, interruptions, and cleanup. The callback exists so `@google/genai` remains an
+optional, app-owned dependency instead of increasing orb-ui's runtime bundle for every user.
+
 ## Install the Google GenAI SDK
 
 ```bash
@@ -34,6 +41,9 @@ export async function POST() {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
     },
     systemInstruction: 'You are a concise, friendly voice assistant.',
+    realtimeInputConfig: {
+      automaticActivityDetection: { disabled: true },
+    },
   }
   const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
   const token = await client.authTokens.create({
@@ -58,6 +68,7 @@ import { Orb } from 'orb-ui'
 import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
 const adapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
   connect: async (callbacks) => {
     const response = await fetch('/api/gemini-live-token', { method: 'POST' })
     const token = await response.json()
@@ -80,6 +91,11 @@ export function GeminiLiveVoiceUI() {
 }
 ```
 
+The two activity-detection settings are paired: the server configuration disables automatic VAD,
+and `manualActivityDetection` makes the adapter send explicit `activityStart` and `activityEnd`
+markers from its local speech detector. This is the tested, deterministic voice-turn path. If your
+Gemini session uses server-side VAD instead, omit both settings.
+
 ## Audio behavior
 
 The adapter resamples browser microphone input to 16 kHz PCM and sends it with
@@ -97,6 +113,24 @@ declared by each response chunk. An interruption stops all queued audio immediat
 - explicit stop or closed connection -> `idle`
 
 `inputVolume` follows the local microphone. `outputVolume` follows the PCM playback analyser.
+
+## Output calibration
+
+Output shaping is optional. Use `outputVolumeCalibration` only when you need provider-specific gain
+or smoothing, and use a getter when values must change during an active session:
+
+```tsx
+const adapter = createGeminiLiveAdapter({
+  connect,
+  outputVolumeCalibration: () => currentCalibration,
+  onOutputVolumeSample: ({ raw, shaped, normalized }) => {
+    console.debug({ raw, shaped, normalized })
+  },
+})
+```
+
+The provider playground exposes the same noise-floor, gain, curve, attack, and release controls for
+calibrating a real conversation before choosing application defaults.
 
 ## Token handling
 

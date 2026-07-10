@@ -55,6 +55,7 @@ const openAIRealtimeAdapter = createOpenAIRealtimeAdapter({
 
 const geminiClient = new GoogleGenAI({ apiKey: 'short-lived-live-token' })
 const geminiLiveAdapter = createGeminiLiveAdapter({
+  manualActivityDetection: true,
   connect: async (callbacks) =>
     geminiClient.live.connect({
       model: 'gemini-3.1-flash-live-preview',
