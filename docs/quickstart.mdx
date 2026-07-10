@@ -17,6 +17,8 @@ Provider adapters also need their provider SDK installed in your app:
 npm install orb-ui @vapi-ai/web
 npm install orb-ui @elevenlabs/client
 npm install orb-ui livekit-client
+npm install orb-ui @pipecat-ai/client-js @pipecat-ai/small-webrtc-transport
+npm install orb-ui @google/genai
 ```
 
 ## Controlled mode
@@ -109,6 +111,75 @@ export function LiveKitVoiceUI() {
 
 While the agent is listening, the adapter emits local microphone activity as `inputVolume`. While
 the agent is speaking, it emits the attached remote audio level as `outputVolume`.
+
+## Pipecat
+
+```tsx
+import { PipecatClient } from '@pipecat-ai/client-js'
+import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
+import { Orb } from 'orb-ui'
+import { createPipecatAdapter } from 'orb-ui/adapters'
+
+const client = new PipecatClient({ transport: new SmallWebRTCTransport(), enableMic: true })
+const adapter = createPipecatAdapter(client, {
+  connect: () => client.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
+})
+
+export function PipecatVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Pipecat assistant" />
+}
+```
+
+See the [Pipecat adapter guide](/adapters/pipecat) for Pipecat Cloud and Daily.
+
+## OpenAI Realtime
+
+```tsx
+import { Orb } from 'orb-ui'
+import { createOpenAIRealtimeAdapter } from 'orb-ui/adapters'
+
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => {
+    const response = await fetch('/api/openai-realtime-token', { method: 'POST' })
+    const data = await response.json()
+    return data.value
+  },
+})
+
+export function OpenAIRealtimeVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start OpenAI assistant" />
+}
+```
+
+The endpoint must mint short-lived credentials with your server-only API key. See the
+[OpenAI Realtime adapter guide](/adapters/openai-realtime).
+
+## Gemini Live
+
+```tsx
+import { GoogleGenAI } from '@google/genai'
+import { Orb } from 'orb-ui'
+import { createGeminiLiveAdapter } from 'orb-ui/adapters'
+
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) => {
+    const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((res) =>
+      res.json(),
+    )
+    const client = new GoogleGenAI({
+      apiKey: token.value,
+      httpOptions: { apiVersion: 'v1alpha' },
+    })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  },
+})
+
+export function GeminiLiveVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Gemini assistant" />
+}
+```
+
+See the [Gemini Live adapter guide](/adapters/gemini-live) for ephemeral token creation.
 
 ## Themes
 

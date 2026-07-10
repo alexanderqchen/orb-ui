@@ -1,10 +1,18 @@
 import { Orb } from 'orb-ui'
-import { createElevenLabsAdapter, createLiveKitAdapter } from 'orb-ui/adapters'
+import {
+  createElevenLabsAdapter,
+  createGeminiLiveAdapter,
+  createLiveKitAdapter,
+  createOpenAIRealtimeAdapter,
+  createPipecatAdapter,
+} from 'orb-ui/adapters'
 import type {
   ElevenLabsConversationClass,
+  GeminiLiveSession,
   LiveKitAdapterConfig,
   OrbAdapter,
   OrbSignal,
+  PipecatClientLike,
 } from 'orb-ui/adapters'
 
 const Conversation: ElevenLabsConversationClass = {
@@ -57,11 +65,34 @@ const liveKitConfig: LiveKitAdapterConfig = {
 
 const liveKitAdapter = createLiveKitAdapter(liveKitConfig)
 
+const pipecatClient: PipecatClientLike = {
+  on: () => undefined,
+  off: () => undefined,
+  connect: async () => undefined,
+  disconnect: async () => undefined,
+}
+const pipecatAdapter = createPipecatAdapter(pipecatClient)
+
+const openAIRealtimeAdapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => 'short-lived-client-secret',
+})
+
+const geminiSession: GeminiLiveSession = {
+  sendRealtimeInput: () => undefined,
+  close: () => undefined,
+}
+const geminiLiveAdapter = createGeminiLiveAdapter({
+  connect: async () => geminiSession,
+})
+
 export function PackageConsumerSmoke() {
   return (
     <>
       <Orb adapter={elevenLabsAdapter} theme="circle" aria-label="Start ElevenLabs assistant" />
       <Orb adapter={liveKitAdapter} theme="circle" aria-label="Start LiveKit assistant" />
+      <Orb adapter={pipecatAdapter} theme="circle" aria-label="Start Pipecat assistant" />
+      <Orb adapter={openAIRealtimeAdapter} theme="circle" aria-label="Start OpenAI assistant" />
+      <Orb adapter={geminiLiveAdapter} theme="circle" aria-label="Start Gemini assistant" />
       <Orb adapter={customAdapter} theme="debug" />
       <Orb signal={signal} theme="circle" />
     </>

@@ -6,7 +6,7 @@
     <title>OpenAI Realtime Voice UI for React | orb-ui</title>
     <meta
       name="description"
-      content="Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated OpenAI Realtime adapter support is planned."
+      content="Add an OpenAI Realtime voice UI to React with orb-ui native WebRTC, short-lived client secrets, and audio-reactive state."
     />
     <link rel="canonical" href="https://orb-ui.com/docs/openai-realtime-voice-ui/" />
     <meta name="theme-color" content="#0a0a0a" />
@@ -19,7 +19,7 @@
     <meta property="og:title" content="OpenAI Realtime Voice UI for React | orb-ui" />
     <meta
       property="og:description"
-      content="Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated OpenAI Realtime adapter support is planned."
+      content="Add an OpenAI Realtime voice UI to React with orb-ui native WebRTC, short-lived client secrets, and audio-reactive state."
     />
     <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
@@ -28,7 +28,7 @@
     <meta name="twitter:title" content="OpenAI Realtime Voice UI for React | orb-ui" />
     <meta
       name="twitter:description"
-      content="Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated OpenAI Realtime adapter support is planned."
+      content="Add an OpenAI Realtime voice UI to React with orb-ui native WebRTC, short-lived client secrets, and audio-reactive state."
     />
     <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
     <link rel="stylesheet" href="/seo.css" />
@@ -84,10 +84,9 @@
         <p class="eyebrow">Docs</p>
         <h1>OpenAI Realtime voice UI for React</h1>
         <p class="lede">
-          OpenAI Realtime is a natural fit for orb-ui because realtime voice agents need fast visual
-          feedback. orb-ui does not ship a dedicated OpenAI Realtime adapter yet, so this page
-          documents the honest path today: use controlled mode, map your session events into orb
-          states, and pass normalized audio volume into the React component.
+          The orb-ui OpenAI Realtime adapter turns a short-lived client secret into a managed
+          browser WebRTC session with microphone capture, remote audio playback, interruption-aware
+          state, and separate input and output volume.
         </p>
         <div class="targets">
           <span>gpt realtime</span><span>openai realtime api</span><span>openai voice agent</span>
@@ -104,74 +103,70 @@
               WebSockets.
             </p>
             <p>
-              orb-ui sits above that transport layer. Your Realtime integration owns authentication,
-              session creation, audio capture, and model events. orb-ui owns the visible voice UI
-              state.
+              createOpenAIRealtimeAdapter owns the browser WebRTC and audio lifecycle. Your server
+              keeps the standard API key private and mints a new Realtime client secret for each
+              session.
             </p>
           </article>
           <article class="card">
             <h2>State mapping</h2>
             <p>
-              Use connecting while the Realtime session is being created, listening while the
-              microphone is active and waiting for user input, speaking while audio output is
-              playing, and error when the session fails. If your integration exposes transcript
-              deltas or tool calls, keep them in your app UI and use the orb as the compact status
-              indicator.
+              The adapter uses connecting during WebRTC negotiation, listening for microphone turns,
+              thinking after the user stops, speaking while model audio plays, and error for session
+              failures.
             </p>
             <p>
-              When a first-party adapter lands, it should preserve this controlled-mode mental
-              model. The adapter should only remove boilerplate, not hide the lifecycle from teams
-              that need control.
+              Real microphone and remote WebRTC levels drive inputVolume and outputVolume so every
+              audio-reactive theme follows the active side of the conversation.
             </p>
           </article>
           <article class="card">
-            <h2>Adapter roadmap</h2>
+            <h2>Credential boundary</h2>
             <p>
-              The planned adapter should support OpenAI Realtime session events, audio output
-              activity, interruption-aware states, and a clear escape hatch for apps that already
-              manage WebRTC or WebSocket sessions. Until then, controlled mode is the supported
-              integration path.
+              Use the GA /v1/realtime/client_secrets endpoint on your server and pass only the
+              returned short-lived value to the browser adapter.
             </p>
             <p>
-              This page should be updated the same day an OpenAI Realtime adapter ships, with
-              install steps, event mapping, and a complete React example.
+              Do not put a standard OpenAI API key in browser code or a public build-time
+              environment variable.
             </p>
           </article>
           <div class="card">
             <h3>Source notes</h3>
             <ul>
               <li>
-                <a href="https://platform.openai.com/docs/guides/realtime" rel="noreferrer"
+                <a href="https://developers.openai.com/api/docs/guides/realtime" rel="noreferrer"
                   >OpenAI Realtime docs</a
                 >
               </li>
               <li>
-                <a href="https://platform.openai.com/docs/models/gpt-realtime" rel="noreferrer"
-                  >gpt-realtime model</a
+                <a
+                  href="https://developers.openai.com/api/docs/guides/realtime-webrtc"
+                  rel="noreferrer"
+                  >OpenAI WebRTC guide</a
                 >
               </li>
             </ul>
           </div>
         </div>
         <article class="card" style="margin-top: 22px">
-          <h2>Prototype with controlled mode</h2>
+          <h2>OpenAI Realtime adapter</h2>
           <pre class="code"><code>import { Orb } from &#39;orb-ui&#39;
+import { createOpenAIRealtimeAdapter } from &#39;orb-ui/adapters&#39;
 
-function OpenAIRealtimeOrb({ realtimeState, outputVolume }) {
-  return (
-    &lt;Orb
-      state={realtimeState}
-      volume={outputVolume}
-      theme=&quot;circle&quot;
-    /&gt;
-  )
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () =&gt; {
+    const response = await fetch(&#39;/api/openai-realtime-token&#39;, { method: &#39;POST&#39; })
+    return (await response.json()).value
+  },
+})
+
+function OpenAIRealtimeOrb() {
+  return &lt;Orb adapter={adapter} theme=&quot;circle&quot; /&gt;
 }</code></pre>
         </article>
         <div class="cta">
-          <strong
-            >Use controlled mode now, then swap to the OpenAI Realtime adapter when it
-            ships.</strong
-          >
+          <strong>Connect an OpenAI Realtime session to an audio-reactive React UI.</strong>
           <span
             ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
             · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span

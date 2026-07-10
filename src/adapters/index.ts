@@ -20,6 +20,28 @@ export {
   type LiveKitTokenOptions,
   type LiveKitTokenSource,
 } from './livekit'
+export {
+  createPipecatAdapter,
+  type PipecatAdapterOptions,
+  type PipecatClientLike,
+  type PipecatOrbAdapter,
+  type PipecatParticipantLike,
+} from './pipecat'
+export {
+  createOpenAIRealtimeAdapter,
+  type OpenAIRealtimeAdapterConfig,
+  type OpenAIRealtimeClientSecret,
+  type OpenAIRealtimeOrbAdapter,
+} from './openai-realtime'
+export {
+  createGeminiLiveAdapter,
+  type GeminiLiveAdapterConfig,
+  type GeminiLiveCallbacks,
+  type GeminiLiveInlineData,
+  type GeminiLiveOrbAdapter,
+  type GeminiLiveServerMessage,
+  type GeminiLiveSession,
+} from './gemini-live'
 export type {
   AdapterCallbacks,
   LegacyOrbAdapter,

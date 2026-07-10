@@ -105,9 +105,9 @@
               a distraction from the conversation.
             </p>
             <p>
-              orb-ui models the basics as idle, connecting, listening, thinking, speaking, and
-              error. Those states are enough for a first production UI, and they map cleanly to
-              Vapi, ElevenLabs, and custom WebRTC or WebSocket voice pipelines.
+              orb-ui models the basics as idle, connecting, listening, speaking, and error. Those
+              states are enough for a first production UI, and they map cleanly to Vapi, ElevenLabs,
+              and custom WebRTC or WebSocket voice pipelines.
             </p>
           </article>
           <article class="card">
@@ -115,9 +115,8 @@
             <p>
               The core component is intentionally small. Use an adapter when a provider can supply
               state and audio volume for you, or use controlled mode when your app already owns the
-              voice session lifecycle. Controlled mode is especially useful for teams experimenting
-              with OpenAI Realtime, Gemini Live API, telephony backends, or internal speech
-              pipelines.
+              voice session lifecycle. Controlled mode is especially useful for telephony backends,
+              experimental transports, or internal speech pipelines.
             </p>
             <p>
               That split keeps orb-ui provider-agnostic. The UI does not need to know how your model

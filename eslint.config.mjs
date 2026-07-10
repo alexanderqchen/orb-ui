@@ -9,6 +9,7 @@ export default [
       'demo/dist/**',
       'node_modules/**',
       'demo/node_modules/**',
+      'demo/.vercel/**',
       'coverage/**',
       'outputs/**',
     ],

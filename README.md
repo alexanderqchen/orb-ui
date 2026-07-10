@@ -1,6 +1,6 @@
 # orb-ui
 
-React voice agent UI components for Vapi, ElevenLabs, LiveKit, and custom realtime voice AI apps. orb-ui gives you animated voice orbs, audio-reactive themes, accessible clickable controls, and provider adapters for building polished voice agent interfaces in React.
+React voice agent UI components for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, and custom realtime voice AI apps. orb-ui gives you animated voice orbs, audio-reactive themes, accessible clickable controls, and provider adapters for building polished voice agent interfaces in React.
 
 <p align="center">
   <a href="https://orb-ui.com">
@@ -44,13 +44,19 @@ npm install orb-ui @elevenlabs/client
 
 # LiveKit Agents
 npm install orb-ui livekit-client
+
+# Pipecat (choose the transport used by your agent)
+npm install orb-ui @pipecat-ai/client-js @pipecat-ai/small-webrtc-transport
+
+# Gemini Live
+npm install orb-ui @google/genai
 ```
 
 > **Note:** Orb uses React hooks internally — in Next.js App Router, use it in a `'use client'` component.
 
 ## Quick Start
 
-Use orb-ui as a React voice AI component when you need a Vapi voice UI, an ElevenLabs voice UI, a LiveKit voice UI, or a custom animated voice orb for another realtime voice agent stack.
+Use orb-ui as a React voice AI component when you need a first-party provider voice UI or a custom animated voice orb for another realtime voice agent stack.
 
 ### With Vapi
 
@@ -105,6 +111,64 @@ function App() {
 
 The LiveKit adapter meters the local microphone while listening and the remote agent audio while
 speaking, so every audio-reactive theme follows the active side of the conversation.
+
+### With Pipecat
+
+```jsx
+import { PipecatClient } from '@pipecat-ai/client-js'
+import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
+import { Orb } from 'orb-ui'
+import { createPipecatAdapter } from 'orb-ui/adapters'
+
+const client = new PipecatClient({ transport: new SmallWebRTCTransport(), enableMic: true })
+const adapter = createPipecatAdapter(client, {
+  connect: () => client.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
+})
+```
+
+The Pipecat adapter consumes the standard RTVI event surface, so it also works with Pipecat Cloud,
+Daily, and other Pipecat transports. See the [Pipecat guide](https://orb-ui.com/docs/adapters/pipecat).
+
+### With OpenAI Realtime
+
+```jsx
+import { Orb } from 'orb-ui'
+import { createOpenAIRealtimeAdapter } from 'orb-ui/adapters'
+
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => {
+    const response = await fetch('/api/openai-realtime-token', { method: 'POST' })
+    return (await response.json()).value
+  },
+})
+```
+
+Create client secrets with a standard OpenAI API key on your server. See the
+[OpenAI Realtime guide](https://orb-ui.com/docs/adapters/openai-realtime).
+
+### With Gemini Live
+
+```jsx
+import { GoogleGenAI } from '@google/genai'
+import { Orb } from 'orb-ui'
+import { createGeminiLiveAdapter } from 'orb-ui/adapters'
+
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) => {
+    const token = await fetch('/api/gemini-live-token', { method: 'POST' }).then((res) =>
+      res.json(),
+    )
+    const client = new GoogleGenAI({
+      apiKey: token.value,
+      httpOptions: { apiVersion: 'v1alpha' },
+    })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  },
+})
+```
+
+Mint one-use Gemini Live tokens on your server. See the
+[Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live).
 
 ### Controlled mode (custom integration)
 
@@ -163,12 +227,15 @@ When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` r
 
 ## Supported Providers
 
-| Provider                                              | Adapter                                                               |
-| ----------------------------------------------------- | --------------------------------------------------------------------- |
-| [Vapi](https://vapi.ai)                               | `createVapiAdapter` from `orb-ui/adapters`                            |
-| [ElevenLabs](https://elevenlabs.io/conversational-ai) | `createElevenLabsAdapter` from `orb-ui/adapters`                      |
-| [LiveKit](https://livekit.io)                         | `createLiveKitAdapter` from `orb-ui/adapters`                         |
-| Custom                                                | Use controlled mode — pass `signal`, or `state` and `volume` directly |
+| Provider                                                                  | Adapter                                                               |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [Vapi](https://vapi.ai)                                                   | `createVapiAdapter` from `orb-ui/adapters`                            |
+| [ElevenLabs](https://elevenlabs.io/conversational-ai)                     | `createElevenLabsAdapter` from `orb-ui/adapters`                      |
+| [LiveKit](https://livekit.io)                                             | `createLiveKitAdapter` from `orb-ui/adapters`                         |
+| [Pipecat](https://pipecat.ai)                                             | `createPipecatAdapter` from `orb-ui/adapters`                         |
+| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime) | `createOpenAIRealtimeAdapter` from `orb-ui/adapters`                  |
+| [Gemini Live](https://ai.google.dev/gemini-api/docs/live-api)             | `createGeminiLiveAdapter` from `orb-ui/adapters`                      |
+| Custom                                                                    | Use controlled mode — pass `signal`, or `state` and `volume` directly |
 
 ## Development
 

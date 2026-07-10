@@ -38,7 +38,7 @@ const pages = [
       {
         h2: 'React component architecture',
         body: [
-          'The core component is intentionally small. Use an adapter when a provider can supply state and audio volume for you, or use controlled mode when your app already owns the voice session lifecycle. Controlled mode is especially useful for teams experimenting with OpenAI Realtime, Gemini Live API, telephony backends, or internal speech pipelines.',
+          'The core component is intentionally small. Use an adapter when a provider can supply state and audio volume for you, or use controlled mode when your app already owns the voice session lifecycle. Controlled mode is especially useful for telephony backends, experimental transports, or internal speech pipelines.',
           'That split keeps orb-ui provider-agnostic. The UI does not need to know how your model streams audio. It only needs a conversation state and a normalized volume value.',
         ],
       },
@@ -70,110 +70,123 @@ export function VoiceAgentStatus({ state, volume }) {
     slug: '/docs/openai-realtime-voice-ui/',
     title: 'OpenAI Realtime Voice UI for React | orb-ui',
     description:
-      'Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated OpenAI Realtime adapter support is planned.',
+      'Add an OpenAI Realtime voice UI to React with orb-ui native WebRTC, short-lived client secrets, and audio-reactive state.',
     eyebrow: 'Docs',
     h1: 'OpenAI Realtime voice UI for React',
     intro:
-      'OpenAI Realtime is a natural fit for orb-ui because realtime voice agents need fast visual feedback. orb-ui does not ship a dedicated OpenAI Realtime adapter yet, so this page documents the honest path today: use controlled mode, map your session events into orb states, and pass normalized audio volume into the React component.',
+      'The orb-ui OpenAI Realtime adapter turns a short-lived client secret into a managed browser WebRTC session with microphone capture, remote audio playback, interruption-aware state, and separate input and output volume.',
     targets: ['gpt realtime', 'openai realtime api', 'openai voice agent'],
     sections: [
       {
         h2: 'How orb-ui fits OpenAI Realtime',
         body: [
           'The OpenAI Realtime docs describe voice-agent sessions that connect to the Realtime API, send audio or text, and listen for model responses, tool calls, and session events. Browser voice agents commonly use WebRTC, while server media pipelines can use WebSockets.',
-          'orb-ui sits above that transport layer. Your Realtime integration owns authentication, session creation, audio capture, and model events. orb-ui owns the visible voice UI state.',
+          'createOpenAIRealtimeAdapter owns the browser WebRTC and audio lifecycle. Your server keeps the standard API key private and mints a new Realtime client secret for each session.',
         ],
       },
       {
         h2: 'State mapping',
         body: [
-          'Use connecting while the Realtime session is being created, listening while the microphone is active and waiting for user input, speaking while audio output is playing, and error when the session fails. If your integration exposes transcript deltas or tool calls, keep them in your app UI and use the orb as the compact status indicator.',
-          'When a first-party adapter lands, it should preserve this controlled-mode mental model. The adapter should only remove boilerplate, not hide the lifecycle from teams that need control.',
+          'The adapter uses connecting during WebRTC negotiation, listening for microphone turns, thinking after the user stops, speaking while model audio plays, and error for session failures.',
+          'Real microphone and remote WebRTC levels drive inputVolume and outputVolume so every audio-reactive theme follows the active side of the conversation.',
         ],
       },
       {
-        h2: 'Adapter roadmap',
+        h2: 'Credential boundary',
         body: [
-          'The planned adapter should support OpenAI Realtime session events, audio output activity, interruption-aware states, and a clear escape hatch for apps that already manage WebRTC or WebSocket sessions. Until then, controlled mode is the supported integration path.',
-          'This page should be updated the same day an OpenAI Realtime adapter ships, with install steps, event mapping, and a complete React example.',
+          'Use the GA /v1/realtime/client_secrets endpoint on your server and pass only the returned short-lived value to the browser adapter.',
+          'Do not put a standard OpenAI API key in browser code or a public build-time environment variable.',
         ],
       },
     ],
-    codeTitle: 'Prototype with controlled mode',
+    codeTitle: 'OpenAI Realtime adapter',
     code: `import { Orb } from 'orb-ui'
+import { createOpenAIRealtimeAdapter } from 'orb-ui/adapters'
 
-function OpenAIRealtimeOrb({ realtimeState, outputVolume }) {
-  return (
-    <Orb
-      state={realtimeState}
-      volume={outputVolume}
-      theme="circle"
-    />
-  )
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => {
+    const response = await fetch('/api/openai-realtime-token', { method: 'POST' })
+    return (await response.json()).value
+  },
+})
+
+function OpenAIRealtimeOrb() {
+  return <Orb adapter={adapter} theme="circle" />
 }`,
-    cta: 'Use controlled mode now, then swap to the OpenAI Realtime adapter when it ships.',
+    cta: 'Connect an OpenAI Realtime session to an audio-reactive React UI.',
     related: [
       '/guides/voice-agent-ui/',
       '/docs/gemini-live-voice-ui/',
       '/compare/voice-agent-platforms/',
     ],
     sources: [
-      ['OpenAI Realtime docs', 'https://platform.openai.com/docs/guides/realtime'],
-      ['gpt-realtime model', 'https://platform.openai.com/docs/models/gpt-realtime'],
+      ['OpenAI Realtime docs', 'https://developers.openai.com/api/docs/guides/realtime'],
+      ['OpenAI WebRTC guide', 'https://developers.openai.com/api/docs/guides/realtime-webrtc'],
     ],
   },
   {
     slug: '/docs/gemini-live-voice-ui/',
     title: 'Gemini Live Voice UI for React | orb-ui',
     description:
-      'Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Target Gemini Live API implementation terms, not generic Gemini live searches.',
+      'Add a Gemini Live voice UI to React with orb-ui native audio playback, ephemeral tokens, and audio-reactive state.',
     eyebrow: 'Docs',
     h1: 'Gemini Live voice UI for React',
     intro:
-      'Gemini Live API can power realtime audio and multimodal applications, but your React app still needs to show users what is happening. orb-ui gives that frontend a simple voice UI: visual states, audio-reactive movement, and a controlled mode that can sit on top of a Gemini Live API integration.',
+      'The orb-ui Gemini Live adapter streams browser microphone PCM, plays native-audio responses, handles interruptions, and turns the Live session into clear listening, thinking, and speaking UI state.',
     targets: ['gemini live api', 'gemini voice api', 'gemini live voice ui'],
     sections: [
       {
-        h2: 'Target the implementation phrase',
+        h2: 'How orb-ui fits Gemini Live',
         body: [
-          'Keyword Planner showed that generic Gemini Live searches can be noisy, including entertainment and TV-related queries. The right SEO target for orb-ui is Gemini Live API, Gemini voice API, Gemini Live voice UI, and Gemini Live React implementation content.',
-          'That is also the right product framing. orb-ui should be presented as the UI layer for developers already building a realtime voice or multimodal Gemini app.',
+          'createGeminiLiveAdapter owns browser audio capture, PCM resampling and playback, input and output metering, and interruption cleanup.',
+          'Your app owns the official Google GenAI client and the server endpoint that creates a short-lived Live token.',
         ],
       },
       {
         h2: 'How the UI layer connects',
         body: [
           'Google documents Gemini Live API as using a stateful WebSocket connection, with audio input and audio output modalities. In production browser flows, ephemeral tokens are recommended when connecting directly from frontend code.',
-          'orb-ui does not replace that session layer. Your app maps Gemini Live connection and audio events into idle, connecting, listening, speaking, and error states, then passes those values to the Orb component.',
+          'Gemini native audio is decoded and queued in the browser. The adapter emits listening during user input, thinking after the detected user turn, and speaking while response audio plays.',
         ],
       },
       {
-        h2: 'Adapter roadmap',
+        h2: 'Ephemeral token security',
         body: [
-          'A dedicated Gemini Live adapter should focus on state normalization, audio volume, and error handling. It should avoid forcing a single backend architecture because teams may choose server-to-server or client-to-server WebSocket flows.',
-          'Until that adapter exists, controlled mode is the correct path for prototypes and early production experiments.',
+          'Google recommends ephemeral tokens for direct client-to-server Live API connections. Mint the token on your backend with a standard API key, then connect from the browser with the v1alpha API.',
+          'The token can be limited to one use and locked to the model, voice, and session configuration.',
         ],
       },
     ],
-    codeTitle: 'Gemini Live controlled UI',
-    code: `import { Orb } from 'orb-ui'
+    codeTitle: 'Gemini Live adapter',
+    code: `import { GoogleGenAI } from '@google/genai'
+import { Orb } from 'orb-ui'
+import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
-export function GeminiLiveStatus({ sessionState, volume }) {
-  return (
-    <Orb
-      state={sessionState}
-      volume={volume}
-      theme="bars"
-    />
-  )
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) => {
+    const token = await fetch('/api/gemini-live-token', { method: 'POST' })
+      .then((response) => response.json())
+    const client = new GoogleGenAI({ apiKey: token.value })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  },
+})
+
+export function GeminiLiveStatus() {
+  return <Orb adapter={adapter} theme="bars" />
 }`,
-    cta: 'Prototype Gemini Live voice UI with controlled mode today.',
+    cta: 'Connect a Gemini Live native-audio session to a React voice UI.',
     related: [
       '/guides/voice-agent-ui/',
       '/docs/openai-realtime-voice-ui/',
       '/examples/voice-orb-ui/',
     ],
-    sources: [['Gemini Live API docs', 'https://ai.google.dev/gemini-api/docs/live']],
+    sources: [
+      ['Gemini Live API docs', 'https://ai.google.dev/gemini-api/docs/live-api'],
+      [
+        'Gemini ephemeral tokens',
+        'https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens',
+      ],
+    ],
   },
   {
     slug: '/docs/vapi-voice-ui/',
@@ -424,7 +437,7 @@ export function SupportVoiceStatus({ state, volume }) {
     slug: '/examples/voice-orb-ui/',
     title: 'Voice Orb UI Example for React | orb-ui',
     description:
-      'See a React voice orb UI example with animated states, audio-reactive motion, Vapi and ElevenLabs adapters, and custom controlled mode.',
+      'See a React voice orb UI example with animated states, audio-reactive motion, provider adapters, and custom controlled mode.',
     eyebrow: 'Example',
     h1: 'Voice orb UI example for React',
     intro:

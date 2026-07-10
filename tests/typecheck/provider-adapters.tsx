@@ -1,10 +1,16 @@
 import Vapi from '@vapi-ai/web'
 import { Conversation } from '@elevenlabs/client'
+import { GoogleGenAI, Modality } from '@google/genai'
+import { PipecatClient } from '@pipecat-ai/client-js'
+import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
 import { Room, TokenSource, createAudioAnalyser } from 'livekit-client'
 import { Orb } from '../../src'
 import {
   createElevenLabsAdapter,
+  createGeminiLiveAdapter,
   createLiveKitAdapter,
+  createOpenAIRealtimeAdapter,
+  createPipecatAdapter,
   createVapiAdapter,
 } from '../../src/adapters'
 import type { LegacyOrbAdapter, OrbAdapter, OrbSignal } from '../../src/adapters'
@@ -33,6 +39,28 @@ const liveKitAdapter = createLiveKitAdapter({
   }),
   createAudioAnalyser,
   RoomClass: Room,
+})
+
+const pipecatClient = new PipecatClient({
+  transport: new SmallWebRTCTransport(),
+  enableMic: true,
+})
+const pipecatAdapter = createPipecatAdapter(pipecatClient, {
+  connect: () => pipecatClient.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
+})
+
+const openAIRealtimeAdapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => ({ value: 'short-lived-client-secret' }),
+})
+
+const geminiClient = new GoogleGenAI({ apiKey: 'short-lived-live-token' })
+const geminiLiveAdapter = createGeminiLiveAdapter({
+  connect: async (callbacks) =>
+    geminiClient.live.connect({
+      model: 'gemini-3.1-flash-live-preview',
+      config: { responseModalities: [Modality.AUDIO] },
+      callbacks,
+    }),
 })
 
 const customSignalAdapter: OrbAdapter = {
@@ -100,6 +128,17 @@ export function ProviderAdapterSmokeExamples() {
         aria-label="Start token-based ElevenLabs voice assistant"
       />
       <Orb adapter={liveKitAdapter} theme="circle" aria-label="Start LiveKit voice assistant" />
+      <Orb adapter={pipecatAdapter} theme="circle" aria-label="Start Pipecat voice assistant" />
+      <Orb
+        adapter={openAIRealtimeAdapter}
+        theme="circle"
+        aria-label="Start OpenAI Realtime voice assistant"
+      />
+      <Orb
+        adapter={geminiLiveAdapter}
+        theme="circle"
+        aria-label="Start Gemini Live voice assistant"
+      />
       <Orb adapter={customSignalAdapter} theme="circle" aria-label="Start custom voice assistant" />
       <Orb adapter={legacyAdapter} theme="debug" />
       <Orb signal={signal} theme="circle" />

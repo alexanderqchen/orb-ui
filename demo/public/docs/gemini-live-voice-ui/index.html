@@ -6,7 +6,7 @@
     <title>Gemini Live Voice UI for React | orb-ui</title>
     <meta
       name="description"
-      content="Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Target Gemini Live API implementation terms, not generic Gemini live searches."
+      content="Add a Gemini Live voice UI to React with orb-ui native audio playback, ephemeral tokens, and audio-reactive state."
     />
     <link rel="canonical" href="https://orb-ui.com/docs/gemini-live-voice-ui/" />
     <meta name="theme-color" content="#0a0a0a" />
@@ -19,7 +19,7 @@
     <meta property="og:title" content="Gemini Live Voice UI for React | orb-ui" />
     <meta
       property="og:description"
-      content="Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Target Gemini Live API implementation terms, not generic Gemini live searches."
+      content="Add a Gemini Live voice UI to React with orb-ui native audio playback, ephemeral tokens, and audio-reactive state."
     />
     <meta property="og:image" content="https://orb-ui.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
@@ -28,7 +28,7 @@
     <meta name="twitter:title" content="Gemini Live Voice UI for React | orb-ui" />
     <meta
       name="twitter:description"
-      content="Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Target Gemini Live API implementation terms, not generic Gemini live searches."
+      content="Add a Gemini Live voice UI to React with orb-ui native audio playback, ephemeral tokens, and audio-reactive state."
     />
     <meta name="twitter:image" content="https://orb-ui.com/og-image.jpg" />
     <link rel="stylesheet" href="/seo.css" />
@@ -84,10 +84,9 @@
         <p class="eyebrow">Docs</p>
         <h1>Gemini Live voice UI for React</h1>
         <p class="lede">
-          Gemini Live API can power realtime audio and multimodal applications, but your React app
-          still needs to show users what is happening. orb-ui gives that frontend a simple voice UI:
-          visual states, audio-reactive movement, and a controlled mode that can sit on top of a
-          Gemini Live API integration.
+          The orb-ui Gemini Live adapter streams browser microphone PCM, plays native-audio
+          responses, handles interruptions, and turns the Live session into clear listening,
+          thinking, and speaking UI state.
         </p>
         <div class="targets">
           <span>gemini live api</span><span>gemini voice api</span><span>gemini live voice ui</span>
@@ -96,16 +95,14 @@
       <section class="wrap">
         <div class="grid">
           <article class="card">
-            <h2>Target the implementation phrase</h2>
+            <h2>How orb-ui fits Gemini Live</h2>
             <p>
-              Keyword Planner showed that generic Gemini Live searches can be noisy, including
-              entertainment and TV-related queries. The right SEO target for orb-ui is Gemini Live
-              API, Gemini voice API, Gemini Live voice UI, and Gemini Live React implementation
-              content.
+              createGeminiLiveAdapter owns browser audio capture, PCM resampling and playback, input
+              and output metering, and interruption cleanup.
             </p>
             <p>
-              That is also the right product framing. orb-ui should be presented as the UI layer for
-              developers already building a realtime voice or multimodal Gemini app.
+              Your app owns the official Google GenAI client and the server endpoint that creates a
+              short-lived Live token.
             </p>
           </article>
           <article class="card">
@@ -116,50 +113,62 @@
               recommended when connecting directly from frontend code.
             </p>
             <p>
-              orb-ui does not replace that session layer. Your app maps Gemini Live connection and
-              audio events into idle, connecting, listening, thinking, speaking, and error states,
-              then passes those values to the Orb component.
+              Gemini native audio is decoded and queued in the browser. The adapter emits listening
+              during user input, thinking after the detected user turn, and speaking while response
+              audio plays.
             </p>
           </article>
           <article class="card">
-            <h2>Adapter roadmap</h2>
+            <h2>Ephemeral token security</h2>
             <p>
-              A dedicated Gemini Live adapter should focus on state normalization, audio volume, and
-              error handling. It should avoid forcing a single backend architecture because teams
-              may choose server-to-server or client-to-server WebSocket flows.
+              Google recommends ephemeral tokens for direct client-to-server Live API connections.
+              Mint the token on your backend with a standard API key, then connect from the browser
+              with the v1alpha API.
             </p>
             <p>
-              Until that adapter exists, controlled mode is the correct path for prototypes and
-              early production experiments.
+              The token can be limited to one use and locked to the model, voice, and session
+              configuration.
             </p>
           </article>
           <div class="card">
             <h3>Source notes</h3>
             <ul>
               <li>
-                <a href="https://ai.google.dev/gemini-api/docs/live" rel="noreferrer"
+                <a href="https://ai.google.dev/gemini-api/docs/live-api" rel="noreferrer"
                   >Gemini Live API docs</a
+                >
+              </li>
+              <li>
+                <a
+                  href="https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens"
+                  rel="noreferrer"
+                  >Gemini ephemeral tokens</a
                 >
               </li>
             </ul>
           </div>
         </div>
         <article class="card" style="margin-top: 22px">
-          <h2>Gemini Live controlled UI</h2>
-          <pre class="code"><code>import { Orb } from &#39;orb-ui&#39;
+          <h2>Gemini Live adapter</h2>
+          <pre class="code"><code>import { GoogleGenAI } from &#39;@google/genai&#39;
+import { Orb } from &#39;orb-ui&#39;
+import { createGeminiLiveAdapter } from &#39;orb-ui/adapters&#39;
 
-export function GeminiLiveStatus({ sessionState, volume }) {
-  return (
-    &lt;Orb
-      state={sessionState}
-      volume={volume}
-      theme=&quot;bars&quot;
-    /&gt;
-  )
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) =&gt; {
+    const token = await fetch(&#39;/api/gemini-live-token&#39;, { method: &#39;POST&#39; })
+      .then((response) =&gt; response.json())
+    const client = new GoogleGenAI({ apiKey: token.value })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  },
+})
+
+export function GeminiLiveStatus() {
+  return &lt;Orb adapter={adapter} theme=&quot;bars&quot; /&gt;
 }</code></pre>
         </article>
         <div class="cta">
-          <strong>Prototype Gemini Live voice UI with controlled mode today.</strong>
+          <strong>Connect a Gemini Live native-audio session to a React voice UI.</strong>
           <span
             ><a href="https://www.npmjs.com/package/orb-ui" rel="noreferrer">npm install orb-ui</a>
             · <a href="https://github.com/alexanderqchen/orb-ui" rel="noreferrer">GitHub</a></span

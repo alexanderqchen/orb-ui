@@ -1,15 +1,22 @@
 import { StrictMode, useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import VapiImport from '@vapi-ai/web'
-import { Conversation } from '@elevenlabs/client'
-import { Room, TokenSource, createAudioAnalyser } from 'livekit-client'
+import type { LiveCallbacks, LiveConnectConfig } from '@google/genai'
 import { Orb } from 'orb-ui'
 import type { OrbAdapter, OrbSignal, OrbState, OrbTheme } from 'orb-ui'
-import { createElevenLabsAdapter, createLiveKitAdapter, createVapiAdapter } from 'orb-ui/adapters'
+import {
+  createElevenLabsAdapter,
+  createGeminiLiveAdapter,
+  createLiveKitAdapter,
+  createOpenAIRealtimeAdapter,
+  createPipecatAdapter,
+  createVapiAdapter,
+} from 'orb-ui/adapters'
+import type { GeminiLiveSession } from 'orb-ui/adapters'
 import './provider-playground.css'
 
-type ProviderId = 'manual' | 'vapi' | 'elevenlabs' | 'livekit'
+type ProviderId = 'manual' | 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini'
 type LiveKitConnectionMode = 'sandbox' | 'endpoint' | 'raw'
+type PipecatConnectionMode = 'cloud' | 'small-webrtc'
 
 interface ProviderConfig {
   vapiPublicKey: string
@@ -22,6 +29,18 @@ interface ProviderConfig {
   liveKitRoomPrefix: string
   liveKitServerUrl: string
   liveKitParticipantToken: string
+  pipecatConnectionMode: PipecatConnectionMode
+  pipecatApiKey: string
+  pipecatAgentName: string
+  pipecatWebrtcUrl: string
+  openAIApiKey: string
+  openAIModel: string
+  openAIVoice: string
+  openAIInstructions: string
+  geminiApiKey: string
+  geminiModel: string
+  geminiVoice: string
+  geminiInstructions: string
 }
 
 interface EventEntry {
@@ -33,13 +52,15 @@ interface EventEntry {
 
 type VapiClient = Parameters<typeof createVapiAdapter>[0]
 type VapiConstructor = new (apiToken: string) => VapiClient
-type LiveKitAudioTrack = Parameters<typeof createAudioAnalyser>[0]
 
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: 'manual', label: 'Manual Signal' },
   { id: 'vapi', label: 'Vapi' },
   { id: 'elevenlabs', label: 'ElevenLabs' },
   { id: 'livekit', label: 'LiveKit' },
+  { id: 'pipecat', label: 'Pipecat' },
+  { id: 'openai', label: 'OpenAI Realtime' },
+  { id: 'gemini', label: 'Gemini Live' },
 ]
 
 const LIVEKIT_CONNECTION_MODES: Array<{ id: LiveKitConnectionMode; label: string }> = [
@@ -48,9 +69,20 @@ const LIVEKIT_CONNECTION_MODES: Array<{ id: LiveKitConnectionMode; label: string
   { id: 'raw', label: 'Raw Details' },
 ]
 
+const PIPECAT_CONNECTION_MODES: Array<{ id: PipecatConnectionMode; label: string }> = [
+  { id: 'cloud', label: 'Pipecat Cloud' },
+  { id: 'small-webrtc', label: 'Self-hosted WebRTC' },
+]
+
 const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const DEFAULT_LIVEKIT_ROOM_PREFIX = 'orb-ui-playground'
+const DEFAULT_OPENAI_MODEL = 'gpt-realtime-2.1'
+const DEFAULT_OPENAI_VOICE = 'marin'
+const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-live-preview'
+const DEFAULT_GEMINI_VOICE = 'Kore'
+const DEFAULT_INSTRUCTIONS =
+  'You are a concise, friendly voice assistant helping test a realtime React UI.'
 
 const EMPTY_SIGNAL: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
 const CONFIG_STORAGE_KEY = 'orb-ui:provider-playground-config'
@@ -63,8 +95,7 @@ function isVapiConstructor(value: unknown): value is VapiConstructor {
   return typeof value === 'function'
 }
 
-function getVapiConstructor(): VapiConstructor {
-  const vapiExport: unknown = VapiImport
+function getVapiConstructor(vapiExport: unknown): VapiConstructor {
   if (isVapiConstructor(vapiExport)) return vapiExport
 
   if (isRecord(vapiExport)) {
@@ -82,6 +113,10 @@ function getVapiConstructor(): VapiConstructor {
 function normalizeLiveKitConnectionMode(value: unknown): LiveKitConnectionMode {
   if (value === 'endpoint' || value === 'raw' || value === 'sandbox') return value
   return 'sandbox'
+}
+
+function normalizePipecatConnectionMode(value: unknown): PipecatConnectionMode {
+  return value === 'small-webrtc' ? 'small-webrtc' : 'cloud'
 }
 
 function createLiveKitRoomName(prefix: string) {
@@ -145,6 +180,27 @@ function readStoredConfig(): Partial<ProviderConfig> {
     } else if (typeof parsed.liveKitToken === 'string' && parsed.liveKitToken) {
       storedConfig.liveKitParticipantToken = parsed.liveKitToken
     }
+    if (typeof parsed.pipecatConnectionMode === 'string') {
+      storedConfig.pipecatConnectionMode = normalizePipecatConnectionMode(
+        parsed.pipecatConnectionMode,
+      )
+    }
+    if (typeof parsed.pipecatAgentName === 'string') {
+      storedConfig.pipecatAgentName = parsed.pipecatAgentName
+    }
+    if (typeof parsed.pipecatWebrtcUrl === 'string') {
+      storedConfig.pipecatWebrtcUrl = parsed.pipecatWebrtcUrl
+    }
+    if (typeof parsed.openAIModel === 'string') storedConfig.openAIModel = parsed.openAIModel
+    if (typeof parsed.openAIVoice === 'string') storedConfig.openAIVoice = parsed.openAIVoice
+    if (typeof parsed.openAIInstructions === 'string') {
+      storedConfig.openAIInstructions = parsed.openAIInstructions
+    }
+    if (typeof parsed.geminiModel === 'string') storedConfig.geminiModel = parsed.geminiModel
+    if (typeof parsed.geminiVoice === 'string') storedConfig.geminiVoice = parsed.geminiVoice
+    if (typeof parsed.geminiInstructions === 'string') {
+      storedConfig.geminiInstructions = parsed.geminiInstructions
+    }
 
     return storedConfig
   } catch {
@@ -159,6 +215,9 @@ function writeStoredConfig(config: ProviderConfig) {
   try {
     const storedConfig: Partial<ProviderConfig> = { ...config }
     delete storedConfig.liveKitParticipantToken
+    delete storedConfig.pipecatApiKey
+    delete storedConfig.openAIApiKey
+    delete storedConfig.geminiApiKey
     storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(storedConfig))
   } catch {
     // Storage can be disabled or full in some browser modes.
@@ -178,6 +237,18 @@ function readEnvConfig(): ProviderConfig {
     liveKitServerUrl: import.meta.env.VITE_LIVEKIT_SERVER_URL ?? '',
     liveKitParticipantToken:
       import.meta.env.VITE_LIVEKIT_PARTICIPANT_TOKEN ?? import.meta.env.VITE_LIVEKIT_TOKEN ?? '',
+    pipecatConnectionMode: normalizePipecatConnectionMode(import.meta.env.VITE_PIPECAT_MODE),
+    pipecatApiKey: '',
+    pipecatAgentName: import.meta.env.VITE_PIPECAT_AGENT_NAME ?? '',
+    pipecatWebrtcUrl: import.meta.env.VITE_PIPECAT_WEBRTC_URL ?? '',
+    openAIApiKey: '',
+    openAIModel: import.meta.env.VITE_OPENAI_REALTIME_MODEL ?? DEFAULT_OPENAI_MODEL,
+    openAIVoice: import.meta.env.VITE_OPENAI_REALTIME_VOICE ?? DEFAULT_OPENAI_VOICE,
+    openAIInstructions: import.meta.env.VITE_OPENAI_REALTIME_INSTRUCTIONS ?? DEFAULT_INSTRUCTIONS,
+    geminiApiKey: '',
+    geminiModel: import.meta.env.VITE_GEMINI_LIVE_MODEL ?? DEFAULT_GEMINI_MODEL,
+    geminiVoice: import.meta.env.VITE_GEMINI_LIVE_VOICE ?? DEFAULT_GEMINI_VOICE,
+    geminiInstructions: import.meta.env.VITE_GEMINI_LIVE_INSTRUCTIONS ?? DEFAULT_INSTRUCTIONS,
   }
 }
 
@@ -200,6 +271,18 @@ function normalizeConfig(config: ProviderConfig): ProviderConfig {
     liveKitRoomPrefix: (config.liveKitRoomPrefix ?? '').trim() || DEFAULT_LIVEKIT_ROOM_PREFIX,
     liveKitServerUrl: (config.liveKitServerUrl ?? '').trim(),
     liveKitParticipantToken: (config.liveKitParticipantToken ?? '').trim(),
+    pipecatConnectionMode: normalizePipecatConnectionMode(config.pipecatConnectionMode),
+    pipecatApiKey: (config.pipecatApiKey ?? '').trim(),
+    pipecatAgentName: (config.pipecatAgentName ?? '').trim(),
+    pipecatWebrtcUrl: (config.pipecatWebrtcUrl ?? '').trim(),
+    openAIApiKey: (config.openAIApiKey ?? '').trim(),
+    openAIModel: (config.openAIModel ?? '').trim() || DEFAULT_OPENAI_MODEL,
+    openAIVoice: (config.openAIVoice ?? '').trim() || DEFAULT_OPENAI_VOICE,
+    openAIInstructions: (config.openAIInstructions ?? '').trim() || DEFAULT_INSTRUCTIONS,
+    geminiApiKey: (config.geminiApiKey ?? '').trim(),
+    geminiModel: (config.geminiModel ?? '').trim() || DEFAULT_GEMINI_MODEL,
+    geminiVoice: (config.geminiVoice ?? '').trim() || DEFAULT_GEMINI_VOICE,
+    geminiInstructions: (config.geminiInstructions ?? '').trim() || DEFAULT_INSTRUCTIONS,
   }
 }
 
@@ -217,6 +300,13 @@ function getProviderReady(provider: ProviderId, config: ProviderConfig) {
   if (provider === 'manual') return true
   if (provider === 'vapi') return Boolean(config.vapiPublicKey && config.vapiAssistantId)
   if (provider === 'elevenlabs') return Boolean(config.elevenLabsAgentId)
+  if (provider === 'pipecat') {
+    return config.pipecatConnectionMode === 'cloud'
+      ? Boolean(config.pipecatApiKey && config.pipecatAgentName)
+      : Boolean(config.pipecatWebrtcUrl)
+  }
+  if (provider === 'openai') return Boolean(config.openAIApiKey)
+  if (provider === 'gemini') return Boolean(config.geminiApiKey)
   if (config.liveKitConnectionMode === 'sandbox') {
     return Boolean(config.liveKitSandboxId && config.liveKitAgentName)
   }
@@ -226,8 +316,26 @@ function getProviderReady(provider: ProviderId, config: ProviderConfig) {
   return Boolean(config.liveKitServerUrl && config.liveKitParticipantToken)
 }
 
-function createLazyAdapter(factory: () => OrbAdapter): OrbAdapter {
+async function postProviderJson<TResponse>(
+  endpoint: string,
+  body: Record<string, unknown>,
+): Promise<TResponse> {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = (await response.json()) as TResponse & { error?: string }
+  if (!response.ok) {
+    throw new Error(payload.error || `Provider request failed with status ${response.status}.`)
+  }
+  return payload
+}
+
+function createLazyAdapter(factory: () => OrbAdapter | Promise<OrbAdapter>): OrbAdapter {
   let activeAdapter: OrbAdapter | undefined
+  let activeAdapterPromise: Promise<OrbAdapter> | undefined
+  let adapterGeneration = 0
   let unsubscribeActiveAdapter: (() => void) | undefined
   const listeners = new Set<(signal: OrbSignal) => void>()
 
@@ -235,19 +343,32 @@ function createLazyAdapter(factory: () => OrbAdapter): OrbAdapter {
     listeners.forEach((listener) => listener(signal))
   }
 
-  function getActiveAdapter() {
-    if (!activeAdapter) {
-      activeAdapter = factory()
-      unsubscribeActiveAdapter = activeAdapter.subscribe(emit)
+  async function getActiveAdapter() {
+    if (activeAdapter) return activeAdapter
+    if (!activeAdapterPromise) {
+      const generation = adapterGeneration
+      activeAdapterPromise = Promise.resolve(factory()).then(async (adapter) => {
+        if (generation !== adapterGeneration) {
+          await adapter.stop?.()
+          throw new Error('[orb-ui/demo] Provider adapter was disposed while loading.')
+        }
+        activeAdapter = adapter
+        unsubscribeActiveAdapter = adapter.subscribe(emit)
+        return adapter
+      })
+      activeAdapterPromise.catch(() => {
+        if (generation === adapterGeneration) activeAdapterPromise = undefined
+      })
     }
-
-    return activeAdapter
+    return activeAdapterPromise
   }
 
   function disposeActiveAdapter() {
+    adapterGeneration += 1
     void activeAdapter?.stop?.()
     unsubscribeActiveAdapter?.()
     activeAdapter = undefined
+    activeAdapterPromise = undefined
     unsubscribeActiveAdapter = undefined
   }
 
@@ -263,7 +384,8 @@ function createLazyAdapter(factory: () => OrbAdapter): OrbAdapter {
 
     async start() {
       try {
-        await getActiveAdapter().start?.()
+        const adapter = await getActiveAdapter()
+        await adapter.start?.()
       } catch (error) {
         console.error('[orb-ui/demo] Provider start failed:', error)
         emit({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error })
@@ -281,25 +403,103 @@ function createProviderAdapter(
   config: ProviderConfig,
 ): OrbAdapter | undefined {
   if (provider === 'vapi' && getProviderReady(provider, config)) {
-    return createLazyAdapter(() =>
-      createVapiAdapter(new (getVapiConstructor())(config.vapiPublicKey), {
+    return createLazyAdapter(async () => {
+      const vapiModule = await import('@vapi-ai/web')
+      return createVapiAdapter(new (getVapiConstructor(vapiModule.default))(config.vapiPublicKey), {
         assistantId: config.vapiAssistantId,
+      })
+    })
+  }
+
+  if (provider === 'elevenlabs' && getProviderReady(provider, config)) {
+    return createLazyAdapter(async () => {
+      const { Conversation } = await import('@elevenlabs/client')
+      return createElevenLabsAdapter(Conversation, {
+        agentId: config.elevenLabsAgentId,
+      })
+    })
+  }
+
+  if (provider === 'pipecat' && getProviderReady(provider, config)) {
+    return createLazyAdapter(async () => {
+      const { PipecatClient } = await import('@pipecat-ai/client-js')
+      const transport =
+        config.pipecatConnectionMode === 'cloud'
+          ? new (await import('@pipecat-ai/daily-transport')).DailyTransport({
+              bufferLocalAudioUntilBotReady: true,
+            })
+          : new (await import('@pipecat-ai/small-webrtc-transport')).SmallWebRTCTransport()
+      const client = new PipecatClient({
+        transport,
+        enableMic: true,
+        enableCam: false,
+      })
+
+      return createPipecatAdapter(client, {
+        connect:
+          config.pipecatConnectionMode === 'cloud'
+            ? () =>
+                client.startBotAndConnect({
+                  endpoint: '/api/pipecat-start',
+                  requestData: {
+                    apiKey: config.pipecatApiKey,
+                    agentName: config.pipecatAgentName,
+                  },
+                })
+            : () => client.connect({ webrtcUrl: config.pipecatWebrtcUrl }),
+      })
+    })
+  }
+
+  if (provider === 'openai' && getProviderReady(provider, config)) {
+    return createLazyAdapter(() =>
+      createOpenAIRealtimeAdapter({
+        getClientSecret: () =>
+          postProviderJson<{ value: string }>('/api/openai-realtime-token', {
+            apiKey: config.openAIApiKey,
+            model: config.openAIModel,
+            voice: config.openAIVoice,
+            instructions: config.openAIInstructions,
+          }),
       }),
     )
   }
 
-  if (provider === 'elevenlabs' && getProviderReady(provider, config)) {
+  if (provider === 'gemini' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
-      createElevenLabsAdapter(Conversation, {
-        agentId: config.elevenLabsAgentId,
+      createGeminiLiveAdapter({
+        connect: async (callbacks) => {
+          const { GoogleGenAI } = await import('@google/genai')
+          const token = await postProviderJson<{
+            value: string
+            model: string
+            config: LiveConnectConfig
+          }>('/api/gemini-live-token', {
+            apiKey: config.geminiApiKey,
+            model: config.geminiModel,
+            voice: config.geminiVoice,
+            instructions: config.geminiInstructions,
+          })
+          const client = new GoogleGenAI({
+            apiKey: token.value,
+            httpOptions: { apiVersion: 'v1alpha' },
+          })
+          const session = await client.live.connect({
+            model: token.model,
+            config: token.config,
+            callbacks: callbacks as LiveCallbacks,
+          })
+          return session as unknown as GeminiLiveSession
+        },
       }),
     )
   }
 
   if (provider === 'livekit' && getProviderReady(provider, config)) {
-    return createLazyAdapter(() => {
+    return createLazyAdapter(async () => {
+      const { Room, TokenSource, createAudioAnalyser } = await import('livekit-client')
       if (config.liveKitConnectionMode === 'sandbox') {
-        return createLiveKitAdapter<LiveKitAudioTrack>({
+        return createLiveKitAdapter({
           tokenSource: TokenSource.sandboxTokenServer(config.liveKitSandboxId),
           tokenOptions: {
             agentName: config.liveKitAgentName,
@@ -311,7 +511,7 @@ function createProviderAdapter(
       }
 
       if (config.liveKitConnectionMode === 'endpoint') {
-        return createLiveKitAdapter<LiveKitAudioTrack>({
+        return createLiveKitAdapter({
           tokenSource: TokenSource.endpoint(config.liveKitTokenEndpoint),
           tokenOptions: {
             agentName: config.liveKitAgentName,
@@ -322,7 +522,7 @@ function createProviderAdapter(
         })
       }
 
-      return createLiveKitAdapter<LiveKitAudioTrack>({
+      return createLiveKitAdapter({
         serverUrl: config.liveKitServerUrl,
         participantToken: config.liveKitParticipantToken,
         createAudioAnalyser,
@@ -386,6 +586,322 @@ function ConfigField({
   )
 }
 
+type UpdateProviderConfig = <TKey extends keyof ProviderConfig>(
+  key: TKey,
+  value: ProviderConfig[TKey],
+) => void
+
+function ProviderConfigFields({
+  config,
+  provider,
+  updateConfig,
+}: {
+  config: ProviderConfig
+  provider: Exclude<ProviderId, 'manual'>
+  updateConfig: UpdateProviderConfig
+}) {
+  if (provider === 'vapi') {
+    return (
+      <>
+        <ConfigField
+          id="config-vapi-public-key"
+          label="Vapi public key"
+          onChange={(value) => updateConfig('vapiPublicKey', value)}
+          type="password"
+          value={config.vapiPublicKey}
+        />
+        <ConfigField
+          id="config-vapi-assistant-id"
+          label="Vapi assistant ID"
+          onChange={(value) => updateConfig('vapiAssistantId', value)}
+          value={config.vapiAssistantId}
+        />
+      </>
+    )
+  }
+
+  if (provider === 'elevenlabs') {
+    return (
+      <ConfigField
+        id="config-elevenlabs-agent-id"
+        label="ElevenLabs agent ID"
+        onChange={(value) => updateConfig('elevenLabsAgentId', value)}
+        value={config.elevenLabsAgentId}
+      />
+    )
+  }
+
+  if (provider === 'pipecat') {
+    return (
+      <>
+        <div className="provider-control-group">
+          <span className="provider-label">Connection</span>
+          <div className="provider-segment">
+            {PIPECAT_CONNECTION_MODES.map((item) => (
+              <button
+                className={`provider-button ${
+                  config.pipecatConnectionMode === item.id ? 'is-selected' : ''
+                }`}
+                key={item.id}
+                onClick={() => updateConfig('pipecatConnectionMode', item.id)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {config.pipecatConnectionMode === 'cloud' ? (
+          <>
+            <ConfigField
+              id="config-pipecat-api-key"
+              label="Pipecat Cloud public API key"
+              onChange={(value) => updateConfig('pipecatApiKey', value)}
+              type="password"
+              value={config.pipecatApiKey}
+            />
+            <ConfigField
+              id="config-pipecat-agent-name"
+              label="Deployed agent name"
+              onChange={(value) => updateConfig('pipecatAgentName', value)}
+              value={config.pipecatAgentName}
+            />
+          </>
+        ) : (
+          <ConfigField
+            id="config-pipecat-webrtc-url"
+            label="SmallWebRTC offer URL"
+            onChange={(value) => updateConfig('pipecatWebrtcUrl', value)}
+            type="url"
+            value={config.pipecatWebrtcUrl}
+          />
+        )}
+        <p className="provider-note">
+          Cloud mode expects an already-deployed Pipecat agent. Self-hosted mode expects the
+          bot&apos;s public <code>/api/offer</code> endpoint.
+        </p>
+      </>
+    )
+  }
+
+  if (provider === 'openai') {
+    return (
+      <>
+        <ConfigField
+          id="config-openai-api-key"
+          label="OpenAI API key"
+          onChange={(value) => updateConfig('openAIApiKey', value)}
+          type="password"
+          value={config.openAIApiKey}
+        />
+        <ConfigField
+          id="config-openai-model"
+          label="Realtime model"
+          onChange={(value) => updateConfig('openAIModel', value)}
+          value={config.openAIModel}
+        />
+        <ConfigField
+          id="config-openai-voice"
+          label="Voice"
+          onChange={(value) => updateConfig('openAIVoice', value)}
+          value={config.openAIVoice}
+        />
+        <ConfigField
+          id="config-openai-instructions"
+          label="Instructions"
+          onChange={(value) => updateConfig('openAIInstructions', value)}
+          value={config.openAIInstructions}
+        />
+        <p className="provider-note">
+          The standard key is held in memory only and exchanged for a short-lived Realtime client
+          secret through this deployment.
+        </p>
+      </>
+    )
+  }
+
+  if (provider === 'gemini') {
+    return (
+      <>
+        <ConfigField
+          id="config-gemini-api-key"
+          label="Gemini API key"
+          onChange={(value) => updateConfig('geminiApiKey', value)}
+          type="password"
+          value={config.geminiApiKey}
+        />
+        <ConfigField
+          id="config-gemini-model"
+          label="Live model"
+          onChange={(value) => updateConfig('geminiModel', value)}
+          value={config.geminiModel}
+        />
+        <ConfigField
+          id="config-gemini-voice"
+          label="Voice"
+          onChange={(value) => updateConfig('geminiVoice', value)}
+          value={config.geminiVoice}
+        />
+        <ConfigField
+          id="config-gemini-instructions"
+          label="Instructions"
+          onChange={(value) => updateConfig('geminiInstructions', value)}
+          value={config.geminiInstructions}
+        />
+        <p className="provider-note">
+          The standard key is held in memory only and exchanged for a one-use Gemini Live token
+          through this deployment.
+        </p>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="provider-control-group">
+        <span className="provider-label">Connection</span>
+        <div className="provider-segment">
+          {LIVEKIT_CONNECTION_MODES.map((item) => (
+            <button
+              className={`provider-button ${
+                config.liveKitConnectionMode === item.id ? 'is-selected' : ''
+              }`}
+              key={item.id}
+              onClick={() => updateConfig('liveKitConnectionMode', item.id)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {config.liveKitConnectionMode === 'sandbox' ? (
+        <ConfigField
+          id="config-livekit-sandbox-id"
+          label="Sandbox token server ID"
+          onChange={(value) => updateConfig('liveKitSandboxId', value)}
+          value={config.liveKitSandboxId}
+        />
+      ) : null}
+
+      {config.liveKitConnectionMode === 'endpoint' ? (
+        <ConfigField
+          id="config-livekit-token-endpoint"
+          label="Token endpoint URL"
+          onChange={(value) => updateConfig('liveKitTokenEndpoint', value)}
+          type="url"
+          value={config.liveKitTokenEndpoint}
+        />
+      ) : null}
+
+      {config.liveKitConnectionMode === 'raw' ? (
+        <>
+          <ConfigField
+            id="config-livekit-server-url"
+            label="LiveKit server URL"
+            onChange={(value) => updateConfig('liveKitServerUrl', value)}
+            type="url"
+            value={config.liveKitServerUrl}
+          />
+          <ConfigField
+            id="config-livekit-participant-token"
+            label="Participant token"
+            onChange={(value) => updateConfig('liveKitParticipantToken', value)}
+            type="password"
+            value={config.liveKitParticipantToken}
+          />
+        </>
+      ) : (
+        <>
+          <ConfigField
+            id="config-livekit-agent-name"
+            label="Agent name"
+            onChange={(value) => updateConfig('liveKitAgentName', value)}
+            value={config.liveKitAgentName}
+          />
+          <ConfigField
+            id="config-livekit-room-prefix"
+            label="Room prefix"
+            onChange={(value) => updateConfig('liveKitRoomPrefix', value)}
+            value={config.liveKitRoomPrefix}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+function ProviderReadinessRows({
+  config,
+  provider,
+}: {
+  config: ProviderConfig
+  provider: Exclude<ProviderId, 'manual'>
+}) {
+  if (provider === 'vapi') {
+    return (
+      <>
+        <EnvRow label="Vapi public key" ready={Boolean(config.vapiPublicKey)} />
+        <EnvRow label="Vapi assistant ID" ready={Boolean(config.vapiAssistantId)} />
+      </>
+    )
+  }
+  if (provider === 'elevenlabs') {
+    return <EnvRow label="ElevenLabs agent ID" ready={Boolean(config.elevenLabsAgentId)} />
+  }
+  if (provider === 'pipecat') {
+    return config.pipecatConnectionMode === 'cloud' ? (
+      <>
+        <EnvRow label="Cloud public key" ready={Boolean(config.pipecatApiKey)} />
+        <EnvRow label="Deployed agent name" ready={Boolean(config.pipecatAgentName)} />
+      </>
+    ) : (
+      <EnvRow label="SmallWebRTC offer URL" ready={Boolean(config.pipecatWebrtcUrl)} />
+    )
+  }
+  if (provider === 'openai') {
+    return (
+      <>
+        <EnvRow label="OpenAI API key" ready={Boolean(config.openAIApiKey)} />
+        <EnvRow label="Realtime model" ready={Boolean(config.openAIModel)} />
+      </>
+    )
+  }
+  if (provider === 'gemini') {
+    return (
+      <>
+        <EnvRow label="Gemini API key" ready={Boolean(config.geminiApiKey)} />
+        <EnvRow label="Live model" ready={Boolean(config.geminiModel)} />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <EnvRow label="Connection mode" ready={Boolean(config.liveKitConnectionMode)} />
+      {config.liveKitConnectionMode === 'sandbox' ? (
+        <EnvRow label="Sandbox token server ID" ready={Boolean(config.liveKitSandboxId)} />
+      ) : null}
+      {config.liveKitConnectionMode === 'endpoint' ? (
+        <EnvRow label="Token endpoint URL" ready={Boolean(config.liveKitTokenEndpoint)} />
+      ) : null}
+      {config.liveKitConnectionMode !== 'raw' ? (
+        <>
+          <EnvRow label="Agent name" ready={Boolean(config.liveKitAgentName)} />
+          <EnvRow label="Room prefix" ready={Boolean(config.liveKitRoomPrefix)} />
+        </>
+      ) : null}
+      {config.liveKitConnectionMode === 'raw' ? (
+        <>
+          <EnvRow label="LiveKit server URL" ready={Boolean(config.liveKitServerUrl)} />
+          <EnvRow label="Participant token" ready={Boolean(config.liveKitParticipantToken)} />
+        </>
+      ) : null}
+    </>
+  )
+}
+
 function ProviderPlayground() {
   const [config, setConfig] = useState<ProviderConfig>(() => readConfig())
   const [provider, setProvider] = useState<ProviderId>('manual')
@@ -443,6 +959,36 @@ function ProviderPlayground() {
         }
       }
 
+      if (provider === 'pipecat') {
+        return {
+          ...current,
+          pipecatConnectionMode: defaultConfig.pipecatConnectionMode,
+          pipecatApiKey: '',
+          pipecatAgentName: defaultConfig.pipecatAgentName,
+          pipecatWebrtcUrl: defaultConfig.pipecatWebrtcUrl,
+        }
+      }
+
+      if (provider === 'openai') {
+        return {
+          ...current,
+          openAIApiKey: '',
+          openAIModel: defaultConfig.openAIModel,
+          openAIVoice: defaultConfig.openAIVoice,
+          openAIInstructions: defaultConfig.openAIInstructions,
+        }
+      }
+
+      if (provider === 'gemini') {
+        return {
+          ...current,
+          geminiApiKey: '',
+          geminiModel: defaultConfig.geminiModel,
+          geminiVoice: defaultConfig.geminiVoice,
+          geminiInstructions: defaultConfig.geminiInstructions,
+        }
+      }
+
       return current
     })
   }, [provider])
@@ -466,6 +1012,35 @@ function ProviderPlayground() {
           liveKitRoomPrefix: DEFAULT_LIVEKIT_ROOM_PREFIX,
           liveKitServerUrl: '',
           liveKitParticipantToken: '',
+        }
+      }
+
+      if (provider === 'pipecat') {
+        return {
+          ...current,
+          pipecatApiKey: '',
+          pipecatAgentName: '',
+          pipecatWebrtcUrl: '',
+        }
+      }
+
+      if (provider === 'openai') {
+        return {
+          ...current,
+          openAIApiKey: '',
+          openAIModel: DEFAULT_OPENAI_MODEL,
+          openAIVoice: DEFAULT_OPENAI_VOICE,
+          openAIInstructions: DEFAULT_INSTRUCTIONS,
+        }
+      }
+
+      if (provider === 'gemini') {
+        return {
+          ...current,
+          geminiApiKey: '',
+          geminiModel: DEFAULT_GEMINI_MODEL,
+          geminiVoice: DEFAULT_GEMINI_VOICE,
+          geminiInstructions: DEFAULT_INSTRUCTIONS,
         }
       }
 
@@ -709,110 +1284,14 @@ function ProviderPlayground() {
             {provider !== 'manual' ? (
               <section className="provider-panel provider-diagnostics">
                 <span className="provider-label">
-                  {provider === 'vapi'
-                    ? 'Vapi Config'
-                    : provider === 'elevenlabs'
-                      ? 'ElevenLabs Config'
-                      : 'LiveKit Config'}
+                  {PROVIDERS.find((item) => item.id === provider)?.label} Config
                 </span>
                 <div className="provider-field-list">
-                  {provider === 'vapi' ? (
-                    <>
-                      <ConfigField
-                        id="config-vapi-public-key"
-                        label="Vapi public key"
-                        onChange={(value) => updateConfig('vapiPublicKey', value)}
-                        type="password"
-                        value={config.vapiPublicKey}
-                      />
-                      <ConfigField
-                        id="config-vapi-assistant-id"
-                        label="Vapi assistant ID"
-                        onChange={(value) => updateConfig('vapiAssistantId', value)}
-                        value={config.vapiAssistantId}
-                      />
-                    </>
-                  ) : provider === 'elevenlabs' ? (
-                    <ConfigField
-                      id="config-elevenlabs-agent-id"
-                      label="ElevenLabs agent ID"
-                      onChange={(value) => updateConfig('elevenLabsAgentId', value)}
-                      value={config.elevenLabsAgentId}
-                    />
-                  ) : (
-                    <>
-                      <div className="provider-control-group">
-                        <span className="provider-label">Connection</span>
-                        <div className="provider-segment">
-                          {LIVEKIT_CONNECTION_MODES.map((item) => (
-                            <button
-                              className={`provider-button ${
-                                config.liveKitConnectionMode === item.id ? 'is-selected' : ''
-                              }`}
-                              key={item.id}
-                              onClick={() => updateConfig('liveKitConnectionMode', item.id)}
-                              type="button"
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {config.liveKitConnectionMode === 'sandbox' ? (
-                        <ConfigField
-                          id="config-livekit-sandbox-id"
-                          label="Sandbox token server ID"
-                          onChange={(value) => updateConfig('liveKitSandboxId', value)}
-                          value={config.liveKitSandboxId}
-                        />
-                      ) : null}
-
-                      {config.liveKitConnectionMode === 'endpoint' ? (
-                        <ConfigField
-                          id="config-livekit-token-endpoint"
-                          label="Token endpoint URL"
-                          onChange={(value) => updateConfig('liveKitTokenEndpoint', value)}
-                          type="url"
-                          value={config.liveKitTokenEndpoint}
-                        />
-                      ) : null}
-
-                      {config.liveKitConnectionMode === 'raw' ? (
-                        <>
-                          <ConfigField
-                            id="config-livekit-server-url"
-                            label="LiveKit server URL"
-                            onChange={(value) => updateConfig('liveKitServerUrl', value)}
-                            type="url"
-                            value={config.liveKitServerUrl}
-                          />
-                          <ConfigField
-                            id="config-livekit-participant-token"
-                            label="Participant token"
-                            onChange={(value) => updateConfig('liveKitParticipantToken', value)}
-                            type="password"
-                            value={config.liveKitParticipantToken}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <ConfigField
-                            id="config-livekit-agent-name"
-                            label="Agent name"
-                            onChange={(value) => updateConfig('liveKitAgentName', value)}
-                            value={config.liveKitAgentName}
-                          />
-                          <ConfigField
-                            id="config-livekit-room-prefix"
-                            label="Room prefix"
-                            onChange={(value) => updateConfig('liveKitRoomPrefix', value)}
-                            value={config.liveKitRoomPrefix}
-                          />
-                        </>
-                      )}
-                    </>
-                  )}
+                  <ProviderConfigFields
+                    config={config}
+                    provider={provider}
+                    updateConfig={updateConfig}
+                  />
                 </div>
                 <div className="provider-config-actions">
                   <button className="provider-button" onClick={resetProviderConfig} type="button">
@@ -823,63 +1302,7 @@ function ProviderPlayground() {
                   </button>
                 </div>
                 <div className="provider-env-list">
-                  {provider === 'vapi' ? (
-                    <>
-                      <EnvRow label="Vapi public key" ready={Boolean(activeConfig.vapiPublicKey)} />
-                      <EnvRow
-                        label="Vapi assistant ID"
-                        ready={Boolean(activeConfig.vapiAssistantId)}
-                      />
-                    </>
-                  ) : provider === 'elevenlabs' ? (
-                    <EnvRow
-                      label="ElevenLabs agent ID"
-                      ready={Boolean(activeConfig.elevenLabsAgentId)}
-                    />
-                  ) : (
-                    <>
-                      <EnvRow
-                        label="Connection mode"
-                        ready={Boolean(activeConfig.liveKitConnectionMode)}
-                      />
-                      {activeConfig.liveKitConnectionMode === 'sandbox' ? (
-                        <EnvRow
-                          label="Sandbox token server ID"
-                          ready={Boolean(activeConfig.liveKitSandboxId)}
-                        />
-                      ) : null}
-                      {activeConfig.liveKitConnectionMode === 'endpoint' ? (
-                        <EnvRow
-                          label="Token endpoint URL"
-                          ready={Boolean(activeConfig.liveKitTokenEndpoint)}
-                        />
-                      ) : null}
-                      {activeConfig.liveKitConnectionMode !== 'raw' ? (
-                        <>
-                          <EnvRow
-                            label="Agent name"
-                            ready={Boolean(activeConfig.liveKitAgentName)}
-                          />
-                          <EnvRow
-                            label="Room prefix"
-                            ready={Boolean(activeConfig.liveKitRoomPrefix)}
-                          />
-                        </>
-                      ) : null}
-                      {activeConfig.liveKitConnectionMode === 'raw' ? (
-                        <>
-                          <EnvRow
-                            label="LiveKit server URL"
-                            ready={Boolean(activeConfig.liveKitServerUrl)}
-                          />
-                          <EnvRow
-                            label="Participant token"
-                            ready={Boolean(activeConfig.liveKitParticipantToken)}
-                          />
-                        </>
-                      ) : null}
-                    </>
-                  )}
+                  <ProviderReadinessRows config={activeConfig} provider={provider} />
                 </div>
               </section>
             ) : null}

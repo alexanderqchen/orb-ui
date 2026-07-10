@@ -4,9 +4,9 @@ This roadmap is public planning, not a promise of dates or exact release content
 
 ## Near Term
 
-### Signal-based adapter API
+### Signal-based adapter API — complete
 
-Introduce a richer adapter signal model so providers can report state, input volume, output volume, and errors as one coherent update.
+The adapter signal model now reports state, input volume, output volume, and errors as one coherent update.
 
 Target direction:
 
@@ -17,20 +17,29 @@ Target direction:
 - Document migration from callback-object adapters
 - Remove surprising global audio behavior from `Orb`
 
-### LiveKit adapter
+### LiveKit adapter — complete
 
-Add first-class LiveKit Agents support with signal-native state, local microphone and remote agent
+First-class LiveKit Agents support includes signal-native state, local microphone and remote agent
 volume metering, attached agent audio, and token-source based connection setup. The adapter should
 keep browser auth explicit by favoring token endpoints and LiveKit sandbox token servers over raw
 pasted participant tokens.
 
-### OpenAI Realtime adapter
+### Pipecat adapter — complete
 
-Add first-class OpenAI Realtime support after the signal API lands. The initial adapter should focus on browser voice UI use cases and keep server-side token/session creation explicit in user apps.
+The transport-agnostic Pipecat adapter consumes `PipecatClient` RTVI events and supports Pipecat
+Cloud/Daily, self-hosted SmallWebRTC, and custom client transports. It normalizes state and both
+audio levels while leaving agent deployment and connection credentials in the application.
 
-### Gemini Live adapter
+### OpenAI Realtime adapter — complete
 
-Add Gemini Live support after the OpenAI Realtime adapter or in parallel if the signal API is ready. The adapter should normalize Live API session state and audio levels while keeping the underlying session setup understandable.
+The OpenAI Realtime adapter owns browser WebRTC, audio playback, input/output metering, and current
+GA session events. Server-side client-secret creation stays explicit in user apps.
+
+### Gemini Live adapter — complete
+
+The Gemini Live adapter owns browser microphone PCM streaming, native-audio playback, interruption
+handling, and signal normalization. Applications still own the official GenAI client and ephemeral
+token creation.
 
 ## Experience
 

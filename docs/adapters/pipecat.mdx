@@ -1,0 +1,105 @@
+---
+title: Pipecat adapter
+description: Connect Pipecat Cloud, Daily, or self-hosted SmallWebRTC voice agents to an audio-reactive React UI with orb-ui.
+---
+
+# Pipecat voice UI for React
+
+`createPipecatAdapter` wraps the standard `PipecatClient` and consumes its RTVI events. It is
+transport-agnostic: the same orb-ui adapter works with Pipecat Cloud and Daily, self-hosted
+SmallWebRTC, or another Pipecat client transport.
+
+## Install
+
+Install Pipecat's client and the transport used by your agent:
+
+```bash
+npm install orb-ui @pipecat-ai/client-js
+
+# Pipecat Cloud and managed Daily deployments
+npm install @pipecat-ai/daily-transport
+
+# Self-hosted Pipecat's default WebRTC path
+npm install @pipecat-ai/small-webrtc-transport
+```
+
+## Pipecat Cloud or Daily
+
+Your server endpoint should start the deployed agent and return Daily connection details. Keep
+private service credentials on the server.
+
+```tsx
+import { PipecatClient } from '@pipecat-ai/client-js'
+import { DailyTransport } from '@pipecat-ai/daily-transport'
+import { Orb } from 'orb-ui'
+import { createPipecatAdapter } from 'orb-ui/adapters'
+
+const client = new PipecatClient({
+  transport: new DailyTransport({ bufferLocalAudioUntilBotReady: true }),
+  enableMic: true,
+})
+
+const adapter = createPipecatAdapter(client, {
+  connect: () =>
+    client.startBotAndConnect({
+      endpoint: '/api/pipecat-start',
+    }),
+})
+
+export function PipecatVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Pipecat assistant" />
+}
+```
+
+Pipecat Cloud's public start API returns `dailyRoom` and `dailyToken`; `DailyTransport` normalizes
+those fields automatically.
+
+## Self-hosted SmallWebRTC
+
+Point the transport at the `/api/offer` endpoint exposed by a matching server-side
+`SmallWebRTCTransport`.
+
+```tsx
+import { PipecatClient } from '@pipecat-ai/client-js'
+import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
+import { Orb } from 'orb-ui'
+import { createPipecatAdapter } from 'orb-ui/adapters'
+
+const client = new PipecatClient({
+  transport: new SmallWebRTCTransport(),
+  enableMic: true,
+})
+
+const adapter = createPipecatAdapter(client, {
+  connect: () => client.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
+})
+
+export function PipecatVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Pipecat assistant" />
+}
+```
+
+## State mapping
+
+- transport initialization/authentication/connection -> `connecting`
+- bot ready and user speaking -> `listening`
+- user stopped speaking, LLM started, or TTS started -> `thinking`
+- bot started speaking -> `speaking`
+- bot stopped speaking -> `listening`
+- client, message, or device error -> `error`
+- disconnected -> `idle`
+
+RTVI `LocalAudioLevel` becomes `inputVolume`; bot `RemoteAudioLevel` becomes `outputVolume`. The
+adapter attaches remote bot audio tracks automatically. Use `isBotParticipant` to filter audio in a
+multi-participant session, or set `playRemoteAudio: false` when your app owns playback.
+
+## Custom session startup
+
+The `connect` callback can call any Pipecat client startup path and pass transport-specific
+parameters. `disconnect` defaults to `client.disconnect()` and can also be overridden.
+
+## Related
+
+- [LiveKit adapter](/adapters/livekit)
+- [Custom integrations](/adapters/custom)
+- [Pipecat JavaScript client](https://docs.pipecat.ai/api-reference/client/js/overview)

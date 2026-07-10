@@ -10,7 +10,15 @@ const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#eab308'
 
 type DemoMode = 'simulation' | 'sandbox'
-type CodeTab = 'vapi' | 'elevenlabs' | 'livekit' | 'adapter' | 'controlled'
+type CodeTab =
+  | 'vapi'
+  | 'elevenlabs'
+  | 'livekit'
+  | 'pipecat'
+  | 'openai'
+  | 'gemini'
+  | 'adapter'
+  | 'controlled'
 
 interface SimulationStep {
   state: OrbState
@@ -93,6 +101,57 @@ const adapter = createLiveKitAdapter({
 
 function App() {
   return <Orb adapter={adapter} theme="circle" aria-label="Start LiveKit assistant" />
+}`
+
+const PIPECAT_CODE = `import { PipecatClient } from "@pipecat-ai/client-js"
+import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport"
+import { Orb } from "orb-ui"
+import { createPipecatAdapter } from "orb-ui/adapters"
+
+const client = new PipecatClient({
+  transport: new SmallWebRTCTransport(),
+  enableMic: true
+})
+const adapter = createPipecatAdapter(client, {
+  connect: () => client.connect({ webrtcUrl: "/api/offer" })
+})
+
+export function VoiceOrb() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Pipecat assistant" />
+}`
+
+const OPENAI_CODE = `import { Orb } from "orb-ui"
+import { createOpenAIRealtimeAdapter } from "orb-ui/adapters"
+
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => {
+    const response = await fetch("/api/openai-realtime-token", { method: "POST" })
+    return (await response.json()).value
+  }
+})
+
+export function VoiceOrb() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start OpenAI assistant" />
+}`
+
+const GEMINI_CODE = `import { GoogleGenAI } from "@google/genai"
+import { Orb } from "orb-ui"
+import { createGeminiLiveAdapter } from "orb-ui/adapters"
+
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) => {
+    const token = await fetch("/api/gemini-live-token", { method: "POST" })
+      .then((response) => response.json())
+    const client = new GoogleGenAI({
+      apiKey: token.value,
+      httpOptions: { apiVersion: "v1alpha" }
+    })
+    return client.live.connect({ model: token.model, config: token.config, callbacks })
+  }
+})
+
+export function VoiceOrb() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Gemini assistant" />
 }`
 
 const CONTROLLED_CODE = `import { useEffect, useState } from "react"
@@ -227,7 +286,7 @@ const SEO_SECTIONS = [
   {
     id: 'adapters',
     title: 'Provider adapters',
-    copy: 'Use Vapi, ElevenLabs, and LiveKit adapters, or control voice signals yourself.',
+    copy: 'Use adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, and Gemini Live.',
     link: '/docs/adapters/vapi',
     linkLabel: 'Explore adapters',
   },
@@ -247,8 +306,8 @@ const SEO_SECTIONS = [
   },
   {
     id: 'roadmap',
-    title: 'OpenAI Realtime + Gemini Live',
-    copy: 'Prototype with controlled mode today; dedicated adapters are planned next.',
+    title: 'Native realtime voice adapters',
+    copy: 'Drive the UI from managed browser audio, provider state, and separate input/output levels.',
     link: '/docs/adapters/openai-realtime',
     linkLabel: 'Preview notes',
   },
@@ -355,6 +414,12 @@ function codeForTab(tab: CodeTab) {
       return ELEVENLABS_CODE
     case 'livekit':
       return LIVEKIT_CODE
+    case 'pipecat':
+      return PIPECAT_CODE
+    case 'openai':
+      return OPENAI_CODE
+    case 'gemini':
+      return GEMINI_CODE
     case 'adapter':
       return ADAPTER_CODE
     case 'controlled':
@@ -541,8 +606,8 @@ export default function App() {
         </h1>
         <p style={{ fontSize: 16, color: '#888', marginTop: 16, lineHeight: 1.6 }}>
           orb-ui is a React voice agent UI library with animated orb components, audio-reactive
-          themes, Vapi, ElevenLabs, and LiveKit adapters, and controlled mode for custom realtime
-          voice agents.
+          themes, adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, and Gemini Live,
+          plus controlled mode for custom realtime voice agents.
         </p>
         <div
           style={{
@@ -704,6 +769,15 @@ export default function App() {
           </button>
           <button onClick={() => setCodeTab('livekit')} style={btnStyle(codeTab === 'livekit')}>
             LiveKit
+          </button>
+          <button onClick={() => setCodeTab('pipecat')} style={btnStyle(codeTab === 'pipecat')}>
+            Pipecat
+          </button>
+          <button onClick={() => setCodeTab('openai')} style={btnStyle(codeTab === 'openai')}>
+            OpenAI
+          </button>
+          <button onClick={() => setCodeTab('gemini')} style={btnStyle(codeTab === 'gemini')}>
+            Gemini
           </button>
           <button onClick={() => setCodeTab('adapter')} style={btnStyle(codeTab === 'adapter')}>
             Adapter

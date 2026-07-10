@@ -12,7 +12,7 @@ Use orb-ui when you want users to understand whether a voice agent is idle, conn
 ## Start here
 
 1. Install `orb-ui`.
-2. Choose an adapter for Vapi, ElevenLabs, or LiveKit, or use controlled mode.
+2. Choose an adapter for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, or Gemini Live, or use controlled mode.
 3. Pick a visual theme.
 4. Map your voice agent state into the Orb component.
 
@@ -28,13 +28,13 @@ export function VoiceAgentStatus({ state, volume }) {
 
 - A small React component for visible voice agent state.
 - Audio-reactive orb and bars themes.
-- Provider adapters for Vapi, ElevenLabs, and LiveKit.
-- Controlled mode for OpenAI Realtime, Gemini Live API, telephony, WebRTC, WebSocket, and custom speech pipelines.
+- Provider adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, and Gemini Live.
+- Controlled mode for telephony, custom WebRTC/WebSocket transports, and other speech pipelines.
 - A stable state model for `idle`, `connecting`, `listening`, `thinking`, `speaking`, and `error`.
 
 ## What orb-ui does not handle
 
-orb-ui is not a voice agent platform. It does not host calls, manage prompts, run speech recognition, or replace Vapi, ElevenLabs, LiveKit, OpenAI Realtime, Gemini Live API, or your own backend. It is the frontend UI layer that makes those systems feel understandable inside a product.
+orb-ui is not a voice agent platform. It does not host calls, manage prompts, run speech recognition, or replace Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live API, or your own backend. It is the frontend UI layer that makes those systems feel understandable inside a product.
 
 ## Next steps
 
@@ -45,4 +45,7 @@ orb-ui is not a voice agent platform. It does not host calls, manage prompts, ru
 - [Vapi adapter](/adapters/vapi)
 - [ElevenLabs adapter](/adapters/elevenlabs)
 - [LiveKit adapter](/adapters/livekit)
+- [Pipecat adapter](/adapters/pipecat)
+- [OpenAI Realtime adapter](/adapters/openai-realtime)
+- [Gemini Live adapter](/adapters/gemini-live)
 - [Custom integrations](/adapters/custom)

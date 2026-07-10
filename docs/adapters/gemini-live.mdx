@@ -1,45 +1,111 @@
 ---
-title: Gemini Live adapter (coming soon)
-description: Use orb-ui controlled mode to build a React voice UI for Gemini Live API apps. Dedicated adapter support is planned.
+title: Gemini Live adapter
+description: Connect Gemini Live API native audio to an audio-reactive React voice UI with ephemeral tokens and orb-ui.
 ---
 
-# Gemini Live adapter (coming soon)
+# Gemini Live voice UI for React
 
-Gemini Live API can power realtime audio and multimodal applications. orb-ui gives those apps a visible React UI layer: state-aware animated orbs, audio-reactive motion, and controlled mode.
+`createGeminiLiveAdapter` owns browser microphone streaming, PCM audio playback, input/output
+metering, local turn detection, interruptions, and cleanup. Your app owns the official Google GenAI
+client and the short-lived Live API token.
 
-orb-ui does not ship a dedicated Gemini Live adapter yet.
+The examples use `gemini-3.1-flash-live-preview`, the current low-latency voice-first Live model,
+with the `Kore` voice.
 
-```tsx
-import { Orb } from 'orb-ui'
+## Install the Google GenAI SDK
 
-export function GeminiLiveStatus({ liveSignal }) {
-  return <Orb signal={liveSignal} theme="circle" />
+```bash
+npm install orb-ui @google/genai
+```
+
+## Mint an ephemeral token on your server
+
+Keep the standard Gemini API key on your server. Lock the one-use token to the model and audio
+configuration your client will use.
+
+```ts
+import { GoogleGenAI, Modality } from '@google/genai'
+
+export async function POST() {
+  const model = 'gemini-3.1-flash-live-preview'
+  const config = {
+    responseModalities: [Modality.AUDIO],
+    speechConfig: {
+      voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+    },
+    systemInstruction: 'You are a concise, friendly voice assistant.',
+  }
+  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+  const token = await client.authTokens.create({
+    config: {
+      uses: 1,
+      liveConnectConstraints: { model, config },
+      httpOptions: { apiVersion: 'v1alpha' },
+    },
+  })
+
+  return Response.json({ value: token.name, model, config })
 }
 ```
 
-## SEO target
+Add authentication and rate limiting appropriate for your app before exposing a token endpoint.
 
-The useful implementation target is Gemini Live API, Gemini voice API, Gemini Live voice UI, and Gemini Live React implementation terms. Generic "Gemini live" searches can be noisy and may not reflect developer intent.
+## Create the adapter
 
-## How orb-ui fits
+```tsx
+import { GoogleGenAI } from '@google/genai'
+import { Orb } from 'orb-ui'
+import { createGeminiLiveAdapter } from 'orb-ui/adapters'
 
-Your Gemini integration owns the stateful voice session. orb-ui receives a normalized voice signal:
+const adapter = createGeminiLiveAdapter({
+  connect: async (callbacks) => {
+    const response = await fetch('/api/gemini-live-token', { method: 'POST' })
+    const token = await response.json()
+    if (!response.ok) throw new Error(token.error ?? 'Could not create a Gemini Live session')
 
-- `connecting`
-- `listening`
-- `thinking`
-- `speaking`
-- `idle`
-- `error`
+    const client = new GoogleGenAI({
+      apiKey: token.value,
+      httpOptions: { apiVersion: 'v1alpha' },
+    })
+    return client.live.connect({
+      model: token.model,
+      config: token.config,
+      callbacks,
+    })
+  },
+})
 
-## Planned adapter
+export function GeminiLiveVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start Gemini voice assistant" />
+}
+```
 
-A dedicated Gemini Live adapter should focus on state normalization, audio volume, and error handling. It should not hide important session setup details from the app.
+## Audio behavior
 
-Until that adapter exists, controlled mode is the correct path.
+The adapter resamples browser microphone input to 16 kHz PCM and sends it with
+`sendRealtimeInput`. Gemini's base64 PCM output is decoded, queued, and played at the sample rate
+declared by each response chunk. An interruption stops all queued audio immediately.
+
+## State and volume mapping
+
+- token/session connection -> `connecting`
+- active microphone/user speech -> `listening`
+- end of detected user speech or model text work -> `thinking`
+- queued native audio -> `speaking`
+- interruption, `waitingForInput`, or completed playback -> `listening`
+- Live session failure -> `error`
+- explicit stop or closed connection -> `idle`
+
+`inputVolume` follows the local microphone. `outputVolume` follows the PCM playback analyser.
+
+## Token handling
+
+Gemini recommends ephemeral tokens for direct browser-to-Live connections. Do not ship a standard
+Gemini API key in the browser. The token and connection must both use the `v1alpha` API while
+ephemeral Live authentication remains on that endpoint.
 
 ## Related
 
 - [Custom integrations](/adapters/custom)
 - [Voice agent UI guide](/guides/voice-agent-ui)
-- [Voice agent platforms guide](/guides/voice-agent-platforms)
+- [Gemini Live ephemeral tokens](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens)

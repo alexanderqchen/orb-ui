@@ -110,6 +110,16 @@
       "permanent": true
     },
     {
+      "source": "/docs/pipecat-voice-ui",
+      "destination": "/docs/adapters/pipecat",
+      "permanent": true
+    },
+    {
+      "source": "/docs/pipecat-voice-ui/",
+      "destination": "/docs/adapters/pipecat",
+      "permanent": true
+    },
+    {
       "source": "/docs/openai-realtime-voice-ui",
       "destination": "/docs/adapters/openai-realtime",
       "permanent": true
@@ -137,6 +147,16 @@
     {
       "source": "/docs/providers/openai-realtime/",
       "destination": "/docs/adapters/openai-realtime",
+      "permanent": true
+    },
+    {
+      "source": "/docs/providers/pipecat",
+      "destination": "/docs/adapters/pipecat",
+      "permanent": true
+    },
+    {
+      "source": "/docs/providers/pipecat/",
+      "destination": "/docs/adapters/pipecat",
       "permanent": true
     },
     {

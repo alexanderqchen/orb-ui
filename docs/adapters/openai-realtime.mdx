@@ -1,41 +1,96 @@
 ---
-title: OpenAI Realtime adapter (coming soon)
-description: Use orb-ui controlled mode to prototype a React voice UI for OpenAI Realtime voice agents today. Dedicated adapter support is planned.
+title: OpenAI Realtime adapter
+description: Connect OpenAI's Realtime API to an audio-reactive React voice UI with native WebRTC, short-lived client secrets, and orb-ui.
 ---
 
-# OpenAI Realtime adapter (coming soon)
+# OpenAI Realtime voice UI for React
 
-OpenAI Realtime is a natural fit for orb-ui because realtime voice agents need fast visual feedback. orb-ui does not ship a dedicated OpenAI Realtime adapter yet, so the supported path today is controlled mode.
+`createOpenAIRealtimeAdapter` owns the browser voice path: microphone capture, WebRTC negotiation,
+remote audio playback, input/output metering, interruption-aware state, and cleanup. Your server
+still owns the standard OpenAI API key and creates a short-lived Realtime client secret.
 
-Your app owns the Realtime session. orb-ui renders the visual state.
+The adapter targets the GA Realtime API. New browser integrations should use
+`/v1/realtime/client_secrets` and `/v1/realtime/calls`, not the older beta session flow.
 
-```tsx
-import { Orb } from 'orb-ui'
+## Create a client secret on your server
 
-export function OpenAIRealtimeOrb({ realtimeSignal }) {
-  return <Orb signal={realtimeSignal} theme="circle" />
+This example uses the current general voice-agent model and the `marin` voice. Keep
+`OPENAI_API_KEY` server-only.
+
+```ts
+export async function POST() {
+  const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      session: {
+        type: 'realtime',
+        model: 'gpt-realtime-2.1',
+        instructions: 'You are a concise, friendly voice assistant.',
+        audio: { output: { voice: 'marin' } },
+      },
+    }),
+  })
+
+  return Response.json(await response.json(), { status: response.status })
 }
 ```
 
-## How orb-ui fits
+Add authentication and rate limiting appropriate for your app before exposing a token endpoint.
 
-Map your session events into the Orb component:
+## Create the adapter
 
-- connection started -> `connecting`
-- user audio detected -> `listening`
-- model processing -> `thinking`
-- assistant audio output -> `speaking`
-- session idle -> `idle`
-- session failure -> `error`
+```tsx
+import { Orb } from 'orb-ui'
+import { createOpenAIRealtimeAdapter } from 'orb-ui/adapters'
 
-## Planned adapter
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret: async () => {
+    const response = await fetch('/api/openai-realtime-token', { method: 'POST' })
+    const data = await response.json()
 
-A future OpenAI Realtime adapter should normalize session events, audio output volume, interruption state, and error handling while letting your app manage WebRTC or WebSocket connection details.
+    if (!response.ok) throw new Error(data.error ?? 'Could not create a Realtime session')
+    return data.value
+  },
+})
 
-Until that exists, controlled mode is the honest API.
+export function OpenAIRealtimeVoiceUI() {
+  return <Orb adapter={adapter} theme="circle" aria-label="Start OpenAI voice assistant" />
+}
+```
+
+Call `getClientSecret` must mint a fresh secret for every start. Do not put a standard OpenAI API
+key in browser code or a `VITE_*`/`NEXT_PUBLIC_*` variable.
+
+## State and volume mapping
+
+- WebRTC negotiation -> `connecting`
+- `input_audio_buffer.speech_started` -> `listening`
+- `input_audio_buffer.speech_stopped` and `response.created` -> `thinking`
+- output audio activity -> `speaking`
+- completed/interrupted output -> `listening`
+- Realtime or WebRTC failure -> `error`
+- explicit stop or closed connection -> `idle`
+
+The adapter meters the local microphone into `inputVolume` while listening and the remote WebRTC
+track into `outputVolume` while speaking. It also attaches and plays the model audio automatically.
+
+## Runtime overrides
+
+`callsUrl`, `mediaStreamConstraints`, `getUserMedia`, `createPeerConnection`, `fetch`,
+`createAudioElement`, and `createAudioContext` are available for custom browser wrappers and tests.
+Most applications only need `getClientSecret`.
+
+## ChatGPT Live
+
+This adapter targets the public OpenAI Realtime API. It does not wrap consumer ChatGPT voice
+features that do not expose a corresponding developer API.
 
 ## Related
 
 - [Custom integrations](/adapters/custom)
 - [Voice agent UI guide](/guides/voice-agent-ui)
-- [Voice agent platforms guide](/guides/voice-agent-platforms)
+- [OpenAI Realtime WebRTC guide](https://developers.openai.com/api/docs/guides/realtime-webrtc)

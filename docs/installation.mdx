@@ -34,10 +34,23 @@ npm install orb-ui @elevenlabs/client
 
 # LiveKit Agents
 npm install orb-ui livekit-client
+
+# Pipecat (add the transport used by your agent)
+npm install orb-ui @pipecat-ai/client-js @pipecat-ai/small-webrtc-transport
+
+# Gemini Live
+npm install orb-ui @google/genai
 ```
 
 ```tsx
-import { createElevenLabsAdapter, createLiveKitAdapter, createVapiAdapter } from 'orb-ui/adapters'
+import {
+  createElevenLabsAdapter,
+  createGeminiLiveAdapter,
+  createLiveKitAdapter,
+  createOpenAIRealtimeAdapter,
+  createPipecatAdapter,
+  createVapiAdapter,
+} from 'orb-ui/adapters'
 ```
 
 Use an adapter when a supported provider owns the voice session. Use controlled mode when your app already has session state and audio volume.
@@ -48,7 +61,9 @@ Use an adapter when a supported provider owns the voice session. Use controlled 
 - Use the [Vapi adapter](/adapters/vapi) for Vapi assistants.
 - Use the [ElevenLabs adapter](/adapters/elevenlabs) for ElevenLabs conversational agents.
 - Use the [LiveKit adapter](/adapters/livekit) for LiveKit Agents.
-- Use [OpenAI Realtime](/adapters/openai-realtime) or [Gemini Live](/adapters/gemini-live) through controlled mode until dedicated adapters ship.
+- Use the [Pipecat adapter](/adapters/pipecat) with Pipecat Cloud, Daily, or self-hosted SmallWebRTC agents.
+- Use the [OpenAI Realtime adapter](/adapters/openai-realtime) for native browser WebRTC voice sessions.
+- Use the [Gemini Live adapter](/adapters/gemini-live) for native-audio Live API sessions.
 
 ## Next steps
 

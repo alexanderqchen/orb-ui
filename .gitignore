@@ -6,4 +6,5 @@ demo/node_modules
 demo/dist
 volume-debug.log
 demo/.env
+demo/.vercel
 outputs
