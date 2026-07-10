@@ -21,19 +21,33 @@ including normalized input and output volume when the provider exposes audio.
 
 ## Setup at a glance
 
-| Provider        | Browser code you provide                                | What orb-ui owns                                                                  |
-| --------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Vapi            | A configured `Vapi` client and assistant ID             | Provider event mapping and output metering                                        |
-| ElevenLabs      | The `Conversation` class and agent/session credential   | Session lifecycle, state mapping, playback, and both volume levels                |
-| LiveKit         | LiveKit runtime helpers plus a token source or endpoint | Room lifecycle, agent discovery, playback, and both volume levels                 |
-| Pipecat         | A configured `PipecatClient` and its connect callback   | RTVI state mapping, remote playback, and both volume levels                       |
-| OpenAI Realtime | A callback that returns a fresh client secret           | Browser WebRTC, microphone, playback, state, and both volume levels               |
-| Gemini Live     | A callback that opens the official Google Live session  | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
+| Provider        | Browser code you provide                               | What orb-ui owns                                                                  |
+| --------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Vapi            | A configured `Vapi` client and assistant ID            | Provider event mapping and output metering                                        |
+| ElevenLabs      | The `Conversation` class and agent/session credential  | Session lifecycle, state mapping, playback, and both volume levels                |
+| LiveKit         | A token endpoint and optional agent name               | SDK setup, room lifecycle, agent discovery, playback, and both volume levels      |
+| Pipecat         | A configured `PipecatClient` and its connect callback  | RTVI state mapping, remote playback, and both volume levels                       |
+| OpenAI Realtime | A callback that returns a fresh client secret          | Browser WebRTC, microphone, playback, state, and both volume levels               |
+| Gemini Live     | A callback that opens the official Google Live session | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
 
 Provider authentication stays explicit. Standard OpenAI and Gemini API keys belong on your server;
 the browser should receive only short-lived provider credentials. LiveKit participant tokens should
 also be minted on a server. Pipecat Cloud can use its public agent-start key in the browser while
 private deployment credentials remain server-side.
+
+LiveKit's recommended browser entrypoint keeps the SDK mechanical details out of application code:
+
+```tsx
+import { createLiveKitAdapter } from 'orb-ui/adapters/livekit'
+
+const adapter = createLiveKitAdapter({
+  tokenEndpoint: '/api/livekit-token',
+  agentName: 'your-agent-name',
+})
+```
+
+It creates a fresh room name for every start. Import the advanced factory from `orb-ui/adapters`
+only when your app already owns a Room, token source, custom connection fetcher, or runtime helpers.
 
 ## The three connection shapes
 

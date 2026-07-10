@@ -50,7 +50,7 @@ interface LKCreateAudioAnalyser<TTrack = unknown> {
   (track: TTrack, options?: Record<string, unknown>): LKAnalyserResult
 }
 
-type LiveKitTokenOptionValue = string | (() => string)
+export type LiveKitTokenOptionValue = string | (() => string)
 
 export interface LiveKitConnectionDetails {
   /** LiveKit server URL, e.g. "wss://your-project.livekit.cloud". */

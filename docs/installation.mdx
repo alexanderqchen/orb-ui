@@ -49,11 +49,11 @@ npm install orb-ui @google/genai
 import {
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
-  createLiveKitAdapter,
   createOpenAIRealtimeAdapter,
   createPipecatAdapter,
   createVapiAdapter,
 } from 'orb-ui/adapters'
+import { createLiveKitAdapter } from 'orb-ui/adapters/livekit'
 ```
 
 Use an adapter when a supported provider owns the voice session. Use controlled mode when your app already has session state and audio volume.

@@ -16,6 +16,11 @@
       "types": "./dist/adapters/index.d.ts",
       "import": "./dist/adapters.js",
       "require": "./dist/adapters.cjs"
+    },
+    "./adapters/livekit": {
+      "types": "./dist/adapters/livekit/browser.d.ts",
+      "import": "./dist/livekit-adapter.js",
+      "require": "./dist/livekit-adapter.cjs"
     }
   },
   "files": [
@@ -42,8 +47,14 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
+    "livekit-client": ">=2.20.0 <3",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "livekit-client": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
@@ -104,6 +115,9 @@
     "*": {
       "adapters": [
         "./dist/adapters/index.d.ts"
+      ],
+      "adapters/livekit": [
+        "./dist/adapters/livekit/browser.d.ts"
       ]
     }
   }

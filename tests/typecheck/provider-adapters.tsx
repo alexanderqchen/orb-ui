@@ -3,16 +3,15 @@ import { Conversation } from '@elevenlabs/client'
 import { GoogleGenAI, Modality } from '@google/genai'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
-import { Room, TokenSource, createAudioAnalyser } from 'livekit-client'
 import { Orb } from '../../src'
 import {
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
-  createLiveKitAdapter,
   createOpenAIRealtimeAdapter,
   createPipecatAdapter,
   createVapiAdapter,
 } from '../../src/adapters'
+import { createLiveKitAdapter } from '../../src/adapters/livekit/browser'
 import type { LegacyOrbAdapter, OrbAdapter, OrbSignal } from '../../src/adapters'
 
 const vapi = new Vapi('public-key')
@@ -33,12 +32,18 @@ const tokenElevenLabsAdapter = createElevenLabsAdapter(Conversation, {
 })
 
 const liveKitAdapter = createLiveKitAdapter({
-  tokenSource: TokenSource.literal({
-    serverUrl: 'wss://example.livekit.cloud',
-    participantToken: 'livekit-token',
-  }),
-  createAudioAnalyser,
-  RoomClass: Room,
+  tokenEndpoint: '/api/livekit-token',
+  agentName: 'support-agent',
+})
+
+// @ts-expect-error LiveKit sandbox sessions must identify the agent to dispatch.
+createLiveKitAdapter({ sandboxId: 'sandbox-123' })
+
+// @ts-expect-error Choose a token endpoint or a sandbox, never both.
+createLiveKitAdapter({
+  tokenEndpoint: '/api/livekit-token',
+  sandboxId: 'sandbox-123',
+  agentName: 'support-agent',
 })
 
 const pipecatClient = new PipecatClient({

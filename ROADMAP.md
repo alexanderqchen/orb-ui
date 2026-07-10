@@ -22,7 +22,9 @@ Target direction:
 First-class LiveKit Agents support includes signal-native state, local microphone and remote agent
 volume metering, attached agent audio, and token-source based connection setup. The adapter should
 keep browser auth explicit by favoring token endpoints and LiveKit sandbox token servers over raw
-pasted participant tokens.
+pasted participant tokens. The dedicated browser entrypoint owns the standard LiveKit SDK runtime,
+token source, and room naming so the normal setup only needs a token endpoint and optional agent
+name; advanced app-owned Room modes remain available separately.
 
 ### Pipecat adapter — complete
 

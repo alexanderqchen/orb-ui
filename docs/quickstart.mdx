@@ -94,18 +94,12 @@ export function ElevenLabsVoiceUI() {
 ## LiveKit
 
 ```tsx
-import { Room, TokenSource, createAudioAnalyser } from 'livekit-client'
 import { Orb } from 'orb-ui'
-import { createLiveKitAdapter } from 'orb-ui/adapters'
+import { createLiveKitAdapter } from 'orb-ui/adapters/livekit'
 
 const adapter = createLiveKitAdapter({
-  tokenSource: TokenSource.endpoint('/api/livekit-token'),
-  tokenOptions: {
-    agentName: 'your-agent-name',
-    roomName: () => `orb-${crypto.randomUUID()}`,
-  },
-  createAudioAnalyser,
-  RoomClass: Room,
+  tokenEndpoint: '/api/livekit-token',
+  agentName: 'your-agent-name',
 })
 
 export function LiveKitVoiceUI() {
@@ -114,7 +108,8 @@ export function LiveKitVoiceUI() {
 ```
 
 While the agent is listening, the adapter emits local microphone activity as `inputVolume`. While
-the agent is speaking, it emits the attached remote audio level as `outputVolume`.
+the agent is speaking, it emits the attached remote audio level as `outputVolume`. The adapter owns
+the LiveKit room, token source, audio analysis, and a fresh room name for each start.
 
 ## Pipecat
 

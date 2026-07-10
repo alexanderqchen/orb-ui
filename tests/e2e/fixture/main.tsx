@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Orb } from 'orb-ui'
 import type { OrbAdapter, OrbSignal } from 'orb-ui'
 import { createElevenLabsAdapter, createLiveKitAdapter, createVapiAdapter } from 'orb-ui/adapters'
+import { createLiveKitAdapter as createManagedLiveKitAdapter } from 'orb-ui/adapters/livekit'
 
 const IDLE_SIGNAL: OrbSignal = {
   state: 'idle',
@@ -41,7 +42,8 @@ function App() {
   const adapterExportsReady =
     typeof createVapiAdapter === 'function' &&
     typeof createElevenLabsAdapter === 'function' &&
-    typeof createLiveKitAdapter === 'function'
+    typeof createLiveKitAdapter === 'function' &&
+    typeof createManagedLiveKitAdapter === 'function'
 
   return (
     <main>

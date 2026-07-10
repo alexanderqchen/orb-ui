@@ -85,18 +85,12 @@ export function VoiceOrb() {
   return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`
 
-const LIVEKIT_CODE = `import { Room, TokenSource, createAudioAnalyser } from "livekit-client"
-import { Orb } from "orb-ui"
-import { createLiveKitAdapter } from "orb-ui/adapters"
+const LIVEKIT_CODE = `import { Orb } from "orb-ui"
+import { createLiveKitAdapter } from "orb-ui/adapters/livekit"
 
 const adapter = createLiveKitAdapter({
-  tokenSource: TokenSource.endpoint("/api/livekit-token"),
-  tokenOptions: {
-    agentName: "your-agent-name",
-    roomName: () => \`orb-\${crypto.randomUUID()}\`
-  },
-  createAudioAnalyser,
-  RoomClass: Room,
+  tokenEndpoint: "/api/livekit-token",
+  agentName: "your-agent-name"
 })
 
 function App() {

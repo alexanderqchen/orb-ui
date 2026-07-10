@@ -71,7 +71,7 @@ The only difference is how the adapter obtains a provider session:
 | --------------- | ------------------------------------------------------------------------ |
 | Vapi            | Pass a configured Vapi client plus `assistantId`                         |
 | ElevenLabs      | Pass `Conversation` plus an `agentId`, signed URL, or conversation token |
-| LiveKit         | Pass LiveKit runtime helpers plus a token source or endpoint             |
+| LiveKit         | Provide a token endpoint and optional agent name                         |
 | Pipecat         | Pass a configured `PipecatClient` plus its connect callback              |
 | OpenAI Realtime | Return a fresh short-lived client secret from `getClientSecret`          |
 | Gemini Live     | Open the official Google Live session in `connect`                       |
@@ -117,18 +117,12 @@ function App() {
 ### With LiveKit
 
 ```jsx
-import { Room, TokenSource, createAudioAnalyser } from 'livekit-client'
 import { Orb } from 'orb-ui'
-import { createLiveKitAdapter } from 'orb-ui/adapters'
+import { createLiveKitAdapter } from 'orb-ui/adapters/livekit'
 
 const adapter = createLiveKitAdapter({
-  tokenSource: TokenSource.endpoint('/api/livekit-token'),
-  tokenOptions: {
-    agentName: 'your-agent-name',
-    roomName: () => `orb-${crypto.randomUUID()}`,
-  },
-  createAudioAnalyser,
-  RoomClass: Room,
+  tokenEndpoint: '/api/livekit-token',
+  agentName: 'your-agent-name',
 })
 
 function App() {
@@ -136,8 +130,9 @@ function App() {
 }
 ```
 
-The LiveKit adapter meters the local microphone while listening and the remote agent audio while
-speaking, so every audio-reactive theme follows the active side of the conversation.
+The LiveKit entrypoint creates the room and token source, assigns a fresh room name, and meters both
+sides of the conversation. Existing-room and custom-runtime modes remain available from the
+advanced `orb-ui/adapters` entrypoint.
 
 ### With Pipecat
 

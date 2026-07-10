@@ -59,11 +59,12 @@ export default defineConfig({
       entry: {
         'orb-ui': resolve(__dirname, 'src/index.ts'),
         adapters: resolve(__dirname, 'src/adapters/index.ts'),
+        'livekit-adapter': resolve(__dirname, 'src/adapters/livekit/browser.ts'),
       },
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      external: ['livekit-client', 'react', 'react-dom', 'react/jsx-runtime'],
     },
   },
 })

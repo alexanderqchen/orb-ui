@@ -594,31 +594,27 @@ function createProviderAdapter(
 
   if (provider === 'livekit' && getProviderReady(provider, config)) {
     return createLazyAdapter(async () => {
-      const { Room, TokenSource, createAudioAnalyser } = await import('livekit-client')
       if (config.liveKitConnectionMode === 'sandbox') {
-        return createLiveKitAdapter({
-          tokenSource: TokenSource.sandboxTokenServer(config.liveKitSandboxId),
-          tokenOptions: {
-            agentName: config.liveKitAgentName,
-            roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
-          },
-          createAudioAnalyser,
-          RoomClass: Room,
+        const { createLiveKitAdapter: createManagedLiveKitAdapter } =
+          await import('orb-ui/adapters/livekit')
+        return createManagedLiveKitAdapter({
+          sandboxId: config.liveKitSandboxId,
+          agentName: config.liveKitAgentName,
+          roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
         })
       }
 
       if (config.liveKitConnectionMode === 'endpoint') {
-        return createLiveKitAdapter({
-          tokenSource: TokenSource.endpoint(config.liveKitTokenEndpoint),
-          tokenOptions: {
-            agentName: config.liveKitAgentName,
-            roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
-          },
-          createAudioAnalyser,
-          RoomClass: Room,
+        const { createLiveKitAdapter: createManagedLiveKitAdapter } =
+          await import('orb-ui/adapters/livekit')
+        return createManagedLiveKitAdapter({
+          tokenEndpoint: config.liveKitTokenEndpoint,
+          agentName: config.liveKitAgentName,
+          roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
         })
       }
 
+      const { Room, createAudioAnalyser } = await import('livekit-client')
       return createLiveKitAdapter({
         serverUrl: config.liveKitServerUrl,
         participantToken: config.liveKitParticipantToken,
