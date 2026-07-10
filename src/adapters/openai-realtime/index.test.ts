@@ -101,6 +101,11 @@ describe('createOpenAIRealtimeAdapter', () => {
     peerConnection.dataChannel.message('output_audio_buffer.started')
     expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
 
+    const speakingSignalCount = signals.length
+    peerConnection.dataChannel.message('response.output_audio.delta')
+    peerConnection.dataChannel.message('response.output_audio.delta')
+    expect(signals).toHaveLength(speakingSignalCount)
+
     peerConnection.dataChannel.message('output_audio_buffer.stopped')
     expect(signals.at(-1)).toMatchObject({ state: 'listening' })
 

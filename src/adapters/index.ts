@@ -42,6 +42,12 @@ export {
   type GeminiLiveServerMessage,
   type GeminiLiveSession,
 } from './gemini-live'
+export {
+  DEFAULT_OUTPUT_VOLUME_CALIBRATION,
+  type OutputVolumeCalibration,
+  type OutputVolumeCalibrationSource,
+  type OutputVolumeSample,
+} from './audio-level'
 export type {
   AdapterCallbacks,
   LegacyOrbAdapter,

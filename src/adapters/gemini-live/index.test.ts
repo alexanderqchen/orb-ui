@@ -128,7 +128,20 @@ describe('createGeminiLiveAdapter', () => {
     expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
     expect(context.sources).toHaveLength(1)
 
+    const speakingSignalCount = signals.length
+    callbacks?.onmessage({
+      serverContent: {
+        modelTurn: {
+          parts: [{ inlineData: { data: outputPcm, mimeType: 'audio/pcm;rate=24000' } }],
+        },
+      },
+    })
+    expect(signals).toHaveLength(speakingSignalCount)
+    expect(context.sources).toHaveLength(2)
+
     context.sources[0].finish()
+    expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
+    context.sources[1].finish()
     expect(signals.at(-1)).toMatchObject({ state: 'listening' })
 
     await adapter.stop()

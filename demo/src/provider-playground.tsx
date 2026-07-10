@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState } from 'react'
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { LiveCallbacks, LiveConnectConfig } from '@google/genai'
 import { Orb } from 'orb-ui'
@@ -11,12 +11,18 @@ import {
   createPipecatAdapter,
   createVapiAdapter,
 } from 'orb-ui/adapters'
-import type { GeminiLiveSession } from 'orb-ui/adapters'
+import type {
+  GeminiLiveSession,
+  OutputVolumeCalibration,
+  OutputVolumeSample,
+} from 'orb-ui/adapters'
 import './provider-playground.css'
 
 type ProviderId = 'manual' | 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini'
 type LiveKitConnectionMode = 'sandbox' | 'endpoint' | 'raw'
 type PipecatConnectionMode = 'cloud' | 'small-webrtc'
+type TunableProviderId = 'openai' | 'gemini'
+type OutputCalibrationByProvider = Record<TunableProviderId, OutputVolumeCalibration>
 
 interface ProviderConfig {
   vapiPublicKey: string
@@ -86,6 +92,51 @@ const DEFAULT_INSTRUCTIONS =
 
 const EMPTY_SIGNAL: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
 const CONFIG_STORAGE_KEY = 'orb-ui:provider-playground-config'
+const CALIBRATION_STORAGE_KEY = 'orb-ui:provider-playground-output-calibration'
+const DEFAULT_OUTPUT_CALIBRATION: OutputCalibrationByProvider = {
+  openai: {
+    noiseFloor: 0.003,
+    gain: 4,
+    exponent: 0.8,
+    attack: 0.55,
+    release: 0.1,
+  },
+  gemini: {
+    noiseFloor: 0.003,
+    gain: 4,
+    exponent: 0.8,
+    attack: 0.3,
+    release: 0.1,
+  },
+}
+
+const OUTPUT_CALIBRATION_CONTROLS: Array<{
+  key: keyof OutputVolumeCalibration
+  label: string
+  min: number
+  max: number
+  step: number
+  digits: number
+}> = [
+  { key: 'noiseFloor', label: 'Noise floor', min: 0, max: 0.05, step: 0.001, digits: 3 },
+  { key: 'gain', label: 'Gain', min: 1, max: 12, step: 0.1, digits: 1 },
+  { key: 'exponent', label: 'Curve', min: 0.3, max: 1.5, step: 0.05, digits: 2 },
+  { key: 'attack', label: 'Attack', min: 0.05, max: 1, step: 0.05, digits: 2 },
+  { key: 'release', label: 'Release', min: 0.02, max: 1, step: 0.02, digits: 2 },
+]
+
+function isTunableProvider(provider: ProviderId): provider is TunableProviderId {
+  return provider === 'openai' || provider === 'gemini'
+}
+
+function copyOutputCalibration(
+  calibration: OutputCalibrationByProvider,
+): OutputCalibrationByProvider {
+  return {
+    openai: { ...calibration.openai },
+    gemini: { ...calibration.gemini },
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -136,6 +187,44 @@ function getStorage() {
     return window.localStorage
   } catch {
     return undefined
+  }
+}
+
+function readStoredOutputCalibration(): OutputCalibrationByProvider {
+  const defaults = copyOutputCalibration(DEFAULT_OUTPUT_CALIBRATION)
+  const storage = getStorage()
+  if (!storage) return defaults
+
+  try {
+    const parsed = JSON.parse(storage.getItem(CALIBRATION_STORAGE_KEY) ?? '{}')
+    if (!isRecord(parsed)) return defaults
+
+    for (const provider of ['openai', 'gemini'] as const) {
+      const storedProvider = parsed[provider]
+      if (!isRecord(storedProvider)) continue
+
+      for (const control of OUTPUT_CALIBRATION_CONTROLS) {
+        const value = storedProvider[control.key]
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          defaults[provider][control.key] = value
+        }
+      }
+    }
+
+    return defaults
+  } catch {
+    return defaults
+  }
+}
+
+function writeStoredOutputCalibration(calibration: OutputCalibrationByProvider) {
+  const storage = getStorage()
+  if (!storage) return
+
+  try {
+    storage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(calibration))
+  } catch {
+    // Storage can be disabled or full in some browser modes.
   }
 }
 
@@ -401,6 +490,10 @@ function createLazyAdapter(factory: () => OrbAdapter | Promise<OrbAdapter>): Orb
 function createProviderAdapter(
   provider: ProviderId,
   config: ProviderConfig,
+  outputCalibration?: {
+    get: () => OutputVolumeCalibration
+    onSample: (sample: OutputVolumeSample) => void
+  },
 ): OrbAdapter | undefined {
   if (provider === 'vapi' && getProviderReady(provider, config)) {
     return createLazyAdapter(async () => {
@@ -454,6 +547,8 @@ function createProviderAdapter(
   if (provider === 'openai' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
       createOpenAIRealtimeAdapter({
+        outputVolumeCalibration: outputCalibration?.get,
+        onOutputVolumeSample: outputCalibration?.onSample,
         getClientSecret: () =>
           postProviderJson<{ value: string }>('/api/openai-realtime-token', {
             apiKey: config.openAIApiKey,
@@ -468,6 +563,8 @@ function createProviderAdapter(
   if (provider === 'gemini' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
       createGeminiLiveAdapter({
+        outputVolumeCalibration: outputCalibration?.get,
+        onOutputVolumeSample: outputCalibration?.onSample,
         connect: async (callbacks) => {
           const { GoogleGenAI } = await import('@google/genai')
           const token = await postProviderJson<{
@@ -551,6 +648,62 @@ function SignalRow({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <span className="provider-status-value">{value}</span>
     </div>
+  )
+}
+
+function OutputCalibrationControls({
+  calibration,
+  onChange,
+  onReset,
+  peakRaw,
+  sample,
+}: {
+  calibration: OutputVolumeCalibration
+  onChange: (key: keyof OutputVolumeCalibration, value: number) => void
+  onReset: () => void
+  peakRaw: number
+  sample: OutputVolumeSample | undefined
+}) {
+  return (
+    <section className="provider-panel provider-diagnostics">
+      <div className="provider-calibration-heading">
+        <span className="provider-label">Live Output Calibration</span>
+        <button className="provider-button" onClick={onReset} type="button">
+          Reset suggested
+        </button>
+      </div>
+      <p className="provider-note">
+        These controls update the active session immediately. Lower attack/release values add more
+        smoothing; lower curve values lift quiet audio.
+      </p>
+      <div className="provider-sliders provider-calibration-sliders">
+        {OUTPUT_CALIBRATION_CONTROLS.map((control) => (
+          <label className="provider-slider-row" key={control.key}>
+            <span>{control.label}</span>
+            <input
+              data-testid={`output-calibration-${control.key}`}
+              max={control.max}
+              min={control.min}
+              onChange={(event) => onChange(control.key, Number(event.currentTarget.value))}
+              step={control.step}
+              type="range"
+              value={calibration[control.key]}
+            />
+            <span>{calibration[control.key].toFixed(control.digits)}</span>
+          </label>
+        ))}
+      </div>
+      <div className="provider-signal-list">
+        <SignalRow label="raw RMS" value={(sample?.raw ?? 0).toFixed(4)} />
+        <SignalRow label="peak raw" value={peakRaw.toFixed(4)} />
+        <SignalRow label="shaped" value={(sample?.shaped ?? 0).toFixed(3)} />
+        <SignalRow label="smoothed" value={(sample?.normalized ?? 0).toFixed(3)} />
+      </div>
+      <span className="provider-label provider-preset-label">Preset to send back</span>
+      <pre className="provider-code" data-testid="output-calibration-preset">
+        {JSON.stringify(calibration)}
+      </pre>
+    </section>
   )
 }
 
@@ -911,16 +1064,44 @@ function ProviderPlayground() {
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
   const [latestSignal, setLatestSignal] = useState<OrbSignal>(EMPTY_SIGNAL)
   const [events, setEvents] = useState<EventEntry[]>([])
+  const [outputCalibration, setOutputCalibration] = useState<OutputCalibrationByProvider>(() =>
+    readStoredOutputCalibration(),
+  )
+  const outputCalibrationRef = useRef(outputCalibration)
+  const [latestOutputSample, setLatestOutputSample] = useState<OutputVolumeSample>()
+  const [peakRawOutput, setPeakRawOutput] = useState(0)
 
   useEffect(() => {
     writeStoredConfig(config)
   }, [config])
 
+  useEffect(() => {
+    outputCalibrationRef.current = outputCalibration
+    writeStoredOutputCalibration(outputCalibration)
+  }, [outputCalibration])
+
+  const getActiveOutputCalibration = useCallback(() => {
+    if (!isTunableProvider(provider)) return DEFAULT_OUTPUT_CALIBRATION.openai
+    return outputCalibrationRef.current[provider]
+  }, [provider])
+
+  const recordOutputSample = useCallback((sample: OutputVolumeSample) => {
+    setLatestOutputSample(sample)
+    setPeakRawOutput((current) => Math.max(current, sample.raw))
+  }, [])
+
   const activeConfig = useMemo(() => normalizeConfig(config), [config])
   const providerReady = getProviderReady(provider, activeConfig)
   const providerAdapter = useMemo(
-    () => createProviderAdapter(provider, activeConfig),
-    [activeConfig, provider],
+    () =>
+      createProviderAdapter(
+        provider,
+        activeConfig,
+        isTunableProvider(provider)
+          ? { get: getActiveOutputCalibration, onSample: recordOutputSample }
+          : undefined,
+      ),
+    [activeConfig, getActiveOutputCalibration, provider, recordOutputSample],
   )
 
   const updateConfig = useCallback(function updateConfig<TKey extends keyof ProviderConfig>(
@@ -1084,6 +1265,37 @@ function ProviderPlayground() {
   useEffect(() => {
     setLatestSignal(EMPTY_SIGNAL)
     setEvents([])
+    setLatestOutputSample(undefined)
+    setPeakRawOutput(0)
+  }, [provider])
+
+  const updateOutputCalibration = useCallback(
+    (key: keyof OutputVolumeCalibration, value: number) => {
+      if (!isTunableProvider(provider)) return
+      setOutputCalibration((current) => {
+        const next = {
+          ...current,
+          [provider]: { ...current[provider], [key]: value },
+        }
+        outputCalibrationRef.current = next
+        return next
+      })
+    },
+    [provider],
+  )
+
+  const resetOutputCalibration = useCallback(() => {
+    if (!isTunableProvider(provider)) return
+    setOutputCalibration((current) => {
+      const next = {
+        ...current,
+        [provider]: { ...DEFAULT_OUTPUT_CALIBRATION[provider] },
+      }
+      outputCalibrationRef.current = next
+      return next
+    })
+    setLatestOutputSample(undefined)
+    setPeakRawOutput(0)
   }, [provider])
 
   const displayedSignal = provider === 'manual' ? manualSignal : latestSignal
@@ -1305,6 +1517,16 @@ function ProviderPlayground() {
                   <ProviderReadinessRows config={activeConfig} provider={provider} />
                 </div>
               </section>
+            ) : null}
+
+            {isTunableProvider(provider) ? (
+              <OutputCalibrationControls
+                calibration={outputCalibration[provider]}
+                onChange={updateOutputCalibration}
+                onReset={resetOutputCalibration}
+                peakRaw={peakRawOutput}
+                sample={latestOutputSample}
+              />
             ) : null}
 
             <section className="provider-panel provider-diagnostics">

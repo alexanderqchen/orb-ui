@@ -197,6 +197,30 @@ input {
   gap: 12px;
 }
 
+.provider-calibration-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.provider-calibration-heading .provider-label {
+  margin: 10px 0 0;
+}
+
+.provider-calibration-sliders {
+  padding: 4px 0;
+}
+
+.provider-calibration-sliders .provider-slider-row {
+  grid-template-columns: 76px minmax(0, 1fr) 42px;
+  font-size: 12px;
+}
+
+.provider-preset-label {
+  margin: 2px 0 -6px;
+}
+
 .provider-slider-row {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) 44px;

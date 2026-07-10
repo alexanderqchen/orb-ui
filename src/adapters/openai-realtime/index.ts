@@ -1,4 +1,6 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
+import { calibrateOutputVolume } from '../audio-level'
+import type { OutputVolumeCalibrationSource, OutputVolumeSample } from '../audio-level'
 
 export interface OpenAIRealtimeClientSecret {
   value: string
@@ -21,6 +23,10 @@ export interface OpenAIRealtimeAdapterConfig {
   createAudioElement?: () => HTMLAudioElement
   /** Return undefined to disable browser-side volume metering. */
   createAudioContext?: () => AudioContext | undefined
+  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
+  outputVolumeCalibration?: OutputVolumeCalibrationSource
+  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
 }
 
 export interface OpenAIRealtimeOrbAdapter extends OrbAdapter {
@@ -46,7 +52,7 @@ function defaultCreateAudioContext() {
   return AudioContextClass ? new AudioContextClass() : undefined
 }
 
-function normalizeRms(rms: number) {
+function normalizeInputRms(rms: number) {
   return Math.min(1, Math.max(0, Math.pow(rms * 4, 0.8)))
 }
 
@@ -68,7 +74,7 @@ function createStreamVolumeMeter(
       analyser.getFloatTimeDomainData(samples)
       let sumSquares = 0
       for (const sample of samples) sumSquares += sample * sample
-      onVolume(normalizeRms(Math.sqrt(sumSquares / samples.length)))
+      onVolume(Math.sqrt(sumSquares / samples.length))
     }, 33)
 
     return {
@@ -107,6 +113,7 @@ export function createOpenAIRealtimeAdapter(
   let inputMeter: VolumeMeter | undefined
   let outputMeter: VolumeMeter | undefined
   let outputSilenceTicks = 0
+  let outputVolumeLevel = 0
   let stopping = false
 
   function emit(next: OrbSignal) {
@@ -115,6 +122,8 @@ export function createOpenAIRealtimeAdapter(
   }
 
   function emitState(state: OrbState, error?: unknown) {
+    if (signal.state === state && error === undefined) return
+    if (state !== 'speaking') outputVolumeLevel = 0
     emit({
       state,
       volume: 0,
@@ -124,12 +133,22 @@ export function createOpenAIRealtimeAdapter(
     })
   }
 
-  function emitInputVolume(inputVolume: number) {
+  function emitInputVolume(rawInputVolume: number) {
     if (signal.state !== 'listening') return
+    const inputVolume = normalizeInputRms(rawInputVolume)
     emit({ ...signal, volume: inputVolume, inputVolume, outputVolume: 0 })
   }
 
-  function emitOutputVolume(outputVolume: number) {
+  function emitOutputVolume(rawOutputVolume: number) {
+    const sample = calibrateOutputVolume(
+      rawOutputVolume,
+      outputVolumeLevel,
+      config.outputVolumeCalibration,
+    )
+    outputVolumeLevel = sample.normalized
+    config.onOutputVolumeSample?.(sample)
+    const outputVolume = sample.normalized
+
     if (outputVolume > OUTPUT_SPEECH_THRESHOLD) {
       outputSilenceTicks = 0
       if (signal.state !== 'speaking') emitState('speaking')
@@ -193,6 +212,7 @@ export function createOpenAIRealtimeAdapter(
     inputMeter = undefined
     outputMeter = undefined
     outputSilenceTicks = 0
+    outputVolumeLevel = 0
     if (emitIdle) emitState('idle')
     stopping = false
   }
