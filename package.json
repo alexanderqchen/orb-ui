@@ -1,6 +1,6 @@
 {
   "name": "orb-ui",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "React voice agent UI components with audio-reactive adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, and custom voice AI apps.",
   "type": "module",
   "main": "./dist/orb-ui.cjs",
