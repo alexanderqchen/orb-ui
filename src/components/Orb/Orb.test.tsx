@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { Orb } from './Orb'
-import { createOrbSignalListener, deriveOrbState, deriveOrbVolume } from './signals'
-import type { LegacyOrbAdapter, OrbAdapter, OrbSignal } from './Orb.types'
+import { deriveOrbState, deriveOrbVolume } from './signals'
+import type { OrbAdapter, OrbSignal } from './Orb.types'
 
 function createAdapter(): OrbAdapter {
   return {
@@ -105,43 +105,5 @@ describe('Orb signal helpers', () => {
       0.3,
     )
     expect(deriveOrbVolume(0.4, 'speaking', adapterSignal)).toBe(0.4)
-  })
-
-  it('bridges legacy callback-object adapters into signals with one warning', () => {
-    const onSignal = vi.fn()
-    const warn = vi.fn()
-    let warned = false
-    const warnOnce = () => {
-      if (warned) return
-      warned = true
-      warn()
-    }
-    const listener = createOrbSignalListener(onSignal, warnOnce)
-
-    listener({ state: 'speaking', outputVolume: 0.6 })
-    listener.onStateChange('listening')
-    listener.onVolumeChange(0.35)
-
-    expect(onSignal).toHaveBeenNthCalledWith(1, { state: 'speaking', outputVolume: 0.6 })
-    expect(onSignal).toHaveBeenNthCalledWith(2, {
-      state: 'listening',
-      outputVolume: 0.6,
-    })
-    expect(onSignal).toHaveBeenNthCalledWith(3, {
-      state: 'listening',
-      outputVolume: 0.6,
-      volume: 0.35,
-    })
-    expect(warn).toHaveBeenCalledOnce()
-  })
-
-  it('accepts deprecated legacy adapters in Orb props', () => {
-    const legacyAdapter: LegacyOrbAdapter = {
-      subscribe: () => () => undefined,
-    }
-
-    const html = renderToStaticMarkup(<Orb adapter={legacyAdapter} theme="debug" />)
-
-    expect(html).toContain('ORB DEBUG')
   })
 })

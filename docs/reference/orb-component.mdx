@@ -76,7 +76,28 @@ Adapters normalize provider SDK events into orb-ui signals. If a provider is not
 <Orb signal={{ state: 'speaking', outputVolume: 0.72 }} />
 ```
 
-The older callback-object adapter shape still works with a deprecation warning, but new adapters should call `listener({ state, inputVolume, outputVolume })`.
+## Migrating callback-object adapters
+
+orb-ui 0.5.0 removes the deprecated callback-object adapter API. Pass one complete signal to the
+listener whenever state or volume changes.
+
+```ts
+// Before 0.5
+subscribe({ onStateChange, onVolumeChange }) {
+  session.on('state', onStateChange)
+  session.on('volume', onVolumeChange)
+}
+
+// 0.5.0+
+subscribe(listener) {
+  session.on('change', ({ state, inputVolume, outputVolume }) => {
+    listener({ state, inputVolume, outputVolume })
+  })
+}
+```
+
+Custom adapters should implement `OrbAdapter`; the removed `AdapterCallbacks` and
+`LegacyOrbAdapter` types are no longer exported.
 
 ## Related
 

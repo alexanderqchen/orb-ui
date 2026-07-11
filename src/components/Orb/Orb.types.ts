@@ -28,19 +28,6 @@ export interface OrbAdapter {
   stop?: () => void | Promise<void>
 }
 
-/** @deprecated Use signal-based OrbAdapter.subscribe(listener). */
-export interface AdapterCallbacks {
-  onStateChange: (state: OrbState) => void
-  onVolumeChange: (volume: number) => void
-}
-
-/** @deprecated Callback-object adapters will be removed in 0.5.0. */
-export interface LegacyOrbAdapter {
-  subscribe(callbacks: AdapterCallbacks): () => void
-  start?: () => void | Promise<void>
-  stop?: () => void | Promise<void>
-}
-
 type DataAttributeValue = string | number | boolean | null | undefined
 
 export interface OrbHtmlAttributes extends AriaAttributes {
@@ -79,7 +66,7 @@ export interface OrbProps extends OrbHtmlAttributes {
    * Provider adapter (Vapi, ElevenLabs, etc.).
    * Handles signal updates automatically from the SDK.
    */
-  adapter?: OrbAdapter | LegacyOrbAdapter
+  adapter?: OrbAdapter
 
   /** Visual theme. Defaults to 'debug'. */
   theme?: OrbTheme

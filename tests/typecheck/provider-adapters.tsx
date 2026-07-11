@@ -12,7 +12,11 @@ import {
   createVapiAdapter,
 } from '../../src/adapters'
 import { createLiveKitAdapter } from '../../src/adapters/livekit/browser'
-import type { LegacyOrbAdapter, OrbAdapter, OrbSignal } from '../../src/adapters'
+import type { OrbAdapter, OrbSignal } from '../../src/adapters'
+// @ts-expect-error AdapterCallbacks was removed in orb-ui 0.5.
+import type { AdapterCallbacks } from '../../src/adapters'
+// @ts-expect-error LegacyOrbAdapter was removed in orb-ui 0.5.
+import type { LegacyOrbAdapter } from '../../src/adapters'
 
 const vapi = new Vapi('public-key')
 const vapiAdapter = createVapiAdapter(vapi, {
@@ -76,13 +80,23 @@ const customSignalAdapter: OrbAdapter = {
   },
 }
 
-const legacyAdapter: LegacyOrbAdapter = {
-  subscribe(callbacks) {
+const callbackObjectAdapter = {
+  subscribe(callbacks: {
+    onStateChange(state: 'listening'): void
+    onVolumeChange(volume: number): void
+  }) {
     callbacks.onStateChange('listening')
     callbacks.onVolumeChange(0.4)
     return () => undefined
   },
 }
+
+// @ts-expect-error Callback-object adapters are not valid OrbAdapter implementations in 0.5.
+const removedCallbackObjectAdapter: OrbAdapter = callbackObjectAdapter
+
+void removedCallbackObjectAdapter
+void (undefined as unknown as AdapterCallbacks)
+void (undefined as unknown as LegacyOrbAdapter)
 
 const signal: OrbSignal = {
   state: 'speaking',
@@ -145,7 +159,6 @@ export function ProviderAdapterSmokeExamples() {
         aria-label="Start Gemini Live voice assistant"
       />
       <Orb adapter={customSignalAdapter} theme="circle" aria-label="Start custom voice assistant" />
-      <Orb adapter={legacyAdapter} theme="debug" />
       <Orb signal={signal} theme="circle" />
       <Orb state="listening" volume={0.4} theme="debug" id="controlled-orb" />
     </>

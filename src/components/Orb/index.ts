@@ -1,7 +1,5 @@
 export { Orb } from './Orb'
 export type {
-  AdapterCallbacks,
-  LegacyOrbAdapter,
   OrbAdapter,
   OrbProps,
   OrbSignal,

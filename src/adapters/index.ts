@@ -48,11 +48,4 @@ export {
   type OutputVolumeCalibrationSource,
   type OutputVolumeSample,
 } from './audio-level'
-export type {
-  AdapterCallbacks,
-  LegacyOrbAdapter,
-  OrbAdapter,
-  OrbSignal,
-  OrbSignalListener,
-  OrbState,
-} from './types'
+export type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from './types'

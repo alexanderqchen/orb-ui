@@ -1,26 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { OrbProps, OrbSignal } from './Orb.types'
-import { createOrbSignalListener, deriveOrbState, deriveOrbVolume } from './signals'
+import { deriveOrbState, deriveOrbVolume } from './signals'
 import { DebugTheme } from '../../themes/debug'
 import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
-
-// ─── Orb component ────────────────────────────────────────────────────────────
-
-let legacyAdapterWarningShown = false
-
-function isProductionEnvironment() {
-  const globalProcess = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process
-  return globalProcess?.env?.NODE_ENV === 'production'
-}
-
-function warnLegacyAdapter() {
-  if (legacyAdapterWarningShown || isProductionEnvironment()) return
-  legacyAdapterWarningShown = true
-  console.warn(
-    '[orb-ui] Callback-object adapters are deprecated. Use subscribe(listener) and emit OrbSignal objects instead. Legacy adapters will be removed in 0.5.0.',
-  )
-}
 
 export function Orb({
   signal: signalProp,
@@ -42,8 +25,7 @@ export function Orb({
     setAdapterSignal({ state: 'idle' })
 
     if (!adapter) return
-    const listener = createOrbSignalListener(setAdapterSignal, warnLegacyAdapter)
-    const unsubscribe = adapter.subscribe(listener)
+    const unsubscribe = adapter.subscribe(setAdapterSignal)
     return unsubscribe
   }, [adapter])
 
