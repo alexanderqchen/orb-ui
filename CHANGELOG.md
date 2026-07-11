@@ -1,5 +1,22 @@
 # orb-ui
 
+## 0.5.0
+
+### Minor Changes
+
+- f8f04d6: BREAKING: Remove the deprecated callback-object adapter API scheduled for 0.5.0. `Orb` now accepts
+  only signal-based adapters whose `subscribe(listener)` implementation emits complete `OrbSignal`
+  objects. The `AdapterCallbacks` and `LegacyOrbAdapter` types are no longer exported.
+
+  Migrate callbacks such as `onStateChange(state)` and `onVolumeChange(volume)` to
+  `listener({ state, inputVolume, outputVolume })` calls. Provider adapters created by orb-ui already
+  use the signal API and require no changes.
+
+- e246f90: Add a simplified `orb-ui/adapters/livekit` browser entrypoint. LiveKit users can now provide a token
+  endpoint and optional agent name while orb-ui owns the Room, TokenSource, audio analysers,
+  microphone lifecycle, and unique room naming. The existing `orb-ui/adapters` LiveKit factory remains
+  available for advanced app-owned Room, custom fetcher, raw credential, and runtime override modes.
+
 ## 0.4.0
 
 ### Minor Changes
