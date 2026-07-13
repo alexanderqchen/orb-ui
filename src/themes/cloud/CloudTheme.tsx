@@ -125,8 +125,8 @@ void main() {
 `
 
 const NEUTRAL_DIAMETER = 0.55
-const LISTEN_SHRINK = 0.136
-const SPEAK_GROW = 0.143
+const LISTEN_SHRINK = 0.204
+const SPEAK_GROW = 0.2145
 const DOT_SCALE = 0.063
 const LAUNCH_DOT_COLOR = '#5659dc'
 const ENTRANCE_OVERSHOOT = 1.178
