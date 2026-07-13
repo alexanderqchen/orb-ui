@@ -69,6 +69,22 @@ function App() {
         <output data-testid="controlled-output-volume">0.70</output>
       </section>
 
+      <section aria-label="Radial theme">
+        <Orb
+          data-testid="radial-orb"
+          signal={{ state: 'listening', inputVolume: 0.58 }}
+          size={160}
+          theme="radial"
+        />
+        <Orb
+          adapter={adapter}
+          aria-label="Toggle radial session"
+          data-testid="interactive-radial-orb"
+          size={160}
+          theme="radial"
+        />
+      </section>
+
       <section aria-label="External session controls">
         <Orb
           adapter={adapter}

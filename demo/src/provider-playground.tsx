@@ -80,7 +80,7 @@ const PIPECAT_CONNECTION_MODES: Array<{ id: PipecatConnectionMode; label: string
   { id: 'small-webrtc', label: 'Self-hosted WebRTC' },
 ]
 
-const THEMES: OrbTheme[] = ['cloud', 'circle', 'bars', 'debug']
+const THEMES: OrbTheme[] = ['radial', 'cloud', 'circle', 'bars', 'debug']
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const DEFAULT_LIVEKIT_ROOM_PREFIX = 'orb-ui-playground'
 const DEFAULT_OPENAI_MODEL = 'gpt-realtime-2.1'

@@ -7,6 +7,24 @@ description: Reference for orb-ui themes and voice agent states.
 
 orb-ui ships with a small set of themes for common voice agent UI needs.
 
+## Radial
+
+Use `radial` for a colorful call surface with separate visual responses for each side of the
+conversation:
+
+- `idle` keeps the four-lobe field drifting; the interactive form shows a black phone control.
+- `connecting` replaces the phone with a compact loading indicator.
+- `listening` moves the translucent outer membrane inward as input volume rises.
+- `speaking` twists the inner radial field with output volume while keeping the membrane calm.
+- `thinking` reuses the quiet listening baseline without inventing another visual signal.
+
+```tsx
+<Orb adapter={adapter} theme="radial" aria-label="Start voice assistant" />
+```
+
+The phone control is separate from the canvas, so clicking the artwork does not start or stop the
+session. Pass `interactive={false}` when your application already owns its call controls.
+
 ## Cloud
 
 Use `cloud` for a calm, atmospheric assistant presence. It keeps one blue-violet palette while

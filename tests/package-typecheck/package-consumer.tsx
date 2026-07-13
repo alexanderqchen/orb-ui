@@ -110,6 +110,7 @@ export function PackageConsumerSmoke() {
       <Orb adapter={geminiLiveAdapter} theme="circle" aria-label="Start Gemini assistant" />
       <Orb adapter={customAdapter} theme="debug" />
       <Orb signal={signal} theme="circle" />
+      <Orb signal={{ state: 'speaking', outputVolume: 0.65 }} theme="radial" />
       <Orb adapter={customAdapter} interactive={false} theme="cloud" />
     </>
   )

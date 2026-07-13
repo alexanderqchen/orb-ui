@@ -60,6 +60,19 @@ export function CustomOrb({ voiceSignal }) {
 }
 ```
 
+## Direction-specific motion
+
+The `radial` theme maps human input to its translucent outer membrane and agent output to the
+twisting field inside the circle. Supply both volume directions through `OrbSignal`; `Orb` selects
+the relevant value for the current state.
+
+```tsx
+<Orb
+  signal={{ state: 'listening', inputVolume: microphoneVolume, outputVolume: agentVolume }}
+  theme="radial"
+/>
+```
+
 ## Design notes
 
 - Do not animate aggressively while idle.

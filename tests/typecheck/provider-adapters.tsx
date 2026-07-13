@@ -164,6 +164,7 @@ export function ProviderAdapterSmokeExamples() {
       />
       <Orb adapter={customSignalAdapter} theme="circle" aria-label="Start custom voice assistant" />
       <Orb signal={signal} theme="circle" />
+      <Orb signal={{ state: 'listening', inputVolume: 0.45 }} theme="radial" />
       <Orb adapter={customSignalAdapter} interactive={false} theme="cloud" />
       <Orb state="listening" volume={0.4} theme="debug" id="controlled-orb" />
     </>
