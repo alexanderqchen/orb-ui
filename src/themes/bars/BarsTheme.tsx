@@ -91,7 +91,7 @@ export function BarsTheme({
     })
 
     const updateHoverBoost = () => {
-      const canHover = true
+      const canHover = interactive && !disabled
       const target = hoveredRef.current && canHover ? hoverBoostMax : 0
       hoverBoostRef.current += (target - hoverBoostRef.current) * 0.15
     }
@@ -211,7 +211,7 @@ export function BarsTheme({
     <span
       ref={hoverRef}
       onMouseEnter={() => {
-        if (disabled) return
+        if (!interactive || disabled) return
         hoveredRef.current = true
         if (hoverRef.current) hoverRef.current.style.filter = 'brightness(1.35)'
       }}

@@ -263,7 +263,7 @@ export function CircleTheme({
     <span
       ref={hoverRef}
       onMouseEnter={() => {
-        if (hoverRef.current && !disabled) {
+        if (hoverRef.current && interactive && !disabled) {
           hoverRef.current.style.transform = 'scale(1.06)'
           hoverRef.current.style.filter = 'brightness(1.12)'
         }

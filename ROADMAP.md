@@ -50,12 +50,13 @@ token creation.
 
 Add polished themes that feel production-ready, not just minimal examples. Public API names should stay neutral and ownable.
 
-Candidate theme directions:
+Completed direction:
 
-- `halo`: luminous orb-style assistant presence
-- `prism`: colorful layered realtime voice presence
-- `studio`: waveform-forward voice interface
-- `aurora`: fluid multicolor assistant motion
+- `cloud`: atmospheric blue-violet sphere with a compact connection entrance, opposing input/output
+  volume response, and passive external-control support
+
+Before naming another public theme, validate the visual direction against direct product UI research
+and a concrete interaction reference.
 
 ### Better demo
 
@@ -65,6 +66,7 @@ Make the homepage demo feel like an actual product surface:
 - Live theme switching
 - Clear adapter examples
 - Better examples for provider and controlled modes
+- Separate session controls for passive visual themes
 
 ## Ongoing
 

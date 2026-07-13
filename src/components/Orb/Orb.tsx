@@ -4,6 +4,7 @@ import { deriveOrbState, deriveOrbVolume } from './signals'
 import { DebugTheme } from '../../themes/debug'
 import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
+import { CloudTheme } from '../../themes/cloud'
 
 export function Orb({
   signal: signalProp,
@@ -15,6 +16,7 @@ export function Orb({
   className,
   style,
   disabled = false,
+  interactive: interactiveProp = true,
   onStart,
   onStop,
   ...htmlProps
@@ -49,7 +51,8 @@ export function Orb({
 
   // Only render a clickable control when the current state can be handled.
   // Disabled controls stay semantic buttons but do not fire handlers.
-  const interactive = isActive ? !!(adapter?.stop || onStop) : !!(adapter?.start || onStart)
+  const canInteract = isActive ? !!(adapter?.stop || onStop) : !!(adapter?.start || onStart)
+  const interactive = interactiveProp && canInteract
   const clickHandler = interactive && !disabled ? handleClick : undefined
   const controlProps = {
     ...htmlProps,
@@ -78,13 +81,18 @@ export function Orb({
       return <CircleTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'bars':
       return <BarsTheme {...interactiveThemeProps} onClick={clickHandler} />
+    case 'cloud':
+      return <CloudTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'debug':
     default:
       return (
         <DebugTheme
           {...sharedThemeProps}
-          onStart={disabled ? undefined : (onStart ?? (() => adapter?.start?.()))}
-          onStop={disabled ? undefined : (onStop ?? (() => adapter?.stop?.()))}
+          disabled={disabled || !interactiveProp}
+          onStart={
+            disabled || !interactiveProp ? undefined : (onStart ?? (() => adapter?.start?.()))
+          }
+          onStop={disabled || !interactiveProp ? undefined : (onStop ?? (() => adapter?.stop?.()))}
         />
       )
   }

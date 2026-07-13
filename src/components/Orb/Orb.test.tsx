@@ -49,6 +49,16 @@ describe('Orb accessibility', () => {
     expect(html).not.toContain('<div')
   })
 
+  it('renders the cloud theme as a passive visual when interaction is external', () => {
+    const html = renderToStaticMarkup(
+      <Orb adapter={createAdapter()} theme="cloud" interactive={false} data-testid="cloud-orb" />,
+    )
+
+    expect(html).toContain('<canvas')
+    expect(html).toContain('data-testid="cloud-orb"')
+    expect(html).not.toContain('<button')
+  })
+
   it('preserves consumer style overrides on clickable themes', () => {
     const html = renderToStaticMarkup(
       <Orb
@@ -91,6 +101,7 @@ describe('Orb accessibility', () => {
     expect(renderToStaticMarkup(<Orb state="thinking" theme="debug" />)).toContain('thinking')
     expect(renderToStaticMarkup(<Orb state="thinking" theme="circle" />)).toContain('<div')
     expect(renderToStaticMarkup(<Orb state="thinking" theme="bars" />)).toContain('<div')
+    expect(renderToStaticMarkup(<Orb state="thinking" theme="cloud" />)).toContain('<canvas')
   })
 })
 

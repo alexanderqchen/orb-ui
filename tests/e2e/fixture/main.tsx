@@ -68,6 +68,22 @@ function App() {
         />
         <output data-testid="controlled-output-volume">0.70</output>
       </section>
+
+      <section aria-label="External session controls">
+        <Orb
+          adapter={adapter}
+          data-testid="external-cloud-orb"
+          interactive={false}
+          size={160}
+          theme="cloud"
+        />
+        <button onClick={() => void adapter.start?.()} type="button">
+          Start externally
+        </button>
+        <button onClick={() => void adapter.stop?.()} type="button">
+          Stop externally
+        </button>
+      </section>
     </main>
   )
 }

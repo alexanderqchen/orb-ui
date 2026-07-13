@@ -225,32 +225,51 @@ function App() {
 }
 ```
 
+### External session controls
+
+Keep the orb as a passive visual when start and stop controls belong elsewhere in your layout.
+Provider adapters already expose the matching lifecycle methods.
+
+```jsx
+function VoiceExperience({ adapter }) {
+  return (
+    <>
+      <Orb adapter={adapter} theme="cloud" interactive={false} />
+      <button onClick={() => void adapter.start?.()}>Start conversation</button>
+      <button onClick={() => void adapter.stop?.()}>End conversation</button>
+    </>
+  )
+}
+```
+
 ## Themes
 
 | Theme    | Description                                                                   |
 | -------- | ----------------------------------------------------------------------------- |
+| `cloud`  | Atmospheric sphere with inverse listening scale and faster speaking motion.   |
 | `debug`  | State + volume display with start/stop. Use to verify your integration works. |
 | `circle` | Pulsing circle that reacts to volume.                                         |
 | `bars`   | Five bars that animate with voice.                                            |
 
-When an adapter or `onStart`/`onStop` handler is provided, `circle` and `bars` render as keyboard-accessible `<button type="button">` controls. Pass an `aria-label` when the surrounding UI does not already label the control.
+When an adapter or `onStart`/`onStop` handler is provided, visual themes render as keyboard-accessible `<button type="button">` controls. Pass `interactive={false}` to keep the theme passive and call `adapter.start()` or `adapter.stop()` from external controls instead.
 
 ## Props
 
-| Prop         | Type                            | Default   | Description                                                 |
-| ------------ | ------------------------------- | --------- | ----------------------------------------------------------- |
-| `theme`      | `'debug' \| 'circle' \| 'bars'` | `'debug'` | Visual theme                                                |
-| `signal`     | `OrbSignal`                     | —         | Rich controlled signal with state/input/output volume       |
-| `state`      | `OrbState`                      | `'idle'`  | Conversation state (controlled mode)                        |
-| `volume`     | `number`                        | `0`       | Audio volume, 0–1. Overrides signal/adapter volume.         |
-| `adapter`    | `OrbAdapter`                    | —         | Provider adapter (manages signal updates automatically)     |
-| `size`       | `number`                        | `200`     | Size in pixels                                              |
-| `className`  | `string`                        | —         | Optional class name for the rendered theme                  |
-| `style`      | `React.CSSProperties`           | —         | Optional inline styles for the rendered theme               |
-| `disabled`   | `boolean`                       | `false`   | Disables clickable themes and debug start/stop controls     |
-| `aria-label` | `string`                        | generated | Accessible label for clickable `circle` and `bars` controls |
-| `onStart`    | `() => void`                    | —         | Custom start handler (overrides adapter.start())            |
-| `onStop`     | `() => void`                    | —         | Custom stop handler (overrides adapter.stop())              |
+| Prop          | Type                                       | Default   | Description                                             |
+| ------------- | ------------------------------------------ | --------- | ------------------------------------------------------- |
+| `theme`       | `'debug' \| 'circle' \| 'bars' \| 'cloud'` | `'debug'` | Visual theme                                            |
+| `signal`      | `OrbSignal`                                | —         | Rich controlled signal with state/input/output volume   |
+| `state`       | `OrbState`                                 | `'idle'`  | Conversation state (controlled mode)                    |
+| `volume`      | `number`                                   | `0`       | Audio volume, 0–1. Overrides signal/adapter volume.     |
+| `adapter`     | `OrbAdapter`                               | —         | Provider adapter (manages signal updates automatically) |
+| `size`        | `number`                                   | `200`     | Size in pixels                                          |
+| `className`   | `string`                                   | —         | Optional class name for the rendered theme              |
+| `style`       | `React.CSSProperties`                      | —         | Optional inline styles for the rendered theme           |
+| `disabled`    | `boolean`                                  | `false`   | Disables clickable themes and debug start/stop controls |
+| `interactive` | `boolean`                                  | `true`    | Allows the orb itself to start and stop a session       |
+| `aria-label`  | `string`                                   | generated | Accessible label for clickable visual themes            |
+| `onStart`     | `() => void`                               | —         | Custom start handler (overrides adapter.start())        |
+| `onStop`      | `() => void`                               | —         | Custom stop handler (overrides adapter.stop())          |
 
 ## States
 

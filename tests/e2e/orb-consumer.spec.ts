@@ -38,3 +38,19 @@ test('runs adapter start and stop through the rendered Orb', async ({ page }) =>
   await expect(page.getByTestId('adapter-input-volume')).toHaveText('0.00')
   expect(browserErrors).toEqual([])
 })
+
+test('supports passive visuals with external adapter controls', async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page)
+
+  await page.goto('/')
+
+  await expect(page.getByTestId('external-cloud-orb')).toBeVisible()
+  await expect(page.getByTestId('external-cloud-orb')).toHaveJSProperty('tagName', 'DIV')
+
+  await page.getByRole('button', { name: 'Start externally' }).click()
+  await expect(page.getByTestId('adapter-state')).toHaveText('listening')
+
+  await page.getByRole('button', { name: 'Stop externally' }).click()
+  await expect(page.getByTestId('adapter-state')).toHaveText('idle')
+  expect(browserErrors).toEqual([])
+})

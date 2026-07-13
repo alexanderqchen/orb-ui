@@ -80,7 +80,7 @@ const PIPECAT_CONNECTION_MODES: Array<{ id: PipecatConnectionMode; label: string
   { id: 'small-webrtc', label: 'Self-hosted WebRTC' },
 ]
 
-const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
+const THEMES: OrbTheme[] = ['cloud', 'circle', 'bars', 'debug']
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const DEFAULT_LIVEKIT_ROOM_PREFIX = 'orb-ui-playground'
 const DEFAULT_OPENAI_MODEL = 'gpt-realtime-2.1'
@@ -1398,11 +1398,44 @@ function ProviderPlayground() {
                   aria-label={`Start ${provider} session`}
                   data-testid="provider-playground-orb"
                   disabled={!providerReady}
+                  interactive={theme !== 'cloud'}
                   size={280}
                   theme={theme}
                 />
               )}
             </div>
+
+            {provider !== 'manual' && theme === 'cloud' ? (
+              <div className="provider-controls">
+                <div className="provider-control-group">
+                  <span className="provider-label">External session controls</span>
+                  <div className="provider-segment">
+                    <button
+                      className="provider-button"
+                      disabled={
+                        !providerReady ||
+                        !monitoredAdapter?.start ||
+                        (activeState !== 'idle' && activeState !== 'error')
+                      }
+                      onClick={() => void monitoredAdapter?.start?.()}
+                      type="button"
+                    >
+                      Start
+                    </button>
+                    <button
+                      className="provider-button"
+                      disabled={
+                        !monitoredAdapter?.stop || activeState === 'idle' || activeState === 'error'
+                      }
+                      onClick={() => void monitoredAdapter?.stop?.()}
+                      type="button"
+                    >
+                      Stop
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="provider-status-strip">
               <div className="provider-status-item">
