@@ -2,7 +2,7 @@ import type { AriaAttributes, CSSProperties } from 'react'
 
 export type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
 
-export type OrbTheme = 'debug' | 'circle' | 'bars'
+export type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud'
 
 export interface OrbSignal {
   state: OrbState
@@ -82,6 +82,12 @@ export interface OrbProps extends OrbHtmlAttributes {
 
   /** Disable clickable themes and debug start/stop controls. */
   disabled?: boolean
+
+  /**
+   * Allow the orb itself to start and stop an adapter-backed session.
+   * Set this to false when session controls live elsewhere in your UI.
+   */
+  interactive?: boolean
 
   /**
    * Called when a clickable theme is activated while idle/error.

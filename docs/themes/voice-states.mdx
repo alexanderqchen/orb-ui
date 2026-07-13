@@ -7,6 +7,24 @@ description: Reference for orb-ui themes and voice agent states.
 
 orb-ui ships with a small set of themes for common voice agent UI needs.
 
+## Cloud
+
+Use `cloud` for a calm, atmospheric assistant presence. It keeps one blue-violet palette while
+communicating turn ownership through opposing scale and motion:
+
+- `connecting` shows a compact spinner before the sphere enters from a dot.
+- `listening` moves slowly and shrinks as input volume rises.
+- `speaking` grows with output volume and moves more quickly.
+- `thinking` reuses the calm neutral treatment instead of introducing another animation.
+- `idle` and `error` fade away when the visual is passive.
+
+```tsx
+<Orb adapter={adapter} theme="cloud" interactive={false} />
+```
+
+The passive form works well when microphone and end-session buttons live elsewhere in the product
+layout. Call `adapter.start()` and `adapter.stop()` from those controls.
+
 ## Circle
 
 Use `circle` when the voice agent is a primary assistant surface. It reads as an orb, status indicator, and voice presence at the same time.
@@ -41,5 +59,8 @@ Each state should answer a user question:
 - `thinking`: Is the assistant processing?
 - `speaking`: Is the assistant responding?
 - `error`: Did something fail?
+
+Themes do not need a unique treatment for every state. They may intentionally reuse a calm visual
+when another animation would add noise without improving comprehension.
 
 Keep motion calm during idle states and more responsive during active voice states. Audio-reactive movement should support comprehension, not compete with the transcript or controls.

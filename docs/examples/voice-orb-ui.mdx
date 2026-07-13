@@ -34,6 +34,22 @@ export function ProviderOrb() {
 }
 ```
 
+## Passive orb with separate controls
+
+An orb can subscribe to an adapter without becoming the session control.
+
+```tsx
+export function VoiceSurface() {
+  return (
+    <>
+      <Orb adapter={adapter} theme="cloud" interactive={false} />
+      <button onClick={() => void adapter.start?.()}>Start conversation</button>
+      <button onClick={() => void adapter.stop?.()}>End conversation</button>
+    </>
+  )
+}
+```
+
 ## Custom controlled orb
 
 Use controlled mode when a custom stack supplies a voice signal.
@@ -48,6 +64,6 @@ export function CustomOrb({ voiceSignal }) {
 
 - Do not animate aggressively while idle.
 - Make listening and speaking visually distinct.
-- Use thinking for processing gaps between user input and assistant speech.
+- Use thinking for processing gaps when the selected theme benefits from a distinct treatment.
 - Keep error states obvious but not alarming.
 - Pair the orb with a transcript or status label when users need more precision.

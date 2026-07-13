@@ -5,7 +5,7 @@ import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
-const THEMES: OrbTheme[] = ['circle', 'bars', 'debug']
+const THEMES: OrbTheme[] = ['cloud', 'circle', 'bars', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#eab308'
 
@@ -18,6 +18,7 @@ type CodeTab =
   | 'openai'
   | 'gemini'
   | 'adapter'
+  | 'external'
   | 'controlled'
 
 interface SimulationStep {
@@ -26,7 +27,6 @@ interface SimulationStep {
 }
 
 const SIMULATION_STEPS: SimulationStep[] = [
-  { state: 'idle', duration: 1300 },
   { state: 'connecting', duration: 1000 },
   { state: 'listening', duration: 2600 },
   { state: 'thinking', duration: 900 },
@@ -34,6 +34,7 @@ const SIMULATION_STEPS: SimulationStep[] = [
 ]
 
 const SIMULATION_DURATION = SIMULATION_STEPS.reduce((total, step) => total + step.duration, 0)
+const IDLE_SIMULATION_FRAME = { state: 'idle' as OrbState, volume: 0 }
 const MONOSPACE_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
 
@@ -182,6 +183,18 @@ export function PreviewOrb() {
   return <Orb signal={signal} theme="circle" />
 }`
 
+const EXTERNAL_CONTROLS_CODE = `import { Orb } from "orb-ui"
+
+export function VoiceExperience({ adapter }) {
+  return (
+    <>
+      <Orb adapter={adapter} theme="cloud" interactive={false} />
+      <button onClick={() => void adapter.start?.()}>Start conversation</button>
+      <button onClick={() => void adapter.stop?.()}>End conversation</button>
+    </>
+  )
+}`
+
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
 }
@@ -241,11 +254,14 @@ function signalFromStateVolume(state: OrbState, volume: number): OrbSignal {
   return { state, volume }
 }
 
-function useConversationSimulation() {
-  const [startedAt] = useState(() => nowMs())
-  const [frame, setFrame] = useState(() => getSimulationFrame(nowMs(), nowMs()))
+function useConversationSimulation(startedAt: number | null) {
+  const [frame, setFrame] = useState(() =>
+    startedAt === null ? IDLE_SIMULATION_FRAME : getSimulationFrame(startedAt, nowMs()),
+  )
 
   useEffect(() => {
+    if (startedAt === null) return
+
     let raf = 0
 
     const updateFrame = () => {
@@ -258,7 +274,7 @@ function useConversationSimulation() {
     return () => cancelAnimationFrame(raf)
   }, [startedAt])
 
-  return frame
+  return startedAt === null ? IDLE_SIMULATION_FRAME : frame
 }
 
 const NAV_LINKS = [
@@ -416,6 +432,8 @@ function codeForTab(tab: CodeTab) {
       return GEMINI_CODE
     case 'adapter':
       return ADAPTER_CODE
+    case 'external':
+      return EXTERNAL_CONTROLS_CODE
     case 'controlled':
       return CONTROLLED_CODE
     case 'vapi':
@@ -426,8 +444,9 @@ function codeForTab(tab: CodeTab) {
 
 // App
 export default function App() {
-  const simulation = useConversationSimulation()
-  const [theme, setTheme] = useState<OrbTheme>('circle')
+  const [simulationStartedAt, setSimulationStartedAt] = useState<number | null>(null)
+  const simulation = useConversationSimulation(simulationStartedAt)
+  const [theme, setTheme] = useState<OrbTheme>('cloud')
   const [mode, setMode] = useState<DemoMode>('simulation')
   const [sandboxState, setSandboxState] = useState<OrbState>('idle')
   const [sandboxVolume, setSandboxVolume] = useState(0)
@@ -656,6 +675,18 @@ export default function App() {
         >
           <Orb theme={theme} size={280} signal={activeOrb.signal} data-testid="orb-demo-visual" />
 
+          {mode === 'simulation' && (
+            <button
+              onClick={() =>
+                setSimulationStartedAt((current) => (current === null ? nowMs() : null))
+              }
+              style={{ ...btnStyle(false), marginTop: 16 }}
+              type="button"
+            >
+              {simulationStartedAt === null ? 'Start demo' : 'End demo'}
+            </button>
+          )}
+
           <div style={statusStripStyle}>
             <span data-testid="orb-demo-mode" style={statusCellStyle}>
               {activeOrb.mode}
@@ -775,6 +806,9 @@ export default function App() {
           </button>
           <button onClick={() => setCodeTab('adapter')} style={btnStyle(codeTab === 'adapter')}>
             Adapter
+          </button>
+          <button onClick={() => setCodeTab('external')} style={btnStyle(codeTab === 'external')}>
+            External controls
           </button>
           <button
             onClick={() => setCodeTab('controlled')}
