@@ -95,7 +95,7 @@ void main() {
   float field = mix(broad, folded, 0.3 + u_activity * 0.14);
 
   float horizon =
-    0.50 +
+    0.46 +
     0.08 * sin((uv.x + warp.x * 0.2) * 5.4 + t * 0.42) +
     0.16 * (broad - 0.5);
   float upper = smoothstep(horizon - 0.12, horizon + 0.15, uv.y);
@@ -108,7 +108,7 @@ void main() {
   vec3 milk = vec3(0.89, 0.92, 0.995);
 
   vec3 color = mix(lowerLavender, upperPeriwinkle, upper);
-  float upperDepth = upper * smoothstep(0.48, 0.82, folded) * 0.42;
+  float upperDepth = upper * (0.14 + smoothstep(0.42, 0.78, folded) * 0.5);
   color = mix(color, deepPeriwinkle, upperDepth);
 
   float milkAmount = clamp(band * (0.42 + cloud * 0.62), 0.0, 0.88);
@@ -409,8 +409,8 @@ export function CloudTheme({
       let speed = 0.24
       let activity = 0.1
       if (nextState === 'listening') {
-        speed = 0.32 + currentVolume * 0.48
-        activity = 0.16 + currentVolume * 0.34
+        speed = 0.72 + currentVolume * 0.78
+        activity = 0.28 + currentVolume * 0.32
       } else if (nextState === 'speaking') {
         speed = 1.65 + currentVolume * 1.55
         activity = 0.66 + currentVolume * 0.34
