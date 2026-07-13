@@ -25,13 +25,15 @@ volume metering, attached agent audio, and token-source based connection setup. 
 keep browser auth explicit by favoring token endpoints and LiveKit sandbox token servers over raw
 pasted participant tokens. The dedicated browser entrypoint owns the standard LiveKit SDK runtime,
 token source, and room naming so the normal setup only needs a token endpoint and optional agent
-name; advanced app-owned Room modes remain available separately.
+name; advanced app-owned Room modes remain available separately. Speech-oriented analyser ranges
+and output calibration hooks keep the normalized signal dynamic across normal agent voices.
 
 ### Pipecat adapter — complete
 
 The transport-agnostic Pipecat adapter consumes `PipecatClient` RTVI events and supports Pipecat
 Cloud/Daily, self-hosted SmallWebRTC, and custom client transports. It normalizes state and both
-audio levels while leaving agent deployment and connection credentials in the application.
+audio levels while leaving agent deployment and connection credentials in the application. Direct
+browser-track metering fills gaps when a transport does not emit frequent RTVI audio-level events.
 
 ### OpenAI Realtime adapter — complete
 

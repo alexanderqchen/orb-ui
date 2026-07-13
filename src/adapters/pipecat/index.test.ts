@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPipecatAdapter } from './index'
 import type { OrbSignal } from '../types'
 
@@ -8,6 +8,10 @@ class FakePipecatClient {
   state = 'disconnected'
   connect = vi.fn(async () => undefined)
   disconnect = vi.fn(async () => undefined)
+  trackSet?: {
+    local?: { audio?: MediaStreamTrack }
+    bot?: { audio?: MediaStreamTrack }
+  }
   private listeners = new Map<string, Set<Listener>>()
 
   on(event: string, listener: Listener) {
@@ -27,7 +31,42 @@ class FakePipecatClient {
   listenerCount(event: string) {
     return this.listeners.get(event)?.size ?? 0
   }
+
+  tracks() {
+    return this.trackSet ?? {}
+  }
 }
+
+class FakeAudioContext {
+  state: AudioContextState = 'running'
+  private sample: number
+  source = {
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  }
+  analyser = {
+    fftSize: 2048,
+    smoothingTimeConstant: 0.8,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    getFloatTimeDomainData: (samples: Float32Array) => samples.fill(this.sample),
+  }
+  createMediaStreamSource = vi.fn(() => this.source)
+  createAnalyser = vi.fn(() => this.analyser)
+  resume = vi.fn(async () => undefined)
+  close = vi.fn(async () => {
+    this.state = 'closed'
+  })
+
+  constructor(sample: number) {
+    this.sample = sample
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('createPipecatAdapter', () => {
   it('normalizes RTVI lifecycle, speaking, and audio-level events', async () => {
@@ -71,6 +110,51 @@ describe('createPipecatAdapter', () => {
 
     unsubscribe()
     expect(client.listenerCount('botReady')).toBe(0)
+  })
+
+  it('meters local and bot media tracks when transport audio-level events are unavailable', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'MediaStream',
+      class MediaStream {
+        constructor() {}
+      },
+    )
+
+    const localTrack = { kind: 'audio' } as MediaStreamTrack
+    const botTrack = { kind: 'audio' } as MediaStreamTrack
+    const client = new FakePipecatClient()
+    client.trackSet = {
+      local: { audio: localTrack },
+      bot: { audio: botTrack },
+    }
+    const inputContext = new FakeAudioContext(0.08)
+    const outputContext = new FakeAudioContext(0.16)
+    const contexts = [inputContext, outputContext]
+    const onOutputVolumeSample = vi.fn()
+    const adapter = createPipecatAdapter(client, {
+      createAudioContext: () => contexts.shift() as unknown as AudioContext,
+      onOutputVolumeSample,
+    })
+    const signals: OrbSignal[] = []
+    const unsubscribe = adapter.subscribe((signal) => signals.push(signal))
+
+    client.emit('botReady')
+    vi.advanceTimersByTime(33)
+    expect(signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
+    expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
+
+    client.emit('botStartedSpeaking')
+    vi.advanceTimersByTime(33)
+    expect(signals.at(-1)).toMatchObject({ state: 'speaking', inputVolume: 0 })
+    expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
+    expect(onOutputVolumeSample).toHaveBeenCalledWith(
+      expect.objectContaining({ raw: expect.closeTo(0.16) }),
+    )
+
+    unsubscribe()
+    expect(inputContext.close).toHaveBeenCalledOnce()
+    expect(outputContext.close).toHaveBeenCalledOnce()
   })
 
   it('filters local and non-bot participant volume', () => {

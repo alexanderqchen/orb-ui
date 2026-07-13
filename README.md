@@ -131,8 +131,8 @@ function App() {
 ```
 
 The LiveKit entrypoint creates the room and token source, assigns a fresh room name, and meters both
-sides of the conversation. Existing-room and custom-runtime modes remain available from the
-advanced `orb-ui/adapters` entrypoint.
+sides of the conversation with speech-oriented analyser and smoothing defaults. Existing-room and
+custom-runtime modes remain available from the advanced `orb-ui/adapters` entrypoint.
 
 ### With Pipecat
 
@@ -152,8 +152,9 @@ function App() {
 }
 ```
 
-The Pipecat adapter consumes the standard RTVI event surface, so it also works with Pipecat Cloud,
-Daily, and other Pipecat transports. See the [Pipecat guide](https://orb-ui.com/docs/adapters/pipecat).
+The Pipecat adapter consumes the standard RTVI event surface and meters the client media tracks as
+a browser fallback, so it works with Pipecat Cloud, Daily, SmallWebRTC, and transports that emit
+sparse audio-level events. See the [Pipecat guide](https://orb-ui.com/docs/adapters/pipecat).
 
 ### With OpenAI Realtime
 
