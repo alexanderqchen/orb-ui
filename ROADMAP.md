@@ -71,6 +71,20 @@ Make the homepage demo feel like an actual product surface:
 - Better examples for provider and controlled modes
 - Separate session controls for passive visual themes
 
+### Theme- and direction-aware calibration — future
+
+Provider adapters currently normalize audio into a portable `OrbSignal`, but one provider-wide
+curve cannot guarantee the same perceived motion across themes. Theme geometry and animation range
+change how a normalized level feels, while human input and agent output can also need different
+response profiles.
+
+Future calibration work should explore:
+
+- Independent input and output calibration profiles
+- Theme-level response mapping or presets layered on top of provider normalization
+- A playground matrix for comparing each provider, theme, and speaking direction
+- Keeping provider-specific measurement details out of theme implementations
+
 ## Ongoing
 
 - Keep docs search-friendly and implementation-honest

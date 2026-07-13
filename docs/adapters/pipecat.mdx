@@ -105,9 +105,9 @@ multi-participant session, or set `playRemoteAudio: false` when your app owns pl
 
 ## Output calibration
 
-The default output curve is tuned against a real Pipecat Cloud agent session and works for both
-RTVI gain events and browser-track RMS samples. Override a partial value only when a particular
-transport or audio mix needs different shaping:
+The default output curve is tuned against a real Pipecat Cloud agent session using the `cloud`
+theme and works for both RTVI gain events and browser-track RMS samples. It is a provider baseline,
+so a different theme, transport, or audio mix may benefit from a partial override:
 
 ```tsx
 const adapter = createPipecatAdapter(client, {
