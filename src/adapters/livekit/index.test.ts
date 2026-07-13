@@ -171,6 +171,51 @@ describe('createLiveKitAdapter', () => {
     unsubscribe()
   })
 
+  it('keeps remote speech dynamic instead of flattening analyser output near maximum', () => {
+    vi.useFakeTimers()
+    createDocumentStub()
+    const track = new FakeTrack()
+    const room = new FakeRoom()
+    room.state = 'connected'
+    room.remoteParticipants.set(
+      'agent',
+      new FakeParticipant({
+        attributes: { 'lk.agent.state': 'speaking' },
+        kind: 4,
+        track,
+      }),
+    )
+
+    const rawLevels = [0.05, 0.25, 0.1, 0]
+    const onOutputVolumeSample = vi.fn()
+    const adapter = createLiveKitAdapter({
+      room,
+      createAudioAnalyser: () => ({
+        calculateVolume: () => rawLevels.shift() ?? 0,
+        cleanup: async () => undefined,
+      }),
+      onOutputVolumeSample,
+    })
+    const { signals, unsubscribe } = collectSignals(adapter)
+    const outputLevels: number[] = []
+
+    for (let index = 0; index < 4; index += 1) {
+      vi.advanceTimersByTime(33)
+      outputLevels.push(signals.at(-1)?.outputVolume ?? 0)
+    }
+
+    expect(outputLevels[0]).toBeGreaterThan(0)
+    expect(outputLevels[1]).toBeGreaterThan(outputLevels[0])
+    expect(outputLevels[1]).toBeLessThan(0.5)
+    expect(outputLevels[3]).toBeLessThan(outputLevels[1])
+    expect(onOutputVolumeSample).toHaveBeenCalledTimes(4)
+    expect(onOutputVolumeSample.mock.calls.map(([sample]) => sample.raw)).toEqual([
+      0.05, 0.25, 0.1, 0,
+    ])
+
+    unsubscribe()
+  })
+
   it('subscribes to an existing room and emits agent signal and output volume', () => {
     vi.useFakeTimers()
     const { appendChild } = createDocumentStub()
@@ -289,7 +334,12 @@ describe('createLiveKitAdapter', () => {
       undefined,
     )
     expect(RoomClass.instance?.localParticipant.setMicrophoneEnabled).toHaveBeenCalledWith(true)
-    expect(createAudioAnalyser).toHaveBeenCalledWith(localTrack)
+    expect(createAudioAnalyser).toHaveBeenCalledWith(localTrack, {
+      fftSize: 512,
+      smoothingTimeConstant: 0.25,
+      minDecibels: -85,
+      maxDecibels: -20,
+    })
     expect(signals.some((signal) => signal.state === 'connecting')).toBe(true)
     expect(RoomClass.instance?.listenerCount('participantAttributesChanged')).toBe(1)
 

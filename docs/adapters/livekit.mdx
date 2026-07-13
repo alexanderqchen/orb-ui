@@ -149,7 +149,30 @@ LiveKit remote agent audio is attached when available. The recommended browser e
 the SDK audio analysers automatically: the local microphone emits normalized `inputVolume` while
 the agent is listening, and remote agent audio emits normalized `outputVolume` while the agent is
 speaking. The shared `volume` value follows whichever side is active so every orb-ui theme reacts
-correctly.
+correctly. The adapter supplies a speech-oriented decibel range to LiveKit's analyser instead of
+using its narrow defaults, then applies independent attack and release smoothing so normal speech
+retains word-level movement instead of staying near one level.
+
+## Output calibration
+
+The default output curve is tuned against a real LiveKit agent session using the `cloud` theme for
+pronounced word-level movement without pinning the signal at maximum. It is a provider baseline,
+not a guarantee that every theme will feel identical. For a different theme or unusual audio mix,
+pass a partial `outputVolumeCalibration` object, or a getter when controls need to update during a
+live session:
+
+```tsx
+const adapter = createLiveKitAdapter({
+  tokenEndpoint: '/api/livekit-token',
+  agentName: 'your-agent-name',
+  outputVolumeCalibration: {
+    release: 0.12,
+  },
+  onOutputVolumeSample: ({ raw, shaped, normalized }) => {
+    console.debug({ raw, shaped, normalized })
+  },
+})
+```
 
 ## Token handling
 

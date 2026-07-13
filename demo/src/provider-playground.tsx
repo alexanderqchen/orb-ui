@@ -21,7 +21,7 @@ import './provider-playground.css'
 type ProviderId = 'manual' | 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini'
 type LiveKitConnectionMode = 'sandbox' | 'endpoint' | 'raw'
 type PipecatConnectionMode = 'cloud' | 'small-webrtc'
-type TunableProviderId = 'openai' | 'gemini'
+type TunableProviderId = 'livekit' | 'pipecat' | 'openai' | 'gemini'
 type OutputCalibrationByProvider = Record<TunableProviderId, OutputVolumeCalibration>
 
 interface ProviderConfig {
@@ -94,6 +94,20 @@ const EMPTY_SIGNAL: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outp
 const CONFIG_STORAGE_KEY = 'orb-ui:provider-playground-config'
 const CALIBRATION_STORAGE_KEY = 'orb-ui:provider-playground-output-calibration'
 const DEFAULT_OUTPUT_CALIBRATION: OutputCalibrationByProvider = {
+  livekit: {
+    noiseFloor: 0.015,
+    gain: 4.6,
+    exponent: 1.15,
+    attack: 0.1,
+    release: 0.48,
+  },
+  pipecat: {
+    noiseFloor: 0.002,
+    gain: 5.1,
+    exponent: 0.8,
+    attack: 0.5,
+    release: 0.22,
+  },
   openai: {
     noiseFloor: 0.003,
     gain: 4,
@@ -126,13 +140,20 @@ const OUTPUT_CALIBRATION_CONTROLS: Array<{
 ]
 
 function isTunableProvider(provider: ProviderId): provider is TunableProviderId {
-  return provider === 'openai' || provider === 'gemini'
+  return (
+    provider === 'livekit' ||
+    provider === 'pipecat' ||
+    provider === 'openai' ||
+    provider === 'gemini'
+  )
 }
 
 function copyOutputCalibration(
   calibration: OutputCalibrationByProvider,
 ): OutputCalibrationByProvider {
   return {
+    livekit: { ...calibration.livekit },
+    pipecat: { ...calibration.pipecat },
     openai: { ...calibration.openai },
     gemini: { ...calibration.gemini },
   }
@@ -207,7 +228,7 @@ function readStoredOutputCalibration(): OutputCalibrationByProvider {
     const parsed = JSON.parse(storage.getItem(CALIBRATION_STORAGE_KEY) ?? '{}')
     if (!isRecord(parsed)) return defaults
 
-    for (const provider of ['openai', 'gemini'] as const) {
+    for (const provider of ['livekit', 'pipecat', 'openai', 'gemini'] as const) {
       const storedProvider = parsed[provider]
       if (!isRecord(storedProvider)) continue
 
@@ -554,6 +575,8 @@ function createProviderAdapter(
       })
 
       return createPipecatAdapter(client, {
+        outputVolumeCalibration: outputCalibration?.get,
+        onOutputVolumeSample: outputCalibration?.onSample,
         connect:
           config.pipecatConnectionMode === 'cloud'
             ? () =>
@@ -626,6 +649,8 @@ function createProviderAdapter(
           sandboxId: config.liveKitSandboxId,
           agentName: config.liveKitAgentName,
           roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
+          outputVolumeCalibration: outputCalibration?.get,
+          onOutputVolumeSample: outputCalibration?.onSample,
         })
       }
 
@@ -636,6 +661,8 @@ function createProviderAdapter(
           tokenEndpoint: config.liveKitTokenEndpoint,
           agentName: config.liveKitAgentName,
           roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
+          outputVolumeCalibration: outputCalibration?.get,
+          onOutputVolumeSample: outputCalibration?.onSample,
         })
       }
 
@@ -645,6 +672,8 @@ function createProviderAdapter(
         participantToken: config.liveKitParticipantToken,
         createAudioAnalyser,
         RoomClass: Room,
+        outputVolumeCalibration: outputCalibration?.get,
+        onOutputVolumeSample: outputCalibration?.onSample,
       })
     })
   }

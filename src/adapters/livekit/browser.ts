@@ -4,6 +4,7 @@ import {
   type LiveKitOrbAdapter,
   type LiveKitTokenOptions,
 } from './index'
+import type { OutputVolumeCalibrationSource, OutputVolumeSample } from '../audio-level'
 
 interface LiveKitBrowserAdapterBase extends Omit<LiveKitTokenOptions, 'agentName' | 'roomName'> {
   /** Agent dispatched into the room. Required for LiveKit Cloud sandbox sessions. */
@@ -14,6 +15,10 @@ interface LiveKitBrowserAdapterBase extends Omit<LiveKitTokenOptions, 'agentName
   connectOptions?: Record<string, unknown>
   /** Enable the local microphone after connecting. Defaults to true. */
   enableMicrophone?: boolean
+  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
+  outputVolumeCalibration?: OutputVolumeCalibrationSource
+  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
 }
 
 export type LiveKitTokenEndpointOptions = Omit<RequestInit, 'body'>
@@ -70,6 +75,8 @@ export function createLiveKitAdapter(config: LiveKitBrowserAdapterConfig): LiveK
     participantMetadata,
     participantName,
     roomName = createRoomName,
+    outputVolumeCalibration,
+    onOutputVolumeSample,
   } = config
 
   const tokenSource =
@@ -91,6 +98,8 @@ export function createLiveKitAdapter(config: LiveKitBrowserAdapterConfig): LiveK
     },
     connectOptions,
     enableMicrophone,
+    outputVolumeCalibration,
+    onOutputVolumeSample,
     createAudioAnalyser,
     RoomClass: Room,
   }) as LiveKitOrbAdapter

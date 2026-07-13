@@ -97,9 +97,33 @@ export function PipecatVoiceUI() {
 - disconnected -> `idle`
 
 RTVI `LocalAudioLevel` becomes `inputVolume`; bot `RemoteAudioLevel` becomes `outputVolume`. The
-adapter shapes Pipecat's typically low raw gain values so both sides remain visually responsive and
+adapter also meters the `PipecatClient` local and bot `MediaStreamTrack` values directly when they
+are available. That browser fallback keeps both levels working with SmallWebRTC and with transports
+whose RTVI level events are unavailable or sparse. The adapter shapes low raw gain values and
 attaches remote bot audio tracks automatically. Use `isBotParticipant` to filter audio in a
 multi-participant session, or set `playRemoteAudio: false` when your app owns playback.
+
+## Output calibration
+
+The default output curve is tuned against a real Pipecat Cloud agent session using the `cloud`
+theme and works for both RTVI gain events and browser-track RMS samples. It is a provider baseline,
+so a different theme, transport, or audio mix may benefit from a partial override:
+
+```tsx
+const adapter = createPipecatAdapter(client, {
+  connect,
+  outputVolumeCalibration: {
+    gain: 3.5,
+  },
+  onOutputVolumeSample: ({ raw, shaped, normalized }) => {
+    console.debug({ raw, shaped, normalized })
+  },
+})
+```
+
+Pass a getter instead of an object to tune the values while a session is active. Set
+`createAudioContext` to a custom factory—or return `undefined`—when your runtime needs to own or
+disable browser-track metering.
 
 ## Custom session startup
 

@@ -26,6 +26,7 @@ export {
   type PipecatClientLike,
   type PipecatOrbAdapter,
   type PipecatParticipantLike,
+  type PipecatTracksLike,
 } from './pipecat'
 export {
   createOpenAIRealtimeAdapter,

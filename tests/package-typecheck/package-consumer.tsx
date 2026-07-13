@@ -69,6 +69,7 @@ const advancedLiveKitAdapter = createAdvancedLiveKitAdapter(liveKitConfig)
 const liveKitBrowserConfig: LiveKitBrowserAdapterConfig = {
   tokenEndpoint: '/api/livekit-token',
   agentName: 'support-agent',
+  outputVolumeCalibration: { attack: 0.3 },
 }
 const liveKitAdapter = createLiveKitAdapter(liveKitBrowserConfig)
 
@@ -78,7 +79,9 @@ const pipecatClient: PipecatClientLike = {
   connect: async () => undefined,
   disconnect: async () => undefined,
 }
-const pipecatAdapter = createPipecatAdapter(pipecatClient)
+const pipecatAdapter = createPipecatAdapter(pipecatClient, {
+  outputVolumeCalibration: { release: 0.2 },
+})
 
 const openAIRealtimeAdapter = createOpenAIRealtimeAdapter({
   getClientSecret: async () => 'short-lived-client-secret',

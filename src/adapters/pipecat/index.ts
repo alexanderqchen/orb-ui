@@ -1,4 +1,12 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
+import { calibrateOutputVolume, createMediaStreamTrackVolumeMeter } from '../audio-level'
+import type {
+  AudioContextSource,
+  MediaStreamTrackVolumeMeter,
+  OutputVolumeCalibration,
+  OutputVolumeCalibrationSource,
+  OutputVolumeSample,
+} from '../audio-level'
 
 type PipecatListener = (...args: unknown[]) => void
 
@@ -10,12 +18,18 @@ export interface PipecatClientLike {
   connect(...args: unknown[]): Promise<unknown>
   disconnect(): void | Promise<void>
   state?: string
+  tracks?(): PipecatTracksLike
 }
 
 export interface PipecatParticipantLike {
   id?: string
   name?: string
   local?: boolean
+}
+
+export interface PipecatTracksLike {
+  local?: { audio?: MediaStreamTrack }
+  bot?: { audio?: MediaStreamTrack }
 }
 
 export interface PipecatAdapterOptions {
@@ -35,6 +49,12 @@ export interface PipecatAdapterOptions {
   playRemoteAudio?: boolean
   /** Runtime override for custom audio element ownership. */
   createAudioElement?: () => HTMLAudioElement
+  /** Return undefined to disable browser-track volume metering. */
+  createAudioContext?: AudioContextSource
+  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
+  outputVolumeCalibration?: OutputVolumeCalibrationSource
+  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
 }
 
 export interface PipecatOrbAdapter extends OrbAdapter {
@@ -65,11 +85,24 @@ const PIPECAT_EVENTS = {
 // speech commonly occupies only the bottom few hundredths of that range. Shape
 // those values before they reach a theme so quiet speech still produces useful
 // motion, then smooth the 100 ms level updates without making speech feel laggy.
-const AUDIO_LEVEL_NOISE_FLOOR = 0.002
-const AUDIO_LEVEL_GAIN = 4
-const AUDIO_LEVEL_EXPONENT = 0.8
-const AUDIO_LEVEL_ATTACK = 0.6
-const AUDIO_LEVEL_RELEASE = 0.2
+const INPUT_AUDIO_LEVEL_NOISE_FLOOR = 0.002
+const INPUT_AUDIO_LEVEL_GAIN = 4
+const INPUT_AUDIO_LEVEL_EXPONENT = 0.8
+const INPUT_AUDIO_LEVEL_ATTACK = 0.6
+const INPUT_AUDIO_LEVEL_RELEASE = 0.2
+const DEFAULT_PIPECAT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
+  noiseFloor: 0.002,
+  gain: 5.1,
+  exponent: 0.8,
+  attack: 0.5,
+  release: 0.22,
+}
+
+function defaultCreateAudioContext() {
+  if (typeof window === 'undefined') return undefined
+  const AudioContextClass = window.AudioContext
+  return AudioContextClass ? new AudioContextClass() : undefined
+}
 
 function stateFromTransport(state: string): OrbState | undefined {
   switch (state) {
@@ -93,17 +126,21 @@ function stateFromTransport(state: string): OrbState | undefined {
 }
 
 function shapeAudioLevel(level: unknown): number {
-  if (typeof level !== 'number' || !Number.isFinite(level) || level <= AUDIO_LEVEL_NOISE_FLOOR) {
+  if (
+    typeof level !== 'number' ||
+    !Number.isFinite(level) ||
+    level <= INPUT_AUDIO_LEVEL_NOISE_FLOOR
+  ) {
     return 0
   }
 
-  const gated = Math.min(1, Math.max(0, level - AUDIO_LEVEL_NOISE_FLOOR))
-  return Math.pow(Math.min(1, gated * AUDIO_LEVEL_GAIN), AUDIO_LEVEL_EXPONENT)
+  const gated = Math.min(1, Math.max(0, level - INPUT_AUDIO_LEVEL_NOISE_FLOOR))
+  return Math.pow(Math.min(1, gated * INPUT_AUDIO_LEVEL_GAIN), INPUT_AUDIO_LEVEL_EXPONENT)
 }
 
 function smoothAudioLevel(level: unknown, previous: number): number {
   const shaped = shapeAudioLevel(level)
-  const rate = shaped > previous ? AUDIO_LEVEL_ATTACK : AUDIO_LEVEL_RELEASE
+  const rate = shaped > previous ? INPUT_AUDIO_LEVEL_ATTACK : INPUT_AUDIO_LEVEL_RELEASE
   return previous + (shaped - previous) * rate
 }
 
@@ -137,6 +174,18 @@ export function createPipecatAdapter(
   let listening = false
   let inputLevel = 0
   let outputLevel = 0
+  let inputMeterTrack: MediaStreamTrack | null = null
+  let outputMeterTrack: MediaStreamTrack | null = null
+  let inputMeter: MediaStreamTrackVolumeMeter | undefined
+  let outputMeter: MediaStreamTrackVolumeMeter | undefined
+
+  function getOutputVolumeCalibration() {
+    const overrides =
+      typeof options.outputVolumeCalibration === 'function'
+        ? options.outputVolumeCalibration()
+        : options.outputVolumeCalibration
+    return { ...DEFAULT_PIPECAT_OUTPUT_CALIBRATION, ...overrides }
+  }
 
   function emit(next: OrbSignal) {
     signal = next
@@ -172,9 +221,62 @@ export function createPipecatAdapter(
       }
     }
 
-    outputLevel = smoothAudioLevel(level, outputLevel)
-    const outputVolume = outputLevel
+    const sample = calibrateOutputVolume(
+      typeof level === 'number' ? level : 0,
+      outputLevel,
+      getOutputVolumeCalibration,
+    )
+    outputLevel = sample.normalized
+    options.onOutputVolumeSample?.(sample)
+    const outputVolume = sample.normalized
     emit({ ...signal, volume: outputVolume, inputVolume: 0, outputVolume })
+  }
+
+  function stopInputMeter() {
+    inputMeterTrack = null
+    void inputMeter?.stop()
+    inputMeter = undefined
+  }
+
+  function stopOutputMeter() {
+    outputMeterTrack = null
+    void outputMeter?.stop()
+    outputMeter = undefined
+  }
+
+  function stopTrackMeters() {
+    stopInputMeter()
+    stopOutputMeter()
+  }
+
+  function startInputMeter(track: MediaStreamTrack) {
+    if (inputMeterTrack === track && inputMeter) return
+    stopInputMeter()
+    inputMeterTrack = track
+    inputMeter = createMediaStreamTrackVolumeMeter(
+      track,
+      options.createAudioContext ?? defaultCreateAudioContext,
+      emitInputVolume,
+    )
+    if (!inputMeter) inputMeterTrack = null
+  }
+
+  function startOutputMeter(track: MediaStreamTrack) {
+    if (outputMeterTrack === track && outputMeter) return
+    stopOutputMeter()
+    outputMeterTrack = track
+    outputMeter = createMediaStreamTrackVolumeMeter(
+      track,
+      options.createAudioContext ?? defaultCreateAudioContext,
+      emitOutputVolume,
+    )
+    if (!outputMeter) outputMeterTrack = null
+  }
+
+  function syncTrackMeters() {
+    const tracks = client.tracks?.()
+    if (tracks?.local?.audio) startInputMeter(tracks.local.audio)
+    if (tracks?.bot?.audio) startOutputMeter(tracks.bot.audio)
   }
 
   function isBotParticipant(participant: unknown) {
@@ -211,6 +313,25 @@ export function createPipecatAdapter(
     remoteAudioElements.delete(track)
   }
 
+  function handleTrackStarted(track: unknown, participant?: unknown) {
+    if (!isMediaStreamTrack(track) || track.kind !== 'audio') return
+
+    const knownLocalTrack = client.tracks?.().local?.audio
+    const local =
+      (participant as PipecatParticipantLike | undefined)?.local === true ||
+      track === knownLocalTrack
+    if (local) startInputMeter(track)
+    else if (isBotParticipant(participant)) startOutputMeter(track)
+
+    playRemoteTrack(track, participant)
+  }
+
+  function handleTrackStopped(track: unknown) {
+    if (track === inputMeterTrack) stopInputMeter()
+    if (track === outputMeterTrack) stopOutputMeter()
+    stopRemoteTrack(track)
+  }
+
   function stopRemoteAudio() {
     remoteAudioElements.forEach((audio) => {
       audio.pause()
@@ -220,11 +341,21 @@ export function createPipecatAdapter(
     remoteAudioElements.clear()
   }
 
+  function handleDisconnected() {
+    stopTrackMeters()
+    emitState('idle')
+  }
+
+  function handleBotReady() {
+    emitState('listening')
+    syncTrackMeters()
+  }
+
   const eventHandlers: Array<[string, PipecatListener]> = [
     [PIPECAT_EVENTS.connected, () => emitState('connecting')],
-    [PIPECAT_EVENTS.botReady, () => emitState('listening')],
-    [PIPECAT_EVENTS.disconnected, () => emitState('idle')],
-    [PIPECAT_EVENTS.botDisconnected, () => emitState('idle')],
+    [PIPECAT_EVENTS.botReady, handleBotReady],
+    [PIPECAT_EVENTS.disconnected, handleDisconnected],
+    [PIPECAT_EVENTS.botDisconnected, handleDisconnected],
     [
       PIPECAT_EVENTS.transportStateChanged,
       (state) => {
@@ -244,10 +375,13 @@ export function createPipecatAdapter(
     [PIPECAT_EVENTS.botTtsStarted, () => emitState('thinking')],
     [PIPECAT_EVENTS.botStartedSpeaking, () => emitState('speaking')],
     [PIPECAT_EVENTS.botStoppedSpeaking, () => emitState('listening')],
-    [PIPECAT_EVENTS.localAudioLevel, emitInputVolume],
-    [PIPECAT_EVENTS.remoteAudioLevel, emitOutputVolume],
-    ['trackStarted', playRemoteTrack],
-    ['trackStopped', stopRemoteTrack],
+    [PIPECAT_EVENTS.localAudioLevel, (level) => !inputMeter && emitInputVolume(level)],
+    [
+      PIPECAT_EVENTS.remoteAudioLevel,
+      (level, participant) => !outputMeter && emitOutputVolume(level, participant),
+    ],
+    ['trackStarted', handleTrackStarted],
+    ['trackStopped', handleTrackStopped],
     [PIPECAT_EVENTS.error, (error) => emitState('error', error)],
     [PIPECAT_EVENTS.messageError, (error) => emitState('error', error)],
     [PIPECAT_EVENTS.deviceError, (error) => emitState('error', error)],
@@ -266,6 +400,7 @@ export function createPipecatAdapter(
       if (client.off) client.off(event, listener)
       else client.removeListener?.(event, listener)
     })
+    stopTrackMeters()
     stopRemoteAudio()
   }
 
@@ -295,6 +430,7 @@ export function createPipecatAdapter(
       try {
         await (options.disconnect ? options.disconnect() : client.disconnect())
       } finally {
+        stopTrackMeters()
         stopRemoteAudio()
         emitState('idle')
       }

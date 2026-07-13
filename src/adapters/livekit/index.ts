@@ -1,5 +1,11 @@
 import { normalizeMicVolume } from '../types'
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
+import { calibrateOutputVolume } from '../audio-level'
+import type {
+  OutputVolumeCalibration,
+  OutputVolumeCalibrationSource,
+  OutputVolumeSample,
+} from '../audio-level'
 
 // Minimal LiveKit interfaces. orb-ui does not import livekit-client directly so
 // the SDK remains an app-owned dependency.
@@ -88,11 +94,20 @@ export interface LiveKitTokenSource {
 /** Agent participant kind value from LiveKit protocol (ParticipantKind.AGENT). */
 const LK_PARTICIPANT_KIND_AGENT = 4
 
-const NOISE_FLOOR = 0.03
-const OUTPUT_GAIN = 1.5
-const EMA_ATTACK = 0.6
-const EMA_RELEASE = 0.2
-const SIGMOID_K = 0.35
+const LIVEKIT_ANALYSER_OPTIONS = {
+  fftSize: 512,
+  smoothingTimeConstant: 0.25,
+  minDecibels: -85,
+  maxDecibels: -20,
+}
+
+const DEFAULT_LIVEKIT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
+  noiseFloor: 0.015,
+  gain: 4.6,
+  exponent: 1.15,
+  attack: 0.1,
+  release: 0.48,
+}
 
 function mapAgentState(lkState: string): OrbState {
   switch (lkState) {
@@ -116,7 +131,14 @@ function mapAgentState(lkState: string): OrbState {
   }
 }
 
-interface LiveKitManagedBaseConfig<TTrack = unknown> {
+interface LiveKitVolumeConfig {
+  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
+  outputVolumeCalibration?: OutputVolumeCalibrationSource
+  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+}
+
+interface LiveKitManagedBaseConfig<TTrack = unknown> extends LiveKitVolumeConfig {
   /** The createAudioAnalyser function from livekit-client. */
   createAudioAnalyser: LKCreateAudioAnalyser<TTrack>
   /** The Room constructor from livekit-client. */
@@ -130,7 +152,7 @@ interface LiveKitManagedBaseConfig<TTrack = unknown> {
 }
 
 /** App-managed mode: subscribe to a pre-existing Room. */
-interface LiveKitRoomConfig<TTrack = unknown> {
+interface LiveKitRoomConfig<TTrack = unknown> extends LiveKitVolumeConfig {
   /** A connected Room instance from livekit-client. */
   room: LKRoom
   /** The createAudioAnalyser function from livekit-client. */
@@ -326,12 +348,19 @@ export function createLiveKitAdapter<TTrack = unknown>(
     emitSignal({ ...signal, ...patch, state: patch.state ?? signal.state })
   }
 
+  function getOutputVolumeCalibration() {
+    const overrides =
+      typeof config.outputVolumeCalibration === 'function'
+        ? config.outputVolumeCalibration()
+        : config.outputVolumeCalibration
+    return { ...DEFAULT_LIVEKIT_OUTPUT_CALIBRATION, ...overrides }
+  }
+
   function normalizeVolume(raw: number): number {
-    const gated = raw < NOISE_FLOOR ? 0 : raw
-    const rate = gated > outputEmaVolume ? EMA_ATTACK : EMA_RELEASE
-    outputEmaVolume = outputEmaVolume + (gated - outputEmaVolume) * rate
-    const gained = Math.min(outputEmaVolume * OUTPUT_GAIN, 1.0)
-    return gained / (gained + SIGMOID_K)
+    const sample = calibrateOutputVolume(raw, outputEmaVolume, getOutputVolumeCalibration)
+    outputEmaVolume = sample.normalized
+    config.onOutputVolumeSample?.(sample)
+    return sample.normalized
   }
 
   function resetOutputVolume() {
@@ -359,7 +388,7 @@ export function createLiveKitAdapter<TTrack = unknown>(
     localMicrophoneTrack = track
 
     try {
-      inputAnalyserResult = createAudioAnalyser(track)
+      inputAnalyserResult = createAudioAnalyser(track, LIVEKIT_ANALYSER_OPTIONS)
     } catch (err) {
       console.warn('[orb-ui/livekit] local createAudioAnalyser failed:', err)
       return
@@ -391,7 +420,7 @@ export function createLiveKitAdapter<TTrack = unknown>(
     stopOutputVolumeTracking()
 
     try {
-      outputAnalyserResult = createAudioAnalyser(track)
+      outputAnalyserResult = createAudioAnalyser(track, LIVEKIT_ANALYSER_OPTIONS)
     } catch (err) {
       console.warn('[orb-ui/livekit] remote createAudioAnalyser failed:', err)
       return

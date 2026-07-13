@@ -24,6 +24,12 @@ export interface OutputVolumeSample {
   normalized: number
 }
 
+export interface MediaStreamTrackVolumeMeter {
+  stop(): Promise<void>
+}
+
+export type AudioContextSource = () => AudioContext | undefined
+
 export const DEFAULT_OUTPUT_VOLUME_CALIBRATION: OutputVolumeCalibration = {
   noiseFloor: 0,
   gain: 4,
@@ -74,4 +80,48 @@ export function calibrateOutputVolume(
   const normalized = clamp(previous + (shaped - previous) * rate, 0, 1)
 
   return { raw, shaped, normalized }
+}
+
+export function createMediaStreamTrackVolumeMeter(
+  track: MediaStreamTrack,
+  createAudioContext: AudioContextSource,
+  onVolume: (volume: number) => void,
+): MediaStreamTrackVolumeMeter | undefined {
+  let context: AudioContext | undefined
+
+  try {
+    context = createAudioContext()
+    if (!context) return undefined
+    const activeContext = context
+    if (activeContext.state === 'suspended') void activeContext.resume().catch(() => undefined)
+
+    const source = activeContext.createMediaStreamSource(new MediaStream([track]))
+    const analyser = activeContext.createAnalyser()
+    analyser.fftSize = 512
+    analyser.smoothingTimeConstant = 0.25
+    source.connect(analyser)
+
+    const samples = new Float32Array(analyser.fftSize)
+    const interval = setInterval(() => {
+      analyser.getFloatTimeDomainData(samples)
+      let sumSquares = 0
+      for (const sample of samples) sumSquares += sample * sample
+      onVolume(Math.sqrt(sumSquares / samples.length))
+    }, 33)
+
+    return {
+      async stop() {
+        clearInterval(interval)
+        try {
+          source.disconnect()
+          analyser.disconnect()
+        } finally {
+          if (activeContext.state !== 'closed') await activeContext.close()
+        }
+      },
+    }
+  } catch {
+    if (context?.state !== 'closed') void context?.close().catch(() => undefined)
+    return undefined
+  }
 }

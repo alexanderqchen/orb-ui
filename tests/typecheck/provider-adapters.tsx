@@ -38,6 +38,8 @@ const tokenElevenLabsAdapter = createElevenLabsAdapter(Conversation, {
 const liveKitAdapter = createLiveKitAdapter({
   tokenEndpoint: '/api/livekit-token',
   agentName: 'support-agent',
+  outputVolumeCalibration: { release: 0.12 },
+  onOutputVolumeSample: ({ normalized }) => void normalized,
 })
 
 // @ts-expect-error LiveKit sandbox sessions must identify the agent to dispatch.
@@ -56,6 +58,8 @@ const pipecatClient = new PipecatClient({
 })
 const pipecatAdapter = createPipecatAdapter(pipecatClient, {
   connect: () => pipecatClient.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
+  outputVolumeCalibration: () => ({ gain: 3.5 }),
+  onOutputVolumeSample: ({ raw }) => void raw,
 })
 
 const openAIRealtimeAdapter = createOpenAIRealtimeAdapter({
