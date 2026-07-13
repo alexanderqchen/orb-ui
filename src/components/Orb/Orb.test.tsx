@@ -59,6 +59,13 @@ describe('Orb accessibility', () => {
     expect(html).not.toContain('<button')
   })
 
+  it('renders a solid launch layer before the cloud surface fades in', () => {
+    const html = renderToStaticMarkup(<Orb state="listening" theme="cloud" />)
+
+    expect(html).toContain('data-cloud-launch-dot=""')
+    expect(html).toContain('background:#5659dc')
+  })
+
   it('preserves consumer style overrides on clickable themes', () => {
     const html = renderToStaticMarkup(
       <Orb

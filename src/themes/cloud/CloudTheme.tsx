@@ -79,17 +79,24 @@ void main() {
   float t = u_time;
 
   vec2 warp = vec2(
-    fbm(p * 1.02 + vec2(t * 0.10, -t * 0.075)),
-    fbm(p * 1.08 + vec2(-t * 0.07, t * 0.09) + vec2(6.7, 2.9))
+    fbm(p * 1.02 + vec2(t * 0.34, -t * 0.24)),
+    fbm(p * 1.08 + vec2(-t * 0.27, t * 0.32) + vec2(6.7, 2.9))
   );
-  vec2 warped = p + (warp - 0.5) * (1.18 + u_activity * 0.24);
-  float broad = fbm(warped * 0.92 + vec2(t * 0.027, -t * 0.032));
-  float folded = fbm(warped * 1.66 + vec2(-t * 0.043, t * 0.036) + 5.2);
-  float field = mix(broad, folded, 0.3 + u_activity * 0.08);
+  vec2 curl = vec2(
+    sin(p.y * 2.4 + t * 0.68 + warp.y * 3.2),
+    cos(p.x * 2.1 - t * 0.61 + warp.x * 3.0)
+  );
+  vec2 warped =
+    p +
+    (warp - 0.5) * (1.18 + u_activity * 0.38) +
+    curl * (0.035 + u_activity * 0.07);
+  float broad = fbm(warped * 0.92 + vec2(t * 0.14, -t * 0.18));
+  float folded = fbm(warped * 1.66 + vec2(-t * 0.23, t * 0.19) + 5.2);
+  float field = mix(broad, folded, 0.3 + u_activity * 0.14);
 
   float horizon =
     0.50 +
-    0.08 * sin((uv.x + warp.x * 0.2) * 5.4 + t * 0.065) +
+    0.08 * sin((uv.x + warp.x * 0.2) * 5.4 + t * 0.42) +
     0.16 * (broad - 0.5);
   float upper = smoothstep(horizon - 0.12, horizon + 0.15, uv.y);
   float band = exp(-pow((uv.y - horizon) * (5.2 + u_activity * 0.8), 2.0));
@@ -121,10 +128,15 @@ const NEUTRAL_DIAMETER = 0.55
 const LISTEN_SHRINK = 0.136
 const SPEAK_GROW = 0.143
 const DOT_SCALE = 0.063
+const LAUNCH_DOT_COLOR = '#5659dc'
 const ENTRANCE_OVERSHOOT = 1.178
 const DOT_HOLD_MS = 180
 const GROW_MS = 300
 const SETTLE_MS = 1350
+const SURFACE_FADE_START_MS = DOT_HOLD_MS + GROW_MS * 0.22
+const SURFACE_FADE_END_MS = DOT_HOLD_MS + GROW_MS * 0.8
+const DOT_FADE_START_MS = DOT_HOLD_MS + GROW_MS * 0.58
+const DOT_FADE_END_MS = DOT_HOLD_MS + GROW_MS
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
@@ -140,6 +152,11 @@ function easeOutCubic(value: number) {
 
 function mix(from: number, to: number, progress: number) {
   return from + (to - from) * progress
+}
+
+function smoothstepRange(value: number, start: number, end: number) {
+  const progress = clamp((value - start) / (end - start))
+  return progress * progress * (3 - 2 * progress)
 }
 
 function isVisibleState(state: OrbState) {
@@ -277,6 +294,7 @@ export function CloudTheme({
   ...controlProps
 }: CloudThemeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const launchDotRef = useRef<HTMLSpanElement>(null)
   const spinnerRef = useRef<HTMLSpanElement>(null)
   const stateRef = useRef(state)
   const volumeRef = useRef(volume)
@@ -293,8 +311,9 @@ export function CloudTheme({
 
   useEffect(() => {
     const canvas = canvasRef.current
+    const launchDot = launchDotRef.current
     const spinner = spinnerRef.current
-    if (!canvas || !spinner) return
+    if (!canvas || !launchDot || !spinner) return
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     const updateReducedMotion = () => {
@@ -361,11 +380,17 @@ export function CloudTheme({
       let scale = currentAudioScale * currentExitScale
       if (idleDot) scale = DOT_SCALE
 
+      let surfaceMix = idleDot ? 0 : 1
+      let launchDotOpacity = idleDot ? currentOpacity : 0
+
       if (visible && entranceStarted !== undefined && !reducedMotion) {
         const elapsed = now - entranceStarted
         const entrance = entranceScale(elapsed)
         const audioInfluence = clamp((elapsed - DOT_HOLD_MS - GROW_MS) / SETTLE_MS)
         scale = entrance * mix(1, currentAudioScale, audioInfluence)
+        surfaceMix = smoothstepRange(elapsed, SURFACE_FADE_START_MS, SURFACE_FADE_END_MS)
+        launchDotOpacity =
+          currentOpacity * (1 - smoothstepRange(elapsed, DOT_FADE_START_MS, DOT_FADE_END_MS))
         if (elapsed >= DOT_HOLD_MS + GROW_MS + SETTLE_MS) entranceStarted = undefined
       }
 
@@ -374,19 +399,21 @@ export function CloudTheme({
         ? spinnerTarget
         : damp(currentSpinnerOpacity, spinnerTarget, 18, deltaSeconds)
 
-      canvas.style.opacity = String(currentOpacity)
+      canvas.style.opacity = String(currentOpacity * surfaceMix)
       canvas.style.transform = `scale(${scale})`
+      launchDot.style.opacity = String(launchDotOpacity)
+      launchDot.style.transform = `scale(${scale})`
       spinner.style.opacity = String(currentSpinnerOpacity)
       spinner.style.transform = `rotate(${reducedMotion ? 45 : now * 0.34}deg)`
 
-      let speed = 0.14
-      let activity = 0.08
+      let speed = 0.24
+      let activity = 0.1
       if (nextState === 'listening') {
-        speed = 0.18 + currentVolume * 0.34
-        activity = 0.14 + currentVolume * 0.34
+        speed = 0.32 + currentVolume * 0.48
+        activity = 0.16 + currentVolume * 0.34
       } else if (nextState === 'speaking') {
-        speed = 0.82 + currentVolume * 0.84
-        activity = 0.52 + currentVolume * 0.44
+        speed = 1.65 + currentVolume * 1.55
+        activity = 0.66 + currentVolume * 0.34
       }
 
       if (!reducedMotion) flowTime += deltaSeconds * speed
@@ -426,6 +453,22 @@ export function CloudTheme({
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
       }}
     >
+      <span
+        ref={launchDotRef}
+        data-cloud-launch-dot=""
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'block',
+          borderRadius: '50%',
+          background: LAUNCH_DOT_COLOR,
+          opacity: 0,
+          transform: `scale(${DOT_SCALE})`,
+          transformOrigin: 'center',
+          willChange: 'opacity, transform',
+        }}
+      />
       <canvas
         ref={canvasRef}
         aria-hidden="true"

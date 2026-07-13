@@ -52,8 +52,9 @@ Add polished themes that feel production-ready, not just minimal examples. Publi
 
 Completed direction:
 
-- `cloud`: atmospheric blue-violet sphere with a compact connection entrance, opposing input/output
-  volume response, and passive external-control support
+- `cloud`: atmospheric blue-violet sphere with a solid-dot-to-fluid connection entrance,
+  state-paced internal cloud motion, opposing input/output volume response, and passive
+  external-control support
 
 Before naming another public theme, validate the visual direction against direct product UI research
 and a concrete interaction reference.
