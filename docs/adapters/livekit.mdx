@@ -155,9 +155,10 @@ retains word-level movement instead of staying near one level.
 
 ## Output calibration
 
-The default output curve is tuned for LiveKit's browser analyser. Most applications should use it
-unchanged. For diagnostics or an unusual audio mix, pass a partial `outputVolumeCalibration`
-object, or a getter when controls need to update during a live session:
+The default output curve is tuned against a real LiveKit agent session for pronounced word-level
+movement without pinning the signal at maximum. Most applications should use it unchanged. For
+diagnostics or an unusual audio mix, pass a partial `outputVolumeCalibration` object, or a getter
+when controls need to update during a live session:
 
 ```tsx
 const adapter = createLiveKitAdapter({

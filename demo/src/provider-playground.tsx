@@ -96,17 +96,17 @@ const CALIBRATION_STORAGE_KEY = 'orb-ui:provider-playground-output-calibration'
 const DEFAULT_OUTPUT_CALIBRATION: OutputCalibrationByProvider = {
   livekit: {
     noiseFloor: 0.015,
-    gain: 1.5,
-    exponent: 1.1,
-    attack: 0.28,
-    release: 0.08,
+    gain: 4.6,
+    exponent: 1.15,
+    attack: 0.1,
+    release: 0.48,
   },
   pipecat: {
     noiseFloor: 0.002,
-    gain: 4,
+    gain: 5.1,
     exponent: 0.8,
-    attack: 0.6,
-    release: 0.2,
+    attack: 0.5,
+    release: 0.22,
   },
   openai: {
     noiseFloor: 0.003,

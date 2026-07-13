@@ -103,10 +103,10 @@ const LIVEKIT_ANALYSER_OPTIONS = {
 
 const DEFAULT_LIVEKIT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
   noiseFloor: 0.015,
-  gain: 1.5,
-  exponent: 1.1,
-  attack: 0.28,
-  release: 0.08,
+  gain: 4.6,
+  exponent: 1.15,
+  attack: 0.1,
+  release: 0.48,
 }
 
 function mapAgentState(lkState: string): OrbState {

@@ -98,8 +98,8 @@ describe('createPipecatAdapter', () => {
       state: 'speaking',
       inputVolume: 0,
     })
-    expect(signals.at(-1)?.volume).toBeCloseTo(0.6)
-    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.6)
+    expect(signals.at(-1)?.volume).toBeCloseTo(0.5)
+    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.5)
 
     client.emit('botStoppedSpeaking')
     expect(signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
@@ -172,7 +172,7 @@ describe('createPipecatAdapter', () => {
     expect(signals).toHaveLength(count)
 
     client.emit('remoteAudioLevel', 0.8, { id: 'bot', local: false })
-    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.6)
+    expect(signals.at(-1)?.outputVolume).toBeCloseTo(0.5)
   })
 
   it('amplifies realistic low levels and smooths attack and release independently', () => {

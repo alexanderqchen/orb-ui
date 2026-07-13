@@ -85,17 +85,17 @@ const PIPECAT_EVENTS = {
 // speech commonly occupies only the bottom few hundredths of that range. Shape
 // those values before they reach a theme so quiet speech still produces useful
 // motion, then smooth the 100 ms level updates without making speech feel laggy.
-const AUDIO_LEVEL_NOISE_FLOOR = 0.002
-const AUDIO_LEVEL_GAIN = 4
-const AUDIO_LEVEL_EXPONENT = 0.8
-const AUDIO_LEVEL_ATTACK = 0.6
-const AUDIO_LEVEL_RELEASE = 0.2
+const INPUT_AUDIO_LEVEL_NOISE_FLOOR = 0.002
+const INPUT_AUDIO_LEVEL_GAIN = 4
+const INPUT_AUDIO_LEVEL_EXPONENT = 0.8
+const INPUT_AUDIO_LEVEL_ATTACK = 0.6
+const INPUT_AUDIO_LEVEL_RELEASE = 0.2
 const DEFAULT_PIPECAT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
-  noiseFloor: AUDIO_LEVEL_NOISE_FLOOR,
-  gain: AUDIO_LEVEL_GAIN,
-  exponent: AUDIO_LEVEL_EXPONENT,
-  attack: AUDIO_LEVEL_ATTACK,
-  release: AUDIO_LEVEL_RELEASE,
+  noiseFloor: 0.002,
+  gain: 5.1,
+  exponent: 0.8,
+  attack: 0.5,
+  release: 0.22,
 }
 
 function defaultCreateAudioContext() {
@@ -126,17 +126,21 @@ function stateFromTransport(state: string): OrbState | undefined {
 }
 
 function shapeAudioLevel(level: unknown): number {
-  if (typeof level !== 'number' || !Number.isFinite(level) || level <= AUDIO_LEVEL_NOISE_FLOOR) {
+  if (
+    typeof level !== 'number' ||
+    !Number.isFinite(level) ||
+    level <= INPUT_AUDIO_LEVEL_NOISE_FLOOR
+  ) {
     return 0
   }
 
-  const gated = Math.min(1, Math.max(0, level - AUDIO_LEVEL_NOISE_FLOOR))
-  return Math.pow(Math.min(1, gated * AUDIO_LEVEL_GAIN), AUDIO_LEVEL_EXPONENT)
+  const gated = Math.min(1, Math.max(0, level - INPUT_AUDIO_LEVEL_NOISE_FLOOR))
+  return Math.pow(Math.min(1, gated * INPUT_AUDIO_LEVEL_GAIN), INPUT_AUDIO_LEVEL_EXPONENT)
 }
 
 function smoothAudioLevel(level: unknown, previous: number): number {
   const shaped = shapeAudioLevel(level)
-  const rate = shaped > previous ? AUDIO_LEVEL_ATTACK : AUDIO_LEVEL_RELEASE
+  const rate = shaped > previous ? INPUT_AUDIO_LEVEL_ATTACK : INPUT_AUDIO_LEVEL_RELEASE
   return previous + (shaped - previous) * rate
 }
 
