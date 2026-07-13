@@ -170,6 +170,14 @@ function normalizePipecatConnectionMode(value: unknown): PipecatConnectionMode {
   return value === 'small-webrtc' ? 'small-webrtc' : 'cloud'
 }
 
+function normalizeProvider(value: unknown): ProviderId {
+  return PROVIDERS.some((provider) => provider.id === value) ? (value as ProviderId) : 'manual'
+}
+
+function normalizeTheme(value: unknown): OrbTheme {
+  return THEMES.includes(value as OrbTheme) ? (value as OrbTheme) : 'circle'
+}
+
 function createLiveKitRoomName(prefix: string) {
   const normalizedPrefix = prefix || DEFAULT_LIVEKIT_ROOM_PREFIX
   const randomId =
@@ -264,9 +272,9 @@ function readStoredConfig(): Partial<ProviderConfig> {
     if (typeof parsed.liveKitServerUrl === 'string') {
       storedConfig.liveKitServerUrl = parsed.liveKitServerUrl
     }
-    if (typeof parsed.liveKitParticipantToken === 'string' && parsed.liveKitParticipantToken) {
+    if (typeof parsed.liveKitParticipantToken === 'string') {
       storedConfig.liveKitParticipantToken = parsed.liveKitParticipantToken
-    } else if (typeof parsed.liveKitToken === 'string' && parsed.liveKitToken) {
+    } else if (typeof parsed.liveKitToken === 'string') {
       storedConfig.liveKitParticipantToken = parsed.liveKitToken
     }
     if (typeof parsed.pipecatConnectionMode === 'string') {
@@ -277,14 +285,19 @@ function readStoredConfig(): Partial<ProviderConfig> {
     if (typeof parsed.pipecatAgentName === 'string') {
       storedConfig.pipecatAgentName = parsed.pipecatAgentName
     }
+    if (typeof parsed.pipecatApiKey === 'string') {
+      storedConfig.pipecatApiKey = parsed.pipecatApiKey
+    }
     if (typeof parsed.pipecatWebrtcUrl === 'string') {
       storedConfig.pipecatWebrtcUrl = parsed.pipecatWebrtcUrl
     }
+    if (typeof parsed.openAIApiKey === 'string') storedConfig.openAIApiKey = parsed.openAIApiKey
     if (typeof parsed.openAIModel === 'string') storedConfig.openAIModel = parsed.openAIModel
     if (typeof parsed.openAIVoice === 'string') storedConfig.openAIVoice = parsed.openAIVoice
     if (typeof parsed.openAIInstructions === 'string') {
       storedConfig.openAIInstructions = parsed.openAIInstructions
     }
+    if (typeof parsed.geminiApiKey === 'string') storedConfig.geminiApiKey = parsed.geminiApiKey
     if (typeof parsed.geminiModel === 'string') storedConfig.geminiModel = parsed.geminiModel
     if (typeof parsed.geminiVoice === 'string') storedConfig.geminiVoice = parsed.geminiVoice
     if (typeof parsed.geminiInstructions === 'string') {
@@ -297,17 +310,29 @@ function readStoredConfig(): Partial<ProviderConfig> {
   }
 }
 
-function writeStoredConfig(config: ProviderConfig) {
+function readStoredSelection(): { provider: ProviderId; theme: OrbTheme } {
+  const storage = getStorage()
+  if (!storage) return { provider: 'manual', theme: 'circle' }
+
+  try {
+    const parsed = JSON.parse(storage.getItem(CONFIG_STORAGE_KEY) ?? '{}')
+    if (!isRecord(parsed)) return { provider: 'manual', theme: 'circle' }
+
+    return {
+      provider: normalizeProvider(parsed.provider),
+      theme: normalizeTheme(parsed.theme),
+    }
+  } catch {
+    return { provider: 'manual', theme: 'circle' }
+  }
+}
+
+function writeStoredConfig(config: ProviderConfig, provider: ProviderId, theme: OrbTheme) {
   const storage = getStorage()
   if (!storage) return
 
   try {
-    const storedConfig: Partial<ProviderConfig> = { ...config }
-    delete storedConfig.liveKitParticipantToken
-    delete storedConfig.pipecatApiKey
-    delete storedConfig.openAIApiKey
-    delete storedConfig.geminiApiKey
-    storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(storedConfig))
+    storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ ...config, provider, theme }))
   } catch {
     // Storage can be disabled or full in some browser modes.
   }
@@ -862,8 +887,8 @@ function ProviderConfigFields({
           value={config.openAIInstructions}
         />
         <p className="provider-note">
-          The standard key is held in memory only and exchanged for a short-lived Realtime client
-          secret through this deployment.
+          The standard key is exchanged for a short-lived Realtime client secret through this
+          deployment.
         </p>
       </>
     )
@@ -898,8 +923,7 @@ function ProviderConfigFields({
           value={config.geminiInstructions}
         />
         <p className="provider-note">
-          The standard key is held in memory only and exchanged for a one-use Gemini Live token
-          through this deployment.
+          The standard key is exchanged for a one-use Gemini Live token through this deployment.
         </p>
       </>
     )
@@ -1053,8 +1077,9 @@ function ProviderReadinessRows({
 
 function ProviderPlayground() {
   const [config, setConfig] = useState<ProviderConfig>(() => readConfig())
-  const [provider, setProvider] = useState<ProviderId>('manual')
-  const [theme, setTheme] = useState<OrbTheme>('circle')
+  const [storedSelection] = useState(() => readStoredSelection())
+  const [provider, setProvider] = useState<ProviderId>(storedSelection.provider)
+  const [theme, setTheme] = useState<OrbTheme>(storedSelection.theme)
   const [manualState, setManualState] = useState<OrbState>('idle')
   const [manualInputVolume, setManualInputVolume] = useState(0.35)
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
@@ -1068,8 +1093,8 @@ function ProviderPlayground() {
   const [peakRawOutput, setPeakRawOutput] = useState(0)
 
   useEffect(() => {
-    writeStoredConfig(config)
-  }, [config])
+    writeStoredConfig(config, provider, theme)
+  }, [config, provider, theme])
 
   useEffect(() => {
     outputCalibrationRef.current = outputCalibration
@@ -1534,6 +1559,10 @@ function ProviderPlayground() {
                     updateConfig={updateConfig}
                   />
                 </div>
+                <p className="provider-note">
+                  Configuration, including credentials, is saved in this browser for this exact
+                  playground URL. Use Clear to remove the current provider&apos;s saved values.
+                </p>
                 <div className="provider-config-actions">
                   <button className="provider-button" onClick={resetProviderConfig} type="button">
                     Use env defaults
