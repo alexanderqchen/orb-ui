@@ -98,13 +98,13 @@ void main() {
     0.46 +
     0.08 * sin((uv.x + warp.x * 0.2) * 5.4 + t * 0.42) +
     0.16 * (broad - 0.5);
-  float upper = smoothstep(horizon - 0.12, horizon + 0.15, uv.y);
+  float upper = smoothstep(horizon - 0.12, horizon + 0.08, uv.y);
   float band = exp(-pow((uv.y - horizon) * (5.2 + u_activity * 0.8), 2.0));
   float cloud = smoothstep(0.24, 0.79, field);
 
   vec3 deepPeriwinkle = vec3(0.36, 0.39, 0.985);
   vec3 upperPeriwinkle = vec3(0.48, 0.56, 0.985);
-  vec3 lowerLavender = vec3(0.79, 0.83, 0.985);
+  vec3 lowerLavender = vec3(0.72, 0.78, 0.975);
   vec3 milk = vec3(0.89, 0.92, 0.995);
 
   vec3 color = mix(lowerLavender, upperPeriwinkle, upper);
