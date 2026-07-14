@@ -40,7 +40,7 @@ void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution;
   vec2 p = (uv - 0.5) * 2.0;
   float radius = length(p);
-  float edge = 1.0 - smoothstep(0.985, 1.0, radius);
+  float edge = 1.0 - smoothstep(0.993, 1.0, radius);
 
   if (edge <= 0.0) discard;
 
@@ -89,14 +89,12 @@ void main() {
   float rimInner = 0.82 + rimWave - u_listen * 0.118;
   float rim = smoothstep(rimInner - 0.02, rimInner + 0.015, radius);
   float rimStrength = rim * (0.3 + u_listen * 0.25);
-  float outerCoverage = smoothstep(0.925, 0.995, radius) * (0.22 + u_listen * 0.08);
-  rimStrength = clamp(rimStrength + outerCoverage, 0.0, 0.93);
   vec3 membrane = mix(
     vec3(0.47, 0.84, 0.84),
-    vec3(0.91, 0.985, 0.975),
+    vec3(0.76, 0.93, 0.92),
     smoothstep(0.78, 1.0, radius)
   );
-  color = mix(color, membrane, rimStrength);
+  color = mix(color, membrane, clamp(rimStrength, 0.0, 0.72));
 
   // Only one transition direction becomes a bright seam, producing two opposing ribbons.
   float seamDirection = max(0.0, -sin(phase * 2.0));
@@ -104,7 +102,9 @@ void main() {
   float seam = pow(seamDirection, seamExponent) * (0.78 + radius * 0.25);
   color = mix(color, vec3(0.985, 0.995, 0.995), clamp(seam, 0.0, 0.96));
 
-  gl_FragColor = vec4(color, edge);
+  // The drawing buffer uses premultiplied alpha. Premultiply the antialiased
+  // perimeter so translucent edge pixels cannot become a bright outline.
+  gl_FragColor = vec4(color * edge, edge);
 }
 `
 
@@ -320,7 +320,8 @@ export function RadialTheme({
     let frame = 0
     let previousTime = performance.now()
     let motionTime = 0
-    let baseRotation = 0
+    let calmRotation = 0
+    let calmClock = 0
     let speakingOffset = 0
     let speakingClock = 0
     let currentVolume = clamp(volumeRef.current)
@@ -347,16 +348,20 @@ export function RadialTheme({
         : damp(speakEnergy, speakTarget, speakTarget > speakEnergy ? 12 : 5, deltaSeconds)
 
       let motionSpeed = 0.36
-      let rotationSpeed = 0.052
+      let calmTempo = 0.62
+      let calmAmplitude = 0.15
       if (nextState === 'connecting') {
         motionSpeed = 0.42
-        rotationSpeed = 0.06
+        calmTempo = 0.68
+        calmAmplitude = 0.13
       } else if (nextState === 'listening') {
         motionSpeed = 0.54 + listenEnergy * 0.26
-        rotationSpeed = 0.075 + listenEnergy * 0.045
+        calmTempo = 0.78 + listenEnergy * 0.18
+        calmAmplitude = 0.18 + listenEnergy * 0.04
       } else if (nextState === 'thinking') {
         motionSpeed = 0.46
-        rotationSpeed = 0.068
+        calmTempo = 0.72
+        calmAmplitude = 0.16
       } else if (nextState === 'speaking') {
         motionSpeed = 1.05 + speakEnergy * 1.15
       }
@@ -381,13 +386,17 @@ export function RadialTheme({
             secondarySwing * (0.035 + speakEnergy * 0.035) +
             slowDrift * 0.055
           speakingOffset = damp(speakingOffset, speakingTarget, 8, deltaSeconds)
+          calmRotation = damp(calmRotation, 0, 2.8, deltaSeconds)
         } else {
-          baseRotation += deltaSeconds * rotationSpeed
+          calmClock += deltaSeconds * calmTempo
+          const calmTarget =
+            Math.sin(calmClock) * calmAmplitude + Math.sin(calmClock * 0.47 + 1.1) * 0.032
+          calmRotation = damp(calmRotation, calmTarget, 4.2, deltaSeconds)
           speakingOffset = damp(speakingOffset, 0, 4.5, deltaSeconds)
         }
       }
 
-      renderer?.draw(motionTime, baseRotation + speakingOffset, listenEnergy, speakEnergy)
+      renderer?.draw(motionTime, calmRotation + speakingOffset, listenEnergy, speakEnergy)
       frame = requestAnimationFrame(render)
     }
 
