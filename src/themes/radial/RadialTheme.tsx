@@ -320,10 +320,14 @@ export function RadialTheme({
     let frame = 0
     let previousTime = performance.now()
     let motionTime = 0
-    let calmRotation = 0
+    let currentMotionSpeed = 0.36
+    let currentCalmTempo = 0.62
+    let currentCalmAmplitude = 0.15
+    let rotation = 0
+    let rotationVelocity = 0
     let calmClock = 0
-    let speakingOffset = 0
     let speakingClock = 0
+    let speakingBlend = stateRef.current === 'speaking' ? 1 : 0
     let currentVolume = clamp(volumeRef.current)
     let listenEnergy = stateRef.current === 'listening' ? currentVolume : 0
     let speakEnergy = stateRef.current === 'speaking' ? currentVolume : 0
@@ -367,36 +371,49 @@ export function RadialTheme({
       }
 
       if (!reducedMotion) {
-        motionTime += deltaSeconds * motionSpeed
+        currentMotionSpeed = damp(currentMotionSpeed, motionSpeed, 3.6, deltaSeconds)
+        currentCalmTempo = damp(currentCalmTempo, calmTempo, 3.6, deltaSeconds)
+        currentCalmAmplitude = damp(currentCalmAmplitude, calmAmplitude, 3.6, deltaSeconds)
+        speakingBlend = damp(
+          speakingBlend,
+          nextState === 'speaking' ? 1 : 0,
+          nextState === 'speaking' ? 3.8 : 3,
+          deltaSeconds,
+        )
 
-        if (nextState === 'speaking') {
-          const irregularTempo =
-            1.2 +
-            speakEnergy * 1.35 +
-            Math.sin(motionTime * 1.73) * 0.34 +
-            Math.sin(motionTime * 0.61 + 0.8) * 0.18
-          speakingClock += deltaSeconds * Math.max(0.65, irregularTempo)
+        motionTime += deltaSeconds * currentMotionSpeed
+        calmClock += deltaSeconds * currentCalmTempo
 
-          const primarySwing = Math.sin(speakingClock * 1.08)
-          const secondarySwing = Math.sin(speakingClock * 2.47 + 0.9)
-          const slowDrift = Math.sin(speakingClock * 0.43 - 0.5)
-          const swingAmplitude = 0.13 + speakEnergy * 0.17
-          const speakingTarget =
-            primarySwing * swingAmplitude +
-            secondarySwing * (0.035 + speakEnergy * 0.035) +
-            slowDrift * 0.055
-          speakingOffset = damp(speakingOffset, speakingTarget, 8, deltaSeconds)
-          calmRotation = damp(calmRotation, 0, 2.8, deltaSeconds)
-        } else {
-          calmClock += deltaSeconds * calmTempo
-          const calmTarget =
-            Math.sin(calmClock) * calmAmplitude + Math.sin(calmClock * 0.47 + 1.1) * 0.032
-          calmRotation = damp(calmRotation, calmTarget, 4.2, deltaSeconds)
-          speakingOffset = damp(speakingOffset, 0, 4.5, deltaSeconds)
-        }
+        const irregularTempo =
+          1.2 +
+          speakEnergy * 1.35 +
+          Math.sin(motionTime * 1.73) * 0.34 +
+          Math.sin(motionTime * 0.61 + 0.8) * 0.18
+        speakingClock += deltaSeconds * Math.max(0.65, irregularTempo)
+
+        const calmTarget =
+          Math.sin(calmClock) * currentCalmAmplitude + Math.sin(calmClock * 0.47 + 1.1) * 0.032
+        const primarySwing = Math.sin(speakingClock * 1.08)
+        const secondarySwing = Math.sin(speakingClock * 2.47 + 0.9)
+        const slowDrift = Math.sin(speakingClock * 0.43 - 0.5)
+        const swingAmplitude = 0.13 + speakEnergy * 0.17
+        const speakingTarget =
+          primarySwing * swingAmplitude +
+          secondarySwing * (0.035 + speakEnergy * 0.035) +
+          slowDrift * 0.055
+        const rotationTarget = calmTarget + (speakingTarget - calmTarget) * speakingBlend
+
+        // Keep one position and velocity across states so mode changes alter the
+        // trajectory without replacing it or snapping to another oscillator.
+        const responsiveness = 4.2 + speakingBlend * 3
+        const stiffness = responsiveness * responsiveness
+        const drag = 2 * responsiveness
+        rotationVelocity +=
+          ((rotationTarget - rotation) * stiffness - rotationVelocity * drag) * deltaSeconds
+        rotation += rotationVelocity * deltaSeconds
       }
 
-      renderer?.draw(motionTime, calmRotation + speakingOffset, listenEnergy, speakEnergy)
+      renderer?.draw(motionTime, rotation, listenEnergy, speakEnergy)
       frame = requestAnimationFrame(render)
     }
 
