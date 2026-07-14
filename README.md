@@ -255,6 +255,13 @@ function VoiceExperience({ adapter }) {
 
 When an adapter or `onStart`/`onStop` handler is provided, visual themes include keyboard-accessible `<button type="button">` controls. `radial` places its phone control below the artwork while the other clickable themes use the visual itself. Pass `interactive={false}` to keep the theme passive and call `adapter.start()` or `adapter.stop()` from external controls instead.
 
+The radial phone control uses a small cutout that defaults to white. Match it to the surface behind
+the orb with the typed style variable:
+
+```tsx
+<Orb adapter={adapter} theme="radial" style={{ '--orb-ui-radial-control-surround': '#101010' }} />
+```
+
 ## Props
 
 | Prop          | Type                                                   | Default   | Description                                             |
@@ -266,7 +273,7 @@ When an adapter or `onStart`/`onStop` handler is provided, visual themes include
 | `adapter`     | `OrbAdapter`                                           | —         | Provider adapter (manages signal updates automatically) |
 | `size`        | `number`                                               | `200`     | Size in pixels                                          |
 | `className`   | `string`                                               | —         | Optional class name for the rendered theme              |
-| `style`       | `React.CSSProperties`                                  | —         | Optional inline styles for the rendered theme           |
+| `style`       | `OrbStyle`                                             | —         | Inline styles, including radial control surround color  |
 | `disabled`    | `boolean`                                              | `false`   | Disables clickable themes and debug start/stop controls |
 | `interactive` | `boolean`                                              | `true`    | Allows the theme control to start and stop a session    |
 | `aria-label`  | `string`                                               | generated | Accessible label for clickable visual themes            |

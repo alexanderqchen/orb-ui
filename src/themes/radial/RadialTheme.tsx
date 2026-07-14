@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type { OrbHtmlAttributes, OrbState, OrbStyle } from '../../components/Orb/Orb.types'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -9,7 +8,7 @@ interface RadialThemeProps extends OrbHtmlAttributes {
   volume: number
   size: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
@@ -75,29 +74,35 @@ void main() {
   vec3 color = mix(lightColor, darkColor, darkMix);
 
   // Soft secondary streaks make each of the four lobes feel layered rather than flat.
-  float secondaryRay = 0.5 + 0.5 * sin(phase * 6.0 + radius * 1.8 - u_time * 0.21);
+  float secondaryRay = 0.5 + 0.5 * sin(phase * 6.0 + radius * 1.8 - u_time * 0.42);
   float rayStrength = (0.055 + u_speak * 0.045) * (0.25 + radius * 0.75);
   color = mix(color, vec3(0.26, 0.76, 0.8), secondaryRay * rayStrength);
 
-  // The outer membrane keeps a circular perimeter while its inner boundary undulates.
+  // The outer membrane keeps a circular perimeter while independent traveling waves
+  // continuously reshape its inner boundary.
   float rimWave =
-    0.052 * sin(angle * 3.0 + u_time * 0.17) +
-    0.029 * sin(angle * 5.0 - u_time * 0.12 + 1.4) +
-    0.016 * sin(angle * 2.0 + u_time * 0.09 - 0.8);
-  float rimInner = 0.82 + rimWave - u_listen * 0.235;
-  float rim = smoothstep(rimInner - 0.018, rimInner + 0.014, radius);
-  float rimStrength = rim * (0.29 + u_listen * 0.5);
-  vec3 membrane = mix(vec3(0.3, 0.79, 0.8), vec3(0.68, 0.93, 0.91), radius * 0.36);
-  color = mix(color, membrane, clamp(rimStrength, 0.0, 0.82));
+    0.063 * sin(angle * 3.0 + u_time * 1.34) +
+    0.036 * sin(angle * 5.0 - u_time * 0.91 + 1.4) +
+    0.021 * sin(angle * 7.0 + u_time * 0.63 - 0.8) +
+    0.012 * sin(angle * 11.0 - u_time * 1.72 + sin(angle * 2.0 + u_time * 0.58));
+  rimWave *= 1.0 + u_listen * 0.38;
+  float rimInner = 0.82 + rimWave - u_listen * 0.118;
+  float rim = smoothstep(rimInner - 0.02, rimInner + 0.015, radius);
+  float rimStrength = rim * (0.3 + u_listen * 0.25);
+  float outerCoverage = smoothstep(0.925, 0.995, radius) * (0.22 + u_listen * 0.08);
+  rimStrength = clamp(rimStrength + outerCoverage, 0.0, 0.93);
+  vec3 membrane = mix(
+    vec3(0.47, 0.84, 0.84),
+    vec3(0.91, 0.985, 0.975),
+    smoothstep(0.78, 1.0, radius)
+  );
+  color = mix(color, membrane, rimStrength);
 
   // Only one transition direction becomes a bright seam, producing two opposing ribbons.
   float seamDirection = max(0.0, -sin(phase * 2.0));
   float seamExponent = mix(30.0, 3.2, smoothstep(0.05, 1.0, radius));
   float seam = pow(seamDirection, seamExponent) * (0.78 + radius * 0.25);
   color = mix(color, vec3(0.985, 0.995, 0.995), clamp(seam, 0.0, 0.96));
-
-  float edgeWash = smoothstep(0.9, 1.0, radius) * 0.05;
-  color = mix(color, vec3(0.78, 0.95, 0.94), edgeWash);
 
   gl_FragColor = vec4(color, edge);
 }
@@ -113,7 +118,7 @@ const KEYFRAMES = `
 `
 
 const ARTWORK_DIAMETER = 0.66
-const CONTROL_RATIO = 0.17
+const CONTROL_RATIO = 0.2
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
@@ -315,7 +320,9 @@ export function RadialTheme({
     let frame = 0
     let previousTime = performance.now()
     let motionTime = 0
-    let rotation = 0
+    let baseRotation = 0
+    let speakingOffset = 0
+    let speakingClock = 0
     let currentVolume = clamp(volumeRef.current)
     let listenEnergy = stateRef.current === 'listening' ? currentVolume : 0
     let speakEnergy = stateRef.current === 'speaking' ? currentVolume : 0
@@ -339,28 +346,48 @@ export function RadialTheme({
         ? 0
         : damp(speakEnergy, speakTarget, speakTarget > speakEnergy ? 12 : 5, deltaSeconds)
 
-      let motionSpeed = 0.2
-      let rotationSpeed = 0.018
+      let motionSpeed = 0.36
+      let rotationSpeed = 0.052
       if (nextState === 'connecting') {
-        motionSpeed = 0.24
-        rotationSpeed = 0.024
+        motionSpeed = 0.42
+        rotationSpeed = 0.06
       } else if (nextState === 'listening') {
-        motionSpeed = 0.27 + listenEnergy * 0.18
-        rotationSpeed = 0.026
+        motionSpeed = 0.54 + listenEnergy * 0.26
+        rotationSpeed = 0.075 + listenEnergy * 0.045
       } else if (nextState === 'thinking') {
-        motionSpeed = 0.25
-        rotationSpeed = 0.03
+        motionSpeed = 0.46
+        rotationSpeed = 0.068
       } else if (nextState === 'speaking') {
-        motionSpeed = 0.95 + speakEnergy * 0.95
-        rotationSpeed = 0.09 + speakEnergy * 0.19
+        motionSpeed = 1.05 + speakEnergy * 1.15
       }
 
       if (!reducedMotion) {
         motionTime += deltaSeconds * motionSpeed
-        rotation += deltaSeconds * rotationSpeed
+
+        if (nextState === 'speaking') {
+          const irregularTempo =
+            1.2 +
+            speakEnergy * 1.35 +
+            Math.sin(motionTime * 1.73) * 0.34 +
+            Math.sin(motionTime * 0.61 + 0.8) * 0.18
+          speakingClock += deltaSeconds * Math.max(0.65, irregularTempo)
+
+          const primarySwing = Math.sin(speakingClock * 1.08)
+          const secondarySwing = Math.sin(speakingClock * 2.47 + 0.9)
+          const slowDrift = Math.sin(speakingClock * 0.43 - 0.5)
+          const swingAmplitude = 0.13 + speakEnergy * 0.17
+          const speakingTarget =
+            primarySwing * swingAmplitude +
+            secondarySwing * (0.035 + speakEnergy * 0.035) +
+            slowDrift * 0.055
+          speakingOffset = damp(speakingOffset, speakingTarget, 8, deltaSeconds)
+        } else {
+          baseRotation += deltaSeconds * rotationSpeed
+          speakingOffset = damp(speakingOffset, 0, 4.5, deltaSeconds)
+        }
       }
 
-      renderer?.draw(motionTime, rotation, listenEnergy, speakEnergy)
+      renderer?.draw(motionTime, baseRotation + speakingOffset, listenEnergy, speakEnergy)
       frame = requestAnimationFrame(render)
     }
 
@@ -376,7 +403,8 @@ export function RadialTheme({
   const active = isActiveState(state)
   const connecting = state === 'connecting'
   const stackHeight = diameter + (interactive ? controlSize * 0.5 : 0)
-  const rootStyle: CSSProperties = {
+  const rootStyle: OrbStyle = {
+    '--orb-ui-radial-control-surround': '#fff',
     width: size,
     height: size,
     display: 'flex',
@@ -437,11 +465,11 @@ export function RadialTheme({
             boxSizing: 'border-box',
             padding: 0,
             margin: 0,
-            border: `${Math.max(2, controlSize * 0.075)}px solid #fff`,
+            border: 0,
             borderRadius: '50%',
             background: connecting ? '#9da1aa' : active ? '#ef4146' : '#080808',
             color: '#fff',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+            boxShadow: `0 0 0 ${Math.max(3, controlSize * 0.085)}px var(--orb-ui-radial-control-surround), 0 2px 5px rgba(0, 0, 0, 0.18)`,
             cursor: disabled ? 'not-allowed' : 'pointer',
             opacity: disabled ? 0.52 : 1,
             transform: 'translateX(-50%)',

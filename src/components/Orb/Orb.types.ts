@@ -1,5 +1,10 @@
 import type { AriaAttributes, CSSProperties } from 'react'
 
+export type OrbStyle = CSSProperties & {
+  /** Background color revealed around the radial theme's floating phone control. */
+  '--orb-ui-radial-control-surround'?: string
+}
+
 export type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
 
 export type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
@@ -78,7 +83,7 @@ export interface OrbProps extends OrbHtmlAttributes {
   className?: string
 
   /** Optional inline styles for the rendered orb container/control. */
-  style?: CSSProperties
+  style?: OrbStyle
 
   /** Disable interactive theme and debug start/stop controls. */
   disabled?: boolean

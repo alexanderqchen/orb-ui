@@ -1444,6 +1444,7 @@ function ProviderPlayground() {
                   data-testid="provider-playground-orb"
                   signal={manualSignal}
                   size={280}
+                  style={{ '--orb-ui-radial-control-surround': '#101010' }}
                   theme={theme}
                 />
               ) : (
@@ -1454,6 +1455,7 @@ function ProviderPlayground() {
                   disabled={!providerReady}
                   interactive={theme !== 'cloud'}
                   size={280}
+                  style={{ '--orb-ui-radial-control-surround': '#101010' }}
                   theme={theme}
                 />
               )}

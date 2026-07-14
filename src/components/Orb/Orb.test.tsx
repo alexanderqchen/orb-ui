@@ -94,6 +94,19 @@ describe('Orb accessibility', () => {
     expect(html).not.toContain('<button')
   })
 
+  it('lets radial controls match the surrounding application surface', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        adapter={createAdapter()}
+        theme="radial"
+        style={{ '--orb-ui-radial-control-surround': '#101010' }}
+      />,
+    )
+
+    expect(html).toContain('--orb-ui-radial-control-surround:#101010')
+    expect(html).toContain('var(--orb-ui-radial-control-surround)')
+  })
+
   it('preserves consumer style overrides on clickable themes', () => {
     const html = renderToStaticMarkup(
       <Orb
