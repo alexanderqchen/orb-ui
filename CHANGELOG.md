@@ -1,5 +1,11 @@
 # orb-ui
 
+## 0.7.0
+
+### Minor Changes
+
+- aec63a7: Add the `radial` WebGL theme with a traveling input-reactive membrane, bidirectional radial motion, and an optional phone-style session control with a configurable surround color.
+
 ## 0.6.1
 
 ### Patch Changes
