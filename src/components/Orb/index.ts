@@ -5,5 +5,6 @@ export type {
   OrbSignal,
   OrbSignalListener,
   OrbState,
+  OrbStyle,
   OrbTheme,
 } from './Orb.types'

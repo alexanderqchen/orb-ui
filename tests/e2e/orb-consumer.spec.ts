@@ -18,6 +18,8 @@ test('loads the built package and public adapter exports', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'orb-ui browser consumer' })).toBeVisible()
   await expect(page.getByTestId('adapter-exports')).toHaveText('ready')
   await expect(page.getByTestId('controlled-orb')).toBeVisible()
+  await expect(page.getByTestId('radial-orb')).toBeVisible()
+  await expect(page.getByTestId('radial-orb').locator('canvas')).toBeVisible()
   await expect(page.getByTestId('controlled-output-volume')).toHaveText('0.70')
   expect(browserErrors).toEqual([])
 })
@@ -51,6 +53,21 @@ test('supports passive visuals with external adapter controls', async ({ page })
   await expect(page.getByTestId('adapter-state')).toHaveText('listening')
 
   await page.getByRole('button', { name: 'Stop externally' }).click()
+  await expect(page.getByTestId('adapter-state')).toHaveText('idle')
+  expect(browserErrors).toEqual([])
+})
+
+test('uses the radial phone control for adapter lifecycle', async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page)
+
+  await page.goto('/')
+
+  const radial = page.getByTestId('interactive-radial-orb')
+  await expect(radial.locator('..').locator('canvas')).toBeVisible()
+  await radial.click()
+  await expect(page.getByTestId('adapter-state')).toHaveText('listening')
+  await expect(radial).toHaveAttribute('aria-label', 'Toggle radial session')
+  await radial.click()
   await expect(page.getByTestId('adapter-state')).toHaveText('idle')
   expect(browserErrors).toEqual([])
 })

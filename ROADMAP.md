@@ -54,6 +54,8 @@ Add polished themes that feel production-ready, not just minimal examples. Publi
 
 Completed direction:
 
+- `radial`: four-lobe aqua and cobalt field with a volume-reactive outer membrane for human input,
+  independent angular deformation for agent output, and a dedicated phone control
 - `cloud`: atmospheric blue-violet sphere with a solid-dot-to-fluid connection entrance,
   state-paced internal cloud motion, opposing input/output volume response, and passive
   external-control support

@@ -202,11 +202,12 @@ export function VoiceExperience({ adapter }) {
 
 Start with:
 
+- `radial` for a four-lobe call surface with different input and output reactions.
 - `cloud` for a soft atmospheric sphere with distinct listening and speaking motion.
 - `circle` for a primary assistant orb.
 - `bars` for waveform-like audio activity.
 - `debug` while verifying state and volume changes.
 
-Visual themes render as keyboard-accessible buttons when you provide an adapter or `onStart`/`onStop` handler. Add an `aria-label` if the surrounding UI does not already label the control, or pass `interactive={false}` when a separate control owns the session lifecycle.
+Visual themes include keyboard-accessible buttons when you provide an adapter or `onStart`/`onStop` handler. Add an `aria-label` if the surrounding UI does not already label the control, or pass `interactive={false}` when a separate control owns the session lifecycle.
 
 Use the [voice states guide](/themes/voice-states) when you are deciding how each state should appear in your product.

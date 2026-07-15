@@ -5,7 +5,7 @@ import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
-const THEMES: OrbTheme[] = ['cloud', 'circle', 'bars', 'debug']
+const THEMES: OrbTheme[] = ['radial', 'cloud', 'circle', 'bars', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#eab308'
 

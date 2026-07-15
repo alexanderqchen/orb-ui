@@ -66,6 +66,47 @@ describe('Orb accessibility', () => {
     expect(html).toContain('background:#5659dc')
   })
 
+  it('renders the radial artwork with a dedicated phone control', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        adapter={createAdapter()}
+        theme="radial"
+        id="radial-control"
+        aria-label="Start radial voice assistant"
+      />,
+    )
+
+    expect(html).toContain('<canvas')
+    expect(html).toContain('data-radial-surface=""')
+    expect(html).toContain('data-radial-control=""')
+    expect(html).toContain('id="radial-control"')
+    expect(html).toContain('aria-label="Start radial voice assistant"')
+    expect(html).toContain('background:#080808')
+  })
+
+  it('keeps the radial artwork passive when interaction is external', () => {
+    const html = renderToStaticMarkup(
+      <Orb adapter={createAdapter()} theme="radial" interactive={false} />,
+    )
+
+    expect(html).toContain('<canvas')
+    expect(html).not.toContain('data-radial-control')
+    expect(html).not.toContain('<button')
+  })
+
+  it('lets radial controls match the surrounding application surface', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        adapter={createAdapter()}
+        theme="radial"
+        style={{ '--orb-ui-radial-control-surround': '#101010' }}
+      />,
+    )
+
+    expect(html).toContain('--orb-ui-radial-control-surround:#101010')
+    expect(html).toContain('var(--orb-ui-radial-control-surround)')
+  })
+
   it('preserves consumer style overrides on clickable themes', () => {
     const html = renderToStaticMarkup(
       <Orb
@@ -109,6 +150,7 @@ describe('Orb accessibility', () => {
     expect(renderToStaticMarkup(<Orb state="thinking" theme="circle" />)).toContain('<div')
     expect(renderToStaticMarkup(<Orb state="thinking" theme="bars" />)).toContain('<div')
     expect(renderToStaticMarkup(<Orb state="thinking" theme="cloud" />)).toContain('<canvas')
+    expect(renderToStaticMarkup(<Orb state="thinking" theme="radial" />)).toContain('<canvas')
   })
 })
 

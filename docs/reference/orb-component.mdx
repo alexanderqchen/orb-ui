@@ -14,23 +14,23 @@ import { Orb } from 'orb-ui'
 
 ## Props
 
-| Prop          | Type                  | Default                | Description                                                        |
-| ------------- | --------------------- | ---------------------- | ------------------------------------------------------------------ |
-| `signal`      | `OrbSignal`           | adapter signal         | Current voice signal with state, input volume, and output volume.  |
-| `state`       | `OrbState`            | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
-| `volume`      | `number`              | signal volume or `0`   | Audio volume from `0` to `1`. Overrides signal and adapter volume. |
-| `adapter`     | `OrbAdapter`          | none                   | Provider adapter that subscribes to normalized signal updates.     |
-| `theme`       | `OrbTheme`            | `debug`                | Visual theme: `debug`, `circle`, `bars`, or `cloud`.               |
-| `size`        | `number`              | `200`                  | Component size in pixels.                                          |
-| `className`   | `string`              | none                   | Optional class name for the rendered theme.                        |
-| `style`       | `React.CSSProperties` | none                   | Optional inline styles for the rendered theme.                     |
-| `disabled`    | `boolean`             | `false`                | Disables clickable themes and debug start/stop controls.           |
-| `interactive` | `boolean`             | `true`                 | Allows the orb itself to start and stop the session.               |
-| `id`          | `string`              | none                   | Forwarded to the rendered orb control/container.                   |
-| `data-*`      | `string`/primitive    | none                   | Forwarded to the rendered orb control/container, useful for tests. |
-| `aria-label`  | `string`              | generated when needed  | Accessible label for clickable visual themes.                      |
-| `onStart`     | `() => void`          | adapter start          | Start handler used by the debug theme and clickable themes.        |
-| `onStop`      | `() => void`          | adapter stop           | Stop handler used by the debug theme and clickable themes.         |
+| Prop          | Type               | Default                | Description                                                        |
+| ------------- | ------------------ | ---------------------- | ------------------------------------------------------------------ |
+| `signal`      | `OrbSignal`        | adapter signal         | Current voice signal with state, input volume, and output volume.  |
+| `state`       | `OrbState`         | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
+| `volume`      | `number`           | signal volume or `0`   | Audio volume from `0` to `1`. Overrides signal and adapter volume. |
+| `adapter`     | `OrbAdapter`       | none                   | Provider adapter that subscribes to normalized signal updates.     |
+| `theme`       | `OrbTheme`         | `debug`                | Visual theme: `debug`, `circle`, `bars`, `cloud`, or `radial`.     |
+| `size`        | `number`           | `200`                  | Component size in pixels.                                          |
+| `className`   | `string`           | none                   | Optional class name for the rendered theme.                        |
+| `style`       | `OrbStyle`         | none                   | Inline styles, including the radial control surround variable.     |
+| `disabled`    | `boolean`          | `false`                | Disables clickable themes and debug start/stop controls.           |
+| `interactive` | `boolean`          | `true`                 | Allows the theme control to start and stop the session.            |
+| `id`          | `string`           | none                   | Forwarded to the rendered orb control/container.                   |
+| `data-*`      | `string`/primitive | none                   | Forwarded to the rendered orb control/container, useful for tests. |
+| `aria-label`  | `string`           | generated when needed  | Accessible label for clickable visual themes.                      |
+| `onStart`     | `() => void`       | adapter start          | Start handler used by the debug theme and clickable themes.        |
+| `onStop`      | `() => void`       | adapter stop           | Stop handler used by the debug theme and clickable themes.         |
 
 ## States
 
@@ -43,15 +43,24 @@ Use these states consistently across providers so your product has one voice UI 
 ## Themes
 
 ```ts
-type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud'
+type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
 ```
 
 - `debug`: visible state and start/stop controls while integrating.
 - `circle`: the primary animated voice orb.
 - `bars`: waveform-like audio activity.
 - `cloud`: a soft atmospheric sphere with opposing input/output scale response.
+- `radial`: a four-lobe field with an input-reactive membrane and output-reactive twist.
 
-When an adapter or `onStart`/`onStop` handler is provided, visual themes render as `<button type="button">` controls with native keyboard activation. If there is no visible label, pass `aria-label`.
+When an adapter or `onStart`/`onStop` handler is provided, visual themes include a `<button type="button">` control with native keyboard activation. `radial` uses a separate phone button while the other clickable visuals use the artwork itself. If there is no visible label, pass `aria-label`.
+
+The radial control's cutout defaults to white. Set
+`--orb-ui-radial-control-surround` through the typed `style` prop when the orb sits on another
+surface:
+
+```tsx
+<Orb adapter={adapter} theme="radial" style={{ '--orb-ui-radial-control-surround': '#101010' }} />
+```
 
 Set `interactive={false}` when the orb is only a visual status surface. The adapter remains the
 session controller, so external buttons can call its existing lifecycle methods.

@@ -5,6 +5,7 @@ import { DebugTheme } from '../../themes/debug'
 import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
 import { CloudTheme } from '../../themes/cloud'
+import { RadialTheme } from '../../themes/radial'
 
 export function Orb({
   signal: signalProp,
@@ -83,6 +84,8 @@ export function Orb({
       return <BarsTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'cloud':
       return <CloudTheme {...interactiveThemeProps} onClick={clickHandler} />
+    case 'radial':
+      return <RadialTheme {...interactiveThemeProps} onClick={clickHandler} />
     case 'debug':
     default:
       return (
