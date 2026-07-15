@@ -5,21 +5,12 @@ import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
-const THEMES: OrbTheme[] = ['radial', 'cloud', 'circle', 'bars', 'debug']
+const THEMES: OrbTheme[] = ['circle', 'bars', 'cloud', 'radial', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#eab308'
 
-type DemoMode = 'simulation' | 'sandbox'
-type CodeTab =
-  | 'vapi'
-  | 'elevenlabs'
-  | 'livekit'
-  | 'pipecat'
-  | 'openai'
-  | 'gemini'
-  | 'adapter'
-  | 'external'
-  | 'controlled'
+type DemoMode = 'simulation' | 'manual'
+type CodeTab = 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini' | 'custom'
 
 interface SimulationStep {
   state: OrbState
@@ -34,7 +25,6 @@ const SIMULATION_STEPS: SimulationStep[] = [
 ]
 
 const SIMULATION_DURATION = SIMULATION_STEPS.reduce((total, step) => total + step.duration, 0)
-const IDLE_SIMULATION_FRAME = { state: 'idle' as OrbState, volume: 0 }
 const MONOSPACE_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
 
@@ -63,7 +53,7 @@ export function VoiceOrb() {
   return <Orb adapter={adapter} theme="circle" aria-label="Start voice assistant" />
 }`
 
-const ADAPTER_CODE = `import { Orb } from "orb-ui"
+const CUSTOM_CODE = `import { Orb } from "orb-ui"
 import type { OrbAdapter } from "orb-ui"
 
 const adapter: OrbAdapter = {
@@ -149,52 +139,6 @@ export function VoiceOrb() {
   return <Orb adapter={adapter} theme="circle" aria-label="Start Gemini assistant" />
 }`
 
-const CONTROLLED_CODE = `import { useEffect, useState } from "react"
-import { Orb } from "orb-ui"
-import type { OrbSignal } from "orb-ui"
-
-export function PreviewOrb() {
-  const [signal, setSignal] = useState<OrbSignal>({
-    state: "listening",
-    inputVolume: 0
-  })
-
-  useEffect(() => {
-    let frame = 0
-
-    function tick() {
-      const t = performance.now() / 1000
-      const state = Math.floor(t / 3) % 2 === 0 ? "speaking" : "listening"
-      const volume = Math.max(0, Math.min(1, 0.45 + Math.sin(t * 9) * 0.3))
-
-      setSignal(
-        state === "speaking"
-          ? { state, outputVolume: volume }
-          : { state, inputVolume: volume }
-      )
-      frame = requestAnimationFrame(tick)
-    }
-
-    frame = requestAnimationFrame(tick)
-
-    return () => cancelAnimationFrame(frame)
-  }, [])
-
-  return <Orb signal={signal} theme="circle" />
-}`
-
-const EXTERNAL_CONTROLS_CODE = `import { Orb } from "orb-ui"
-
-export function VoiceExperience({ adapter }) {
-  return (
-    <>
-      <Orb adapter={adapter} theme="cloud" interactive={false} />
-      <button onClick={() => void adapter.start?.()}>Start conversation</button>
-      <button onClick={() => void adapter.stop?.()}>End conversation</button>
-    </>
-  )
-}`
-
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
 }
@@ -254,14 +198,10 @@ function signalFromStateVolume(state: OrbState, volume: number): OrbSignal {
   return { state, volume }
 }
 
-function useConversationSimulation(startedAt: number | null) {
-  const [frame, setFrame] = useState(() =>
-    startedAt === null ? IDLE_SIMULATION_FRAME : getSimulationFrame(startedAt, nowMs()),
-  )
+function useConversationSimulation(startedAt: number) {
+  const [frame, setFrame] = useState(() => getSimulationFrame(startedAt, nowMs()))
 
   useEffect(() => {
-    if (startedAt === null) return
-
     let raf = 0
 
     const updateFrame = () => {
@@ -274,15 +214,12 @@ function useConversationSimulation(startedAt: number | null) {
     return () => cancelAnimationFrame(raf)
   }, [startedAt])
 
-  return startedAt === null ? IDLE_SIMULATION_FRAME : frame
+  return frame
 }
 
 const NAV_LINKS = [
-  { href: '#demo', label: 'Demo', external: false },
-  { href: '#quick-start', label: 'Quick Start', external: false },
-  { href: '#adapters', label: 'Adapters', external: false },
-  { href: '#themes', label: 'Themes', external: false },
-  { href: '/playground', label: 'Playground', external: false },
+  { href: '/docs', label: 'Docs' },
+  { href: '/playground', label: 'Playground' },
 ] as const
 
 const SEO_SECTIONS = [
@@ -430,12 +367,8 @@ function codeForTab(tab: CodeTab) {
       return OPENAI_CODE
     case 'gemini':
       return GEMINI_CODE
-    case 'adapter':
-      return ADAPTER_CODE
-    case 'external':
-      return EXTERNAL_CONTROLS_CODE
-    case 'controlled':
-      return CONTROLLED_CODE
+    case 'custom':
+      return CUSTOM_CODE
     case 'vapi':
     default:
       return VAPI_CODE
@@ -444,22 +377,22 @@ function codeForTab(tab: CodeTab) {
 
 // App
 export default function App() {
-  const [simulationStartedAt, setSimulationStartedAt] = useState<number | null>(null)
+  const [simulationStartedAt] = useState(nowMs)
   const simulation = useConversationSimulation(simulationStartedAt)
   const [theme, setTheme] = useState<OrbTheme>('cloud')
   const [mode, setMode] = useState<DemoMode>('simulation')
-  const [sandboxState, setSandboxState] = useState<OrbState>('idle')
-  const [sandboxVolume, setSandboxVolume] = useState(0)
+  const [manualState, setManualState] = useState<OrbState>('idle')
+  const [manualVolume, setManualVolume] = useState(0)
   const [copied, setCopied] = useState(false)
   const [codeTab, setCodeTab] = useState<CodeTab>('vapi')
 
   const activeOrb = useMemo(() => {
-    if (mode === 'sandbox') {
+    if (mode === 'manual') {
       return {
-        mode: 'Sandbox',
-        state: sandboxState,
-        volume: sandboxVolume,
-        signal: signalFromStateVolume(sandboxState, sandboxVolume),
+        mode: 'Manual',
+        state: manualState,
+        volume: manualVolume,
+        signal: signalFromStateVolume(manualState, manualVolume),
       }
     }
 
@@ -469,7 +402,7 @@ export default function App() {
       volume: simulation.volume,
       signal: signalFromStateVolume(simulation.state, simulation.volume),
     }
-  }, [mode, sandboxState, sandboxVolume, simulation])
+  }, [mode, manualState, manualVolume, simulation])
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText('npm install orb-ui')
@@ -477,15 +410,15 @@ export default function App() {
     window.setTimeout(() => setCopied(false), 1500)
   }, [])
 
-  const handleSandboxState = useCallback((nextState: OrbState) => {
-    setSandboxState(nextState)
+  const handleManualState = useCallback((nextState: OrbState) => {
+    setManualState(nextState)
 
     if (nextState === 'listening') {
-      setSandboxVolume(0.35)
+      setManualVolume(0.35)
     } else if (nextState === 'speaking') {
-      setSandboxVolume(0.65)
+      setManualVolume(0.65)
     } else {
-      setSandboxVolume(0)
+      setManualVolume(0)
     }
   }, [])
 
@@ -581,8 +514,6 @@ export default function App() {
             <a
               key={link.href}
               href={link.href}
-              target={link.external ? '_blank' : undefined}
-              rel={link.external ? 'noreferrer' : undefined}
               style={{ color: '#888', fontSize: 14, textDecoration: 'none' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
               onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
@@ -675,18 +606,6 @@ export default function App() {
         >
           <Orb theme={theme} size={280} signal={activeOrb.signal} data-testid="orb-demo-visual" />
 
-          {mode === 'simulation' && (
-            <button
-              onClick={() =>
-                setSimulationStartedAt((current) => (current === null ? nowMs() : null))
-              }
-              style={{ ...btnStyle(false), marginTop: 16 }}
-              type="button"
-            >
-              {simulationStartedAt === null ? 'Start demo' : 'End demo'}
-            </button>
-          )}
-
           <div style={statusStripStyle}>
             <span data-testid="orb-demo-mode" style={statusCellStyle}>
               {activeOrb.mode}
@@ -719,7 +638,7 @@ export default function App() {
             {(
               [
                 { id: 'simulation', label: 'Simulation' },
-                { id: 'sandbox', label: 'Sandbox' },
+                { id: 'manual', label: 'Manual' },
               ] as const
             ).map(({ id, label }) => (
               <button key={id} onClick={() => setMode(id)} style={btnStyle(mode === id)}>
@@ -729,7 +648,7 @@ export default function App() {
           </div>
         </div>
 
-        {mode === 'sandbox' && (
+        {mode === 'manual' && (
           <div
             style={{
               margin: '24px auto 0',
@@ -740,14 +659,14 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            <div style={{ ...labelStyle, marginBottom: 16 }}>Playground</div>
+            <div style={{ ...labelStyle, marginBottom: 16 }}>Manual controls</div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {STATES.map((s) => (
                 <button
                   key={s}
-                  onClick={() => handleSandboxState(s)}
-                  style={btnStyle(sandboxState === s)}
+                  onClick={() => handleManualState(s)}
+                  style={btnStyle(manualState === s)}
                 >
                   {s}
                 </button>
@@ -762,15 +681,15 @@ export default function App() {
                   marginBottom: 8,
                 }}
               >
-                Volume / {sandboxVolume.toFixed(2)}
+                Volume / {manualVolume.toFixed(2)}
               </label>
               <input
                 type="range"
                 min={0}
                 max={1}
                 step={0.01}
-                value={sandboxVolume}
-                onChange={(e) => setSandboxVolume(parseFloat(e.target.value))}
+                value={manualVolume}
+                onChange={(e) => setManualVolume(parseFloat(e.target.value))}
                 style={{ width: '100%', accentColor: '#d9d9d9' }}
               />
             </div>
@@ -804,17 +723,8 @@ export default function App() {
           <button onClick={() => setCodeTab('gemini')} style={btnStyle(codeTab === 'gemini')}>
             Gemini
           </button>
-          <button onClick={() => setCodeTab('adapter')} style={btnStyle(codeTab === 'adapter')}>
-            Adapter
-          </button>
-          <button onClick={() => setCodeTab('external')} style={btnStyle(codeTab === 'external')}>
-            External controls
-          </button>
-          <button
-            onClick={() => setCodeTab('controlled')}
-            style={btnStyle(codeTab === 'controlled')}
-          >
-            Controlled
+          <button onClick={() => setCodeTab('custom')} style={btnStyle(codeTab === 'custom')}>
+            Custom
           </button>
         </div>
 
