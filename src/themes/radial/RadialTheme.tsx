@@ -86,9 +86,9 @@ void main() {
     0.021 * sin(angle * 7.0 + u_time * 0.63 - 0.8) +
     0.012 * sin(angle * 11.0 - u_time * 1.72 + sin(angle * 2.0 + u_time * 0.58));
   rimWave *= 1.0 + u_listen * 0.38;
-  float rimInner = 0.82 + rimWave - u_listen * 0.118;
+  float rimInner = 0.82 + rimWave - u_listen * 0.2;
   float rim = smoothstep(rimInner - 0.02, rimInner + 0.015, radius);
-  float rimStrength = rim * (0.3 + u_listen * 0.25);
+  float rimStrength = rim * (0.3 + u_listen * 0.3);
   vec3 membrane = mix(
     vec3(0.47, 0.84, 0.84),
     vec3(0.76, 0.93, 0.92),
