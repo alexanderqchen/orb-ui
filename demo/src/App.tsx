@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Orb } from 'orb-ui'
 import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
+import { highlightTsx } from './syntax-highlight'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
@@ -417,6 +418,8 @@ export default function App() {
   }, [mode, manualState, manualVolume, simulation])
 
   const activeCodeOption = CODE_OPTIONS.find((option) => option.id === codeTab) ?? CODE_OPTIONS[0]
+  const activeCode = codeForTab(codeTab)
+  const highlightedCode = useMemo(() => highlightTsx(activeCode), [activeCode])
 
   const handleCopy = useCallback((target: Exclude<CopyTarget, null>, value: string) => {
     void navigator.clipboard.writeText(value)
@@ -1088,6 +1091,52 @@ export default function App() {
           white-space: pre;
         }
 
+        .code-token--attribute {
+          color: #ffcb6b;
+        }
+
+        .code-token--comment {
+          color: #707a8c;
+          font-style: italic;
+        }
+
+        .code-token--function {
+          color: #82b1ff;
+        }
+
+        .code-token--keyword {
+          color: #c792ea;
+        }
+
+        .code-token--literal,
+        .code-token--number {
+          color: #f78c6c;
+        }
+
+        .code-token--operator {
+          color: #89ddff;
+        }
+
+        .code-token--property {
+          color: #addb67;
+        }
+
+        .code-token--punctuation {
+          color: #9ba8b8;
+        }
+
+        .code-token--string {
+          color: #c3e88d;
+        }
+
+        .code-token--tag {
+          color: #f07178;
+        }
+
+        .code-token--type {
+          color: #ffcb6b;
+        }
+
         .docs-directory {
           margin: 0 auto;
           max-width: 1080px;
@@ -1461,7 +1510,7 @@ export default function App() {
           }
 
           .integration-workspace {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
           }
 
           .integration-sidebar {
@@ -1879,14 +1928,24 @@ export default function App() {
                 <button
                   type="button"
                   className="code-window__copy"
-                  onClick={() => handleCopy('code', codeForTab(codeTab))}
+                  onClick={() => handleCopy('code', activeCode)}
                   aria-label={`Copy ${activeCodeOption.label} example`}
                 >
                   {copiedTarget === 'code' ? 'Copied' : 'Copy code'}
                 </button>
               </div>
               <pre>
-                <code>{codeForTab(codeTab)}</code>
+                <code className="language-tsx">
+                  {highlightedCode.map((token, index) =>
+                    token.kind === 'plain' ? (
+                      token.value
+                    ) : (
+                      <span key={index} className={`code-token--${token.kind}`}>
+                        {token.value}
+                      </span>
+                    ),
+                  )}
+                </code>
               </pre>
             </div>
           </div>
