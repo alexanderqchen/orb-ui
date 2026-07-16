@@ -9,6 +9,16 @@ This repo is intentionally AI-native. Follow `CONTRIBUTING.md` first, then these
 - Breaking API changes need a changeset, migration notes, and matching docs/examples updates.
 - Do not mark a change as breaking for internal-only refactors.
 
+## Git and GitHub Workflow
+
+- Use local Git for branch creation, staging, commits, and pushes.
+- When a connected GitHub App is available, prefer it for repository metadata and pull request creation after the branch has been pushed.
+- Do not treat `gh auth status` as a universal prerequisite. An expired or missing GitHub CLI token only blocks operations that actually require `gh`; it does not block local Git, an authenticated `git push`, or the connected GitHub App.
+- Use `gh` as a fallback when the GitHub App is unavailable or does not support the required operation. Request `gh auth login` only when that fallback is genuinely required.
+- Before opening a PR, confirm the intended diff, push the current branch, derive the target repository from `origin`, and derive the base branch from `origin/HEAD` or GitHub App repository metadata.
+- Open draft PRs by default unless the user explicitly asks for a ready-for-review PR.
+- If publishing fails, report the failing layer precisely: local Git state, remote push authentication, GitHub App access, or GitHub CLI authentication.
+
 ## Product Direction
 
 - Keep public product planning in `ROADMAP.md`.
