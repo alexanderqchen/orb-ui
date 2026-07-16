@@ -46,6 +46,14 @@ The Gemini Live adapter owns browser microphone PCM streaming, native-audio play
 handling, and signal normalization. Applications still own the official GenAI client and ephemeral
 token creation.
 
+### SEO and documentation foundations — complete
+
+Canonical documentation routes now own provider, example, and implementation-guide content. The
+site uses one sitemap index for the homepage and documentation sitemap, redirects legacy static
+HTML routes to their maintained equivalents, and links directly from the homepage to provider and
+use-case guides. Documentation pages use one descriptive page heading and implementation-focused
+content that stays aligned with the public API.
+
 ## Experience
 
 ### More impressive themes

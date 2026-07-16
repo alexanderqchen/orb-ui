@@ -67,19 +67,22 @@ Every provider ends at the same React API:
 
 The only difference is how the adapter obtains a provider session:
 
-| Provider        | Required browser setup                                                   |
-| --------------- | ------------------------------------------------------------------------ |
-| Vapi            | Pass a configured Vapi client plus `assistantId`                         |
-| ElevenLabs      | Pass `Conversation` plus an `agentId`, signed URL, or conversation token |
-| LiveKit         | Provide a token endpoint and optional agent name                         |
-| Pipecat         | Pass a configured `PipecatClient` plus its connect callback              |
-| OpenAI Realtime | Return a fresh short-lived client secret from `getClientSecret`          |
-| Gemini Live     | Open the official Google Live session in `connect`                       |
+| Provider                                                                  | Required browser setup                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Vapi guide](https://orb-ui.com/docs/adapters/vapi)                       | Pass a configured Vapi client plus `assistantId`                         |
+| [ElevenLabs guide](https://orb-ui.com/docs/adapters/elevenlabs)           | Pass `Conversation` plus an `agentId`, signed URL, or conversation token |
+| [LiveKit guide](https://orb-ui.com/docs/adapters/livekit)                 | Provide a token endpoint and optional agent name                         |
+| [Pipecat guide](https://orb-ui.com/docs/adapters/pipecat)                 | Pass a configured `PipecatClient` plus its connect callback              |
+| [OpenAI Realtime guide](https://orb-ui.com/docs/adapters/openai-realtime) | Return a fresh short-lived client secret from `getClientSecret`          |
+| [Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live)         | Open the official Google Live session in `connect`                       |
 
 The adapter owns provider event mapping and emits one consistent `OrbSignal`. OpenAI and Gemini
 standard API keys, and LiveKit participant-token signing, stay on your server. See the
 [adapter overview](https://orb-ui.com/docs/adapters/overview) for the responsibility boundary and
 advanced setup shapes.
+
+For an app-owned WebRTC, WebSocket, telephony, or speech runtime, follow the
+[custom integration guide](https://orb-ui.com/docs/adapters/custom).
 
 ## Quick Start
 

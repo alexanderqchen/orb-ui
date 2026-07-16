@@ -1,9 +1,7 @@
 ---
-title: Voice agent UI components
+title: Voice Agent UI Components for React
 description: Design React voice agent UI components that communicate listening, speaking, connecting, and error states clearly.
 ---
-
-# Voice agent UI components for React
 
 A voice agent needs more than a microphone button. Users need to know when the agent is connecting, listening, thinking, speaking, or failing. orb-ui gives React teams a small UI layer for those moments: animated voice orbs, audio-reactive themes, provider adapters, and controlled mode.
 
@@ -22,6 +20,36 @@ orb-ui models the core lifecycle as:
 
 Those states map cleanly to Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, and custom WebRTC or WebSocket voice pipelines.
 
+| State        | Question the UI should answer           | Useful visual treatment                                  |
+| ------------ | --------------------------------------- | -------------------------------------------------------- |
+| `idle`       | Can I start a conversation?             | Calm, available, with an explicit start affordance       |
+| `connecting` | Is the session actually starting?       | Progress without implying that the microphone is active  |
+| `listening`  | Is the app hearing me?                  | Input-reactive motion and short supporting status text   |
+| `thinking`   | Did my turn end, and is work happening? | Quieter processing motion that is distinct from speaking |
+| `speaking`   | Is this audio coming from the agent?    | Output-reactive motion and an interrupt or stop control  |
+| `error`      | What failed, and can I recover?         | Visible error copy and a retry path                      |
+
+State is the semantic layer. Volume is the motion layer. Keep them separate so a noisy microphone
+cannot make an idle assistant look active and a silent model response cannot leave the UI stuck in
+the wrong state.
+
+## Design the lifecycle before the animation
+
+Write the state transitions down before choosing colors or motion. A normal browser conversation
+usually follows this path:
+
+1. The user explicitly starts the session.
+2. The UI enters `connecting` while credentials, media, and the provider connection initialize.
+3. The UI enters `listening` only after the session can receive input.
+4. The end of a user turn moves through `thinking` when the provider exposes that boundary.
+5. Remote audio moves the UI to `speaking`.
+6. A completed or interrupted response returns to `listening`.
+7. Stop and cleanup return to `idle`; failures move to `error` with a recovery action.
+
+Do not treat a click as proof that a voice session started. Provider authentication, microphone
+permission, WebRTC negotiation, or device selection can still fail. The visible state should follow
+the session, not the optimistic button press.
+
 ## Component architecture
 
 Use an adapter when a provider can supply a normalized voice signal for you. Use controlled mode when your app already owns the voice session lifecycle.
@@ -39,6 +67,95 @@ export function VoiceAgentStatus({ state, volume }) {
 }
 ```
 
+Use `OrbSignal` when the browser can measure the user and agent independently:
+
+```tsx
+import { Orb, type OrbSignal } from 'orb-ui'
+
+export function VoiceAgentStatus({ signal }: { signal: OrbSignal }) {
+  return (
+    <Orb
+      signal={signal}
+      theme="radial"
+      aria-label={signal.state === 'idle' ? 'Start voice assistant' : 'Stop voice assistant'}
+    />
+  )
+}
+```
+
+`inputVolume` should follow the local microphone while listening. `outputVolume` should follow the
+remote agent while speaking. Themes can then communicate who owns the turn instead of reacting to
+one ambiguous volume value.
+
+## Microphone permission and connection feedback
+
+Microphone permission is part of the product experience. Ask for it after a clear user action, not
+on page load. While the browser prompt is open, keep the interface in a neutral connecting state and
+explain why audio access is needed near the control that requested it.
+
+Handle common failures explicitly:
+
+- permission denied or dismissed
+- no usable input device
+- provider credential or token failure
+- WebRTC or WebSocket connection timeout
+- remote audio blocked by browser playback policy
+- a session that closes unexpectedly
+
+An error orb without text forces users to guess. Pair `error` with a short message such as
+“Microphone access is blocked” or “The voice session disconnected,” plus the smallest useful next
+action. Preserve diagnostic detail for logs rather than showing transport errors directly to users.
+
+## Interruption, transcript, and handoff
+
+The orb is a compact status surface, not the whole voice application. Products that need precise
+conversation context should place it beside:
+
+- a transcript or live captions
+- mute and stop controls
+- elapsed time or connection status
+- retry and reconnect actions
+- human handoff status
+- provider-specific consent or recording notices
+
+For interruption, stop output motion as soon as remote playback stops and return to the state the
+session actually reports. Do not visually imply that the agent is speaking while queued audio is
+being cancelled. If the provider has more detailed states than orb-ui, keep those details in nearby
+status copy and map the orb to the closest supported lifecycle state.
+
+## Accessibility and reduced motion
+
+A voice visualization should never be the only way to understand the session. Keep an accessible
+name on interactive themes, expose visible status text when state matters, and preserve keyboard
+activation for start and stop controls. Avoid using color alone to distinguish listening, speaking,
+and error states.
+
+Motion should support comprehension:
+
+- keep idle motion slow and low contrast
+- use input and output levels to change intensity, not to trigger unrelated layout movement
+- avoid flashes or rapid oscillation
+- respect reduced-motion preferences in the surrounding application
+- keep focus indicators visible when the orb is interactive
+
+Use the `debug` theme during integration to confirm that state and volume change correctly before
+evaluating a polished theme.
+
+## Choose a provider integration path
+
+| Integration     | Start with                                                      | Why                                                                     |
+| --------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Vapi            | [Vapi Voice UI for React](/adapters/vapi)                       | Wrap an existing Vapi browser client and assistant                      |
+| ElevenLabs      | [ElevenLabs Voice UI for React](/adapters/elevenlabs)           | Let the adapter manage the conversational session and both audio levels |
+| LiveKit Agents  | [LiveKit Voice UI for React](/adapters/livekit)                 | Connect through a token endpoint and map agent participant state        |
+| Pipecat         | [Pipecat Voice UI for React](/adapters/pipecat)                 | Reuse a configured Pipecat client across supported transports           |
+| OpenAI Realtime | [OpenAI Realtime Voice UI for React](/adapters/openai-realtime) | Let orb-ui own browser WebRTC and audio playback                        |
+| Gemini Live     | [Gemini Live Voice UI for React](/adapters/gemini-live)         | Open the official Live session with a short-lived token                 |
+| Custom stack    | [Custom Voice AI UI Integrations](/adapters/custom)             | Supply normalized state and volume or build an adapter                  |
+
+The [adapter comparison](/adapters/overview) explains which layer owns authentication, media,
+playback, state mapping, and cleanup for each provider.
+
 ## UI patterns that help adoption
 
 For developer tools, the fastest path to adoption is:
@@ -49,7 +166,23 @@ For developer tools, the fastest path to adoption is:
 - a custom controlled-mode example
 - honest language about what the UI layer does and does not do
 
-The UI should make the voice agent feel present without pretending to be the voice agent platform itself.
+The UI should make the voice agent feel present without pretending to be the voice agent platform
+itself. A useful adoption page also includes the failure path: microphone requirements, credential
+boundaries, cleanup behavior, and what developers should expect after pressing start.
+
+## Production checklist
+
+Before shipping a React voice agent UI, verify that:
+
+- the start action creates a fresh provider session or credential when required
+- connecting, listening, thinking, speaking, idle, and error transitions are observable
+- microphone and agent audio drive the correct volume direction
+- remote audio stops on interruption and session cleanup
+- the user can stop the conversation without clicking the animated artwork
+- permission, token, network, and device failures have recovery copy
+- keyboard users can operate every interactive control
+- reduced motion and visible focus styles remain usable
+- the page links to a provider-specific setup or a complete custom integration contract
 
 ## Future signals
 
@@ -61,3 +194,14 @@ The state model is intentionally small. As provider adapters mature, likely sign
 - `handoff`
 
 Those should only ship when they remove real ambiguity across providers.
+
+Until then, pair the orb with adjacent text or controls for product-specific concepts. Keeping the
+shared state model small makes themes and adapters portable across providers while applications
+retain the detail their workflows require.
+
+## Related guides
+
+- [Voice orb UI example](/examples/voice-orb-ui)
+- [Signal-based voice agent UI architecture](/guides/signal-based-voice-agent-ui)
+- [Voice agent platform comparison](/guides/voice-agent-platforms)
+- [Voice orb themes and states](/themes/voice-states)

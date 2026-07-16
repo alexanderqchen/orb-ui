@@ -1,9 +1,7 @@
 ---
-title: OpenAI Realtime adapter
+title: OpenAI Realtime Voice UI for React
 description: Connect OpenAI's Realtime API to an audio-reactive React voice UI with native WebRTC, short-lived client secrets, and orb-ui.
 ---
-
-# OpenAI Realtime voice UI for React
 
 `createOpenAIRealtimeAdapter` owns the browser voice path: microphone capture, WebRTC negotiation,
 remote audio playback, input/output metering, interruption-aware state, and cleanup. Your server
@@ -112,6 +110,34 @@ Most applications only need `getClientSecret`.
 
 This adapter targets the public OpenAI Realtime API. It does not wrap consumer ChatGPT voice
 features that do not expose a corresponding developer API.
+
+## Troubleshooting
+
+**The browser receives `401` or cannot connect.** Verify that the server endpoint creates a fresh
+short-lived client secret for every start and that the browser sends that value to the adapter.
+Never substitute a standard API key in client code.
+
+**The orb connects but no remote audio plays.** Check browser autoplay and audio-output behavior,
+then inspect the WebRTC connection and remote track. The adapter creates and plays the media element
+unless a custom runtime override replaces that behavior.
+
+**Listening does not react to speech.** Confirm microphone permission and the requested media
+constraints. Test the raw input diagnostics before changing visual calibration; a silent or wrong
+input device cannot be fixed with gain.
+
+**Speaking motion is too quiet or too aggressive.** Start with the tuned defaults, inspect samples
+with `onOutputVolumeSample`, and change one calibration field at a time. Validate normal speech and
+silence rather than tuning to a single loud clip.
+
+## Production checklist
+
+- A server-only standard API key creates short-lived client secrets.
+- The token endpoint is authenticated and rate-limited for the application's threat model.
+- Microphone denial, WebRTC failure, and token failure have distinct recovery messages.
+- A fresh client secret is created after stop, error, or expiration.
+- Start, interruption, stop, and restart are tested on supported browsers.
+- A visible text status and labeled controls accompany the animation.
+- Custom runtime overrides release media tracks, audio contexts, and peer connections.
 
 ## Related
 

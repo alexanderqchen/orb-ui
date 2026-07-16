@@ -256,8 +256,24 @@ const SEO_SECTIONS = [
     title: 'Native realtime voice adapters',
     copy: 'Drive the UI from managed browser audio, provider state, and separate input/output levels.',
     link: '/docs/adapters/openai-realtime',
-    linkLabel: 'Preview notes',
+    linkLabel: 'OpenAI setup',
   },
+] as const
+
+const PROVIDER_GUIDES = [
+  { href: '/docs/adapters/vapi', label: 'Vapi' },
+  { href: '/docs/adapters/elevenlabs', label: 'ElevenLabs' },
+  { href: '/docs/adapters/livekit', label: 'LiveKit' },
+  { href: '/docs/adapters/pipecat', label: 'Pipecat' },
+  { href: '/docs/adapters/openai-realtime', label: 'OpenAI Realtime' },
+  { href: '/docs/adapters/gemini-live', label: 'Gemini Live' },
+  { href: '/docs/adapters/custom', label: 'Custom voice stack' },
+] as const
+
+const USE_CASE_GUIDES = [
+  { href: '/docs/guides/ai-voice-sales-agents', label: 'AI voice sales agents' },
+  { href: '/docs/guides/voice-ai-customer-support', label: 'Voice AI customer support' },
+  { href: '/docs/themes/voice-states', label: 'Voice states and themes' },
 ] as const
 
 function btnStyle(selected: boolean, disabled = false): CSSProperties {
@@ -771,6 +787,52 @@ export default function App() {
             </a>
           ))}
         </div>
+
+        <nav aria-label="Voice agent documentation" style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 20, color: '#fff', margin: '0 0 12px' }}>
+            Voice agent provider guides
+          </h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {PROVIDER_GUIDES.map((guide) => (
+              <a
+                key={guide.href}
+                href={guide.href}
+                style={{
+                  color: '#aaa',
+                  border: '1px solid #242424',
+                  borderRadius: 999,
+                  padding: '8px 12px',
+                  textDecoration: 'none',
+                  fontSize: 13,
+                }}
+              >
+                {guide.label}
+              </a>
+            ))}
+          </div>
+
+          <h2 style={{ fontSize: 20, color: '#fff', margin: '24px 0 12px' }}>
+            Voice AI implementation guides
+          </h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {USE_CASE_GUIDES.map((guide) => (
+              <a
+                key={guide.href}
+                href={guide.href}
+                style={{
+                  color: '#aaa',
+                  border: '1px solid #242424',
+                  borderRadius: 999,
+                  padding: '8px 12px',
+                  textDecoration: 'none',
+                  fontSize: 13,
+                }}
+              >
+                {guide.label}
+              </a>
+            ))}
+          </div>
+        </nav>
       </section>
 
       <footer

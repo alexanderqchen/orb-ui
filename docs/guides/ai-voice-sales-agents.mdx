@@ -1,50 +1,127 @@
 ---
-title: AI voice sales agent UI patterns
+title: AI Voice Sales Agent UI Patterns
 description: Design React UI patterns for AI voice sales agents, AI receptionists, appointment setters, and outbound calling assistants.
 ---
-
-# AI voice sales agent UI patterns
 
 Sales-oriented voice agents need visible state because users and operators need to trust what the agent is doing.
 
 orb-ui is not a sales agent platform. It is a UI layer for builders designing the visible experience around voice sessions.
 
-## Useful UI states
+## Map the call lifecycle before styling it
 
-For sales, appointment-setting, and receptionist flows, consider showing:
+Start with the questions a prospect or operator needs the interface to answer:
 
-- idle or ready
-- connecting
-- listening
-- speaking
-- muted
-- handoff requested
-- error
+| Voice state  | What the interface should communicate                      |
+| ------------ | ---------------------------------------------------------- |
+| `idle`       | The assistant is available and has not started a call      |
+| `connecting` | The call is being created or joined                        |
+| `listening`  | The prospect has the floor and the microphone is active    |
+| `thinking`   | The assistant is deciding what to say or waiting on a tool |
+| `speaking`   | The assistant has the floor                                |
+| `error`      | The session failed and a recovery action is available      |
 
-The current orb-ui component supports the core states today. More specialized states should be added only when adapter integrations prove they are needed.
+Sales-specific events such as dialing, voicemail detection, qualification, booking, and human
+handoff should stay in the application layer. Map those events to the closest visual voice state,
+then explain the business event with adjacent text. A user should never have to infer “waiting for
+calendar availability” from an animation alone.
 
-## Builder workflows
+## Design the complete sales surface
 
-A useful voice sales agent builder UI should make it easy to:
+The orb works best as the compact voice-presence layer inside a broader call experience. Pair it
+with the controls and information the workflow needs:
 
-- inspect state transitions
-- test prompts
-- switch providers
-- see a transcript
-- handle human handoff
-- understand failure states
+- a visible call-status label and elapsed time
+- explicit mute, end-call, and retry controls
+- a live transcript or concise activity log
+- consent or recording disclosure where required
+- an obvious human-handoff action
+- appointment, lead, or CRM context outside the conversation visualization
+
+For outbound systems, keep the operator view separate from the prospect-facing call surface. The
+operator may need campaign, lead, disposition, and transfer controls that would distract a person
+speaking directly with the agent.
 
 ## Controlled mode example
 
-```tsx
-import { Orb } from 'orb-ui'
+Product-specific call states rarely match a visual component one-to-one. Normalize them in one
+place instead of spreading conditional UI throughout the application.
 
-export function SalesAgentCallStatus({ callState, volume }) {
-  return <Orb state={callState} volume={volume} theme="circle" />
+```tsx
+import { Orb, type OrbState } from 'orb-ui'
+
+function toOrbState(callState: string): OrbState {
+  if (callState === 'dialing' || callState === 'joining') return 'connecting'
+  if (callState === 'prospect-speaking') return 'listening'
+  if (callState === 'agent-speaking') return 'speaking'
+  if (callState === 'tool-call' || callState === 'booking') return 'thinking'
+  if (callState === 'failed') return 'error'
+  return 'idle'
+}
+
+export function SalesAgentCallStatus({ callState, inputVolume, outputVolume }) {
+  const state = toOrbState(callState)
+
+  return (
+    <section aria-labelledby="call-status">
+      <Orb signal={{ state, inputVolume, outputVolume }} theme="circle" interactive={false} />
+      <p id="call-status" aria-live="polite">
+        {callState === 'booking' ? 'Checking appointment availability' : callState}
+      </p>
+    </section>
+  )
 }
 ```
+
+Use the real microphone level for `inputVolume` and assistant playback for `outputVolume`. Keeping
+the directions separate makes turn ownership clearer than driving every state from one generic
+amplitude value.
+
+## Builder and QA workflows
+
+A sales-agent builder should make it easy to inspect the states that are hard to reach in a happy
+path. Add a test surface where a developer or operator can:
+
+- step through connecting, listening, thinking, speaking, and error states
+- test low, normal, and clipped audio levels
+- simulate microphone denial, provider timeout, and dropped calls
+- review transcript timing alongside visible state changes
+- verify transfer and end-call actions without placing a real outbound call
+- compare provider behavior behind the same normalized `OrbSignal`
+
+The `debug` theme is useful during integration because it exposes normalized state and volume. Use
+a production theme only after the event mapping is stable.
+
+## Failure and handoff patterns
+
+Do not leave the orb pulsing indefinitely when a provider or tool call has stalled. Put a time
+limit around connecting and long-running tool states, transition to `error`, and provide a labeled
+retry or human-handoff action. Preserve any useful transcript and lead context when the session is
+restarted.
+
+A handoff also needs its own textual status. The voice visualization can become idle or remain
+passive while the application says “Connecting you to a specialist.” This is clearer than adding
+an unsupported visual state that only exists for one workflow.
+
+## Production checklist
+
+- The visible status matches the real session rather than a timer-only animation.
+- Start, mute, stop, retry, and handoff controls have text labels and keyboard focus.
+- Microphone permission is requested in context and denial has a recovery path.
+- Input and output volume are normalized to values between `0` and `1`.
+- Long connection and booking operations time out into a useful error state.
+- The interface remains understandable with animation or audio unavailable.
+- Consent, recording, and outbound-call requirements are handled by the application.
+
+## Choose an integration path
+
+Use a provider adapter when its SDK owns the browser session, or controlled mode when your product
+already has a call-state layer. Start with the [adapter overview](/adapters/overview), then see the
+[Vapi guide](/adapters/vapi), [ElevenLabs guide](/adapters/elevenlabs), or
+[custom integration guide](/adapters/custom).
 
 ## Related
 
 - [Voice agent UI guide](/guides/voice-agent-ui)
 - [Voice agent platforms guide](/guides/voice-agent-platforms)
+- [Voice orb UI example](/examples/voice-orb-ui)
+- [Themes and voice states](/themes/voice-states)

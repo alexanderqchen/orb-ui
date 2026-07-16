@@ -1,9 +1,7 @@
 ---
-title: Vapi adapter
+title: Vapi Voice UI for React
 description: Add a Vapi voice UI to React with orb-ui's adapter, animated orb visuals, and state-aware voice agent visuals.
 ---
-
-# Vapi voice UI components for React
 
 Vapi handles the voice agent platform layer. orb-ui handles the visible React UI layer: an animated voice orb, audio-reactive feedback, and predictable states that make a Vapi assistant feel present in your app.
 
@@ -32,6 +30,30 @@ export function VapiVoiceUI() {
 }
 ```
 
+Create the Vapi client and adapter outside the render path, or memoize them when configuration is
+dynamic. Recreating either object on every render can replace event subscriptions while a call is
+active.
+
+## Session ownership
+
+The adapter can start and stop the configured assistant, and it also observes calls started
+elsewhere through the same Vapi client. Activating an interactive orb calls `vapi.start()` with the
+configured `assistantId`; activating it again calls `vapi.stop()`.
+
+If the product already has labeled call controls, render a passive orb instead:
+
+```tsx
+export function VapiCallSurface() {
+  return (
+    <section aria-label="Vapi conversation">
+      <Orb adapter={adapter} theme="cloud" interactive={false} />
+      <button onClick={() => void adapter.start?.()}>Start conversation</button>
+      <button onClick={() => adapter.stop?.()}>End conversation</button>
+    </section>
+  )
+}
+```
+
 ## State mapping
 
 The adapter maps Vapi conversation lifecycle events into orb-ui state changes. The UI can then communicate:
@@ -46,6 +68,21 @@ The Vapi web SDK does not currently expose local microphone input levels through
 adapter event stream, so this adapter does not emit `inputVolume` while listening. If your
 app already meters the microphone separately, pass a controlled `signal` to `Orb`.
 
+The core mapping is:
+
+| Vapi event     | Orb state    |
+| -------------- | ------------ |
+| `vapi.start()` | `connecting` |
+| `call-start`   | `listening`  |
+| `speech-start` | `speaking`   |
+| `speech-end`   | `listening`  |
+| `call-end`     | `idle`       |
+| `error`        | `error`      |
+
+The adapter smooths Vapi's assistant volume events before emitting `outputVolume`. It also
+debounces short speaking-to-listening changes so normal turn boundaries do not create distracting
+visual flicker.
+
 ## Accessibility
 
 When an adapter or `onStart`/`onStop` handler is provided, clickable `circle` and `bars` themes render as `<button type="button">` controls. Pass an `aria-label` when no visible text labels the orb.
@@ -58,6 +95,42 @@ Use controlled mode if your app wraps Vapi in its own session layer or combines 
 <Orb signal={{ state: voiceState, outputVolume }} theme="circle" />
 ```
 
+Controlled mode is the better fit when you combine Vapi with a separate microphone meter, tool
+status, human handoff, or application-owned call state. Keep the Vapi client lifecycle in your
+session layer and pass one normalized `OrbSignal` to the UI.
+
+## Troubleshooting
+
+**The orb never leaves idle.** Make sure the adapter and the code starting the call share the same
+Vapi client instance. The adapter listens for lifecycle events on that object.
+
+**Listening has little or no audio motion.** The current Vapi event stream used by this adapter
+provides assistant output levels, not the local microphone level. This is expected. Supply a custom
+`inputVolume` through controlled mode if microphone-reactive listening is important to the design.
+
+**The interface starts multiple calls.** Use either the interactive orb or your own start control
+as the primary action. When the product owns the controls, set `interactive={false}`.
+
+**The orb stays in error after retrying.** Confirm that the underlying Vapi call can start again and
+that the same subscribed client receives the new `call-start` event. Surface the provider error in
+adjacent recovery copy rather than relying on the visual alone.
+
+## Production checklist
+
+- The Vapi public key and assistant configuration are appropriate for browser use.
+- One stable client and adapter instance owns the current call.
+- The missing local input meter is acceptable or supplied through controlled mode.
+- Permission and provider errors have labeled retry actions.
+- Interactive behavior is disabled when separate call controls are present.
+- Start, stop, interruption, failure, and restart are tested in the real browser.
+
 ## Positioning
 
 orb-ui is not a Vapi replacement. It is a frontend UI layer for teams already building with Vapi or comparing voice agent stacks.
+
+## Related
+
+- [Adapter overview](/adapters/overview)
+- [Voice orb UI example](/examples/voice-orb-ui)
+- [Custom integrations](/adapters/custom)
+- [Voice agent UI guide](/guides/voice-agent-ui)

@@ -2,4 +2,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://orb-ui.com/sitemap.xml
-Sitemap: https://orb-ui.com/docs/sitemap.xml

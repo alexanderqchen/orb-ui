@@ -1,9 +1,7 @@
 ---
-title: ElevenLabs adapter
+title: ElevenLabs Voice UI for React
 description: Add an ElevenLabs voice UI to React with orb-ui's adapter, audio-reactive themes, and controlled voice agent states.
 ---
-
-# ElevenLabs voice UI components for React
 
 ElevenLabs can power conversational voice experiences. orb-ui gives those experiences a visible React UI layer: an animated orb, audio-reactive feedback, and predictable voice states.
 
@@ -33,6 +31,29 @@ export function ElevenLabsVoiceUI() {
 
 For private agents, pass the server-generated `signedUrl` or `conversationToken` option that your app already gives to `Conversation.startSession()`.
 
+## Choose the session credential
+
+The adapter accepts the same mutually exclusive session shapes that the ElevenLabs client uses:
+
+- `agentId` for a public agent, with an optional `connectionType`
+- `signedUrl` for a private WebSocket session
+- `conversationToken` for a private WebRTC session
+
+Create private session credentials on your server. Do not expose a standard provider API key in
+browser code. The adapter passes other supported `startSession` options through to the client, but
+text-only sessions are intentionally outside orb-ui's voice UI contract.
+
+```tsx
+const privateAdapter = createElevenLabsAdapter(Conversation, {
+  conversationToken: await getConversationToken(),
+  connectionType: 'webrtc',
+})
+```
+
+Create the adapter with a fresh credential when that credential is single-use or expires. Your
+application remains responsible for authenticating and rate-limiting the server endpoint that
+mints it.
+
 ## State mapping
 
 The ElevenLabs adapter is responsible for normalizing provider events into orb-ui states. Keep the UI language simple:
@@ -44,6 +65,32 @@ The ElevenLabs adapter is responsible for normalizing provider events into orb-u
 - error
 
 ElevenLabs input levels are emitted as `inputVolume` while listening, and output levels are emitted as `outputVolume` while speaking.
+
+The ElevenLabs mode surface does not expose a separate thinking event through this adapter, so the
+normal transition is listening to speaking. If your application has an authoritative processing
+state from another source, use controlled mode and include it in the signal you pass to `Orb`.
+
+## Session ownership
+
+`createElevenLabsAdapter` owns `Conversation.startSession()` and `endSession()`. When an interactive
+theme is activated, `Orb` calls the adapter's `start()` or `stop()` method. The adapter installs the
+required callbacks, polls both volume directions during the active turn, and clears that polling
+when the session ends or the subscriber is removed.
+
+If your product already has permanent call controls, use a passive orb and invoke the adapter from
+those controls:
+
+```tsx
+export function ElevenLabsCallSurface() {
+  return (
+    <section aria-label="ElevenLabs conversation">
+      <Orb adapter={adapter} theme="cloud" interactive={false} />
+      <button onClick={() => void adapter.start()}>Start conversation</button>
+      <button onClick={() => void adapter.stop()}>End conversation</button>
+    </section>
+  )
+}
+```
 
 ## Theming
 
@@ -63,3 +110,37 @@ If your app owns more of the ElevenLabs session lifecycle, pass a signal directl
 ```tsx
 <Orb signal={{ state, inputVolume, outputVolume }} theme="circle" />
 ```
+
+Controlled mode is also useful when the same product-level state combines ElevenLabs events with
+tool calls, human handoff, or transcript activity. Normalize those sources once and keep the orb
+independent of provider-specific event names.
+
+## Troubleshooting
+
+**The orb stays on connecting.** Confirm that `Conversation.startSession()` resolves and that the
+browser can reach the agent. For private agents, mint a fresh credential and verify that its
+connection type matches the credential shape.
+
+**The orb moves for only one side.** Input volume is read while the normalized state is listening;
+output volume is read while it is speaking. Confirm that ElevenLabs mode-change callbacks are
+arriving and that the browser granted microphone access.
+
+**A stopped session still updates the UI.** Keep one adapter instance per active configuration and
+let React remove its subscription on unmount. If a credential or agent changes, stop the old
+adapter before replacing it.
+
+## Production checklist
+
+- Private credentials are minted on an authenticated, rate-limited server endpoint.
+- The adapter is created with exactly one of `agentId`, `signedUrl`, or `conversationToken`.
+- Microphone denial and session errors have visible recovery copy outside the orb.
+- Separate call controls use `interactive={false}` on the visualization.
+- Start, stop, and restart are tested without leaked listeners or volume polling.
+- A text status or transcript makes the conversation understandable without animation.
+
+## Related
+
+- [Adapter overview](/adapters/overview)
+- [Voice orb UI example](/examples/voice-orb-ui)
+- [Custom integrations](/adapters/custom)
+- [Themes and voice states](/themes/voice-states)
