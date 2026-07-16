@@ -6,7 +6,7 @@ import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const THEMES: OrbTheme[] = ['circle', 'bars', 'cloud', 'radial', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
-const GITHUB_STAR_COLOR = '#eab308'
+const GITHUB_STAR_COLOR = '#8bc7ff'
 
 type DemoMode = 'simulation' | 'manual'
 type CodeTab = 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini' | 'custom'
@@ -541,20 +541,24 @@ export default function App() {
 
         .github-star-button {
           align-items: center;
-          background: #fffdf4;
-          border: 1px solid #f0d56f;
-          border-radius: 999px;
-          box-shadow: 0 8px 28px rgba(234, 179, 8, 0.14);
-          color: #15110a;
+          background: linear-gradient(180deg, #202327, #17191c);
+          border: 1px solid #353a3f;
+          border-radius: 9px;
+          box-shadow:
+            0 8px 26px rgba(0, 0, 0, 0.26),
+            inset 0 1px rgba(255, 255, 255, 0.045);
+          color: #f3f3f3;
           display: inline-flex;
-          font-size: 12px;
-          font-weight: 760;
+          font-size: 11px;
+          font-weight: 690;
           gap: 7px;
           justify-content: center;
           line-height: 1;
-          padding: 9px 13px;
+          min-height: 38px;
+          padding: 0 13px;
           text-decoration: none;
           transition:
+            background 180ms ease,
             border-color 180ms ease,
             box-shadow 180ms ease,
             transform 180ms ease;
@@ -563,8 +567,12 @@ export default function App() {
 
         .github-star-button:hover,
         .github-star-button:focus-visible {
-          border-color: #ffe58a;
-          box-shadow: 0 10px 34px rgba(234, 179, 8, 0.22);
+          background: linear-gradient(180deg, #272c31, #1b1e21);
+          border-color: #59748a;
+          box-shadow:
+            0 10px 30px rgba(0, 0, 0, 0.32),
+            0 0 24px rgba(92, 177, 255, 0.1),
+            inset 0 1px rgba(255, 255, 255, 0.06);
           transform: translateY(-1px);
         }
 
@@ -628,7 +636,10 @@ export default function App() {
         }
 
         .install-command code {
+          align-items: center;
+          align-self: stretch;
           color: #c7c7c7;
+          display: flex;
           font-family: ${MONOSPACE_FONT};
           font-size: 12px;
           padding: 0 15px;
@@ -1498,7 +1509,7 @@ export default function App() {
           }
 
           .site-nav__actions {
-            gap: 14px;
+            gap: 12px;
           }
 
           .site-nav__links {
@@ -1510,13 +1521,8 @@ export default function App() {
           }
 
           .github-star-button {
-            height: 36px;
-            padding: 0;
-            width: 36px;
-          }
-
-          .github-star-button__label {
-            display: none;
+            min-height: 38px;
+            padding: 0 12px;
           }
 
           .home-hero {
@@ -1532,14 +1538,15 @@ export default function App() {
             font-size: 15px;
           }
 
-          .hero-copy__actions,
-          .install-command {
+          .hero-copy__actions {
             align-items: stretch;
             width: 100%;
           }
 
           .install-command {
+            align-items: center;
             justify-content: space-between;
+            width: 100%;
           }
 
           .primary-link {
