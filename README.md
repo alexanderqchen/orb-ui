@@ -1,15 +1,17 @@
 # orb-ui
 
-React voice agent UI components for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, and custom realtime voice AI apps. orb-ui gives you animated voice orbs, audio-reactive themes, accessible clickable controls, and provider adapters for building polished voice agent interfaces in React.
+**Voice agent UI that feels alive.**
+
+Expressive, accessible React components for realtime voice agents. Connect Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime, Gemini Live, or your own voice stack through one consistent UI layer.
 
 <p align="center">
   <a href="https://orb-ui.com">
-    <img src="assets/demo-screenshot.jpg" alt="orb-ui demo" width="600" />
+    <img src="demo/public/og-image-v2.jpg" alt="orb-ui — Voice agent UI that feels alive" width="900" />
   </a>
 </p>
 
 <p align="center">
-  <a href="https://orb-ui.com">Live Demo</a> · <a href="https://orb-ui.com/docs/adapters/overview">Adapter Guide</a> · <a href="https://orb-ui.com/docs/guides/signal-based-voice-agent-ui">Signal Architecture</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">GitHub</a>
+  <a href="https://orb-ui.com">Live demo</a> · <a href="https://orb-ui.com/docs">Documentation</a> · <a href="https://orb-ui.com/playground">Playground</a> · <a href="https://www.npmjs.com/package/orb-ui">npm</a> · <a href="https://github.com/alexanderqchen/orb-ui">Star on GitHub</a>
 </p>
 
 ```jsx
