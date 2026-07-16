@@ -261,20 +261,35 @@ const SEO_SECTIONS = [
 ] as const
 
 const PROVIDER_GUIDES = [
-  { href: '/docs/adapters/vapi', label: 'Vapi' },
-  { href: '/docs/adapters/elevenlabs', label: 'ElevenLabs' },
-  { href: '/docs/adapters/livekit', label: 'LiveKit' },
-  { href: '/docs/adapters/pipecat', label: 'Pipecat' },
-  { href: '/docs/adapters/openai-realtime', label: 'OpenAI Realtime' },
-  { href: '/docs/adapters/gemini-live', label: 'Gemini Live' },
-  { href: '/docs/adapters/custom', label: 'Custom voice stack' },
+  { href: '/docs/adapters/vapi', label: 'Vapi', detail: 'Web SDK' },
+  { href: '/docs/adapters/elevenlabs', label: 'ElevenLabs', detail: 'Conversational AI' },
+  { href: '/docs/adapters/livekit', label: 'LiveKit', detail: 'Agents' },
+  { href: '/docs/adapters/pipecat', label: 'Pipecat', detail: 'RTVI' },
+  { href: '/docs/adapters/openai-realtime', label: 'OpenAI Realtime', detail: 'WebRTC' },
+  { href: '/docs/adapters/gemini-live', label: 'Gemini Live', detail: 'Live API' },
+  { href: '/docs/adapters/custom', label: 'Custom voice stack', detail: 'Controlled mode' },
 ] as const
 
 const USE_CASE_GUIDES = [
-  { href: '/docs/guides/ai-voice-sales-agents', label: 'AI voice sales agents' },
-  { href: '/docs/guides/voice-ai-customer-support', label: 'Voice AI customer support' },
-  { href: '/docs/themes/voice-states', label: 'Voice states and themes' },
+  {
+    href: '/docs/guides/ai-voice-sales-agents',
+    label: 'AI voice sales agents',
+    detail: 'Call status and handoff',
+  },
+  {
+    href: '/docs/guides/voice-ai-customer-support',
+    label: 'Voice AI customer support',
+    detail: 'Recovery and escalation',
+  },
+  {
+    href: '/docs/themes/voice-states',
+    label: 'Voice states and themes',
+    detail: 'Motion and state design',
+  },
 ] as const
+
+const FEATURED_GUIDE = SEO_SECTIONS[0]
+const DOCUMENTATION_PATHS = SEO_SECTIONS.slice(1)
 
 function btnStyle(selected: boolean, disabled = false): CSSProperties {
   return {
@@ -448,60 +463,299 @@ export default function App() {
       }}
     >
       <style>{`
-        .seo-card {
-          background: #101010;
-          border: 1px solid #1f1f1f;
-          border-radius: 8px;
+        .docs-directory {
+          margin: 16px auto 64px;
+          max-width: 1080px;
+          padding: 0 32px;
+        }
+
+        .docs-directory__shell {
+          background:
+            radial-gradient(circle at 8% 0%, rgba(82, 156, 255, 0.08), transparent 32%),
+            linear-gradient(145deg, #111 0%, #0d0d0d 58%, #0b0b0b 100%);
+          border: 1px solid #222;
+          border-radius: 24px;
+          overflow: hidden;
+          padding: clamp(28px, 5vw, 54px);
+          position: relative;
+        }
+
+        .docs-directory__header {
+          align-items: end;
+          border-bottom: 1px solid #252525;
+          display: grid;
+          gap: 28px;
+          grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.7fr);
+          padding-bottom: 36px;
+        }
+
+        .docs-directory__eyebrow,
+        .docs-featured__eyebrow,
+        .docs-path__eyebrow {
+          color: #78b9f2;
+          font-family: ${MONOSPACE_FONT};
+          font-size: 10px;
+          font-weight: 650;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+
+        .docs-directory__title {
+          font-size: clamp(32px, 5vw, 52px);
+          letter-spacing: -0.045em;
+          line-height: 1.02;
+          margin: 14px 0 0;
+          max-width: 680px;
+        }
+
+        .docs-directory__intro {
+          color: #949494;
+          font-size: 15px;
+          line-height: 1.7;
+          margin: 0;
+          max-width: 390px;
+        }
+
+        .docs-directory__paths {
+          display: grid;
+          gap: 34px;
+          grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+          padding-top: 36px;
+        }
+
+        .docs-featured {
+          background:
+            radial-gradient(circle at 88% 12%, rgba(97, 177, 255, 0.18), transparent 32%),
+            linear-gradient(145deg, #16191c, #111 68%);
+          border: 1px solid #2b3035;
+          border-radius: 18px;
           color: inherit;
           display: flex;
           flex-direction: column;
-          min-height: 180px;
-          padding: 20px;
+          min-height: 340px;
+          overflow: hidden;
+          padding: clamp(26px, 4vw, 38px);
+          position: relative;
           text-decoration: none;
           transition:
             border-color 180ms ease,
-            background 180ms ease,
             transform 180ms ease;
         }
 
-        .seo-card:hover,
-        .seo-card:focus-visible {
-          background: #141414;
-          border-color: #3a3a3a;
+        .docs-featured:hover,
+        .docs-featured:focus-visible {
+          border-color: #4d7191;
           transform: translateY(-2px);
         }
 
-        .seo-card:focus-visible {
+        .docs-featured:focus-visible,
+        .docs-path:focus-visible,
+        .docs-index-link:focus-visible {
           outline: 2px solid #d9ecff;
           outline-offset: 3px;
         }
 
-        .seo-card__copy {
-          color: #9a9a9a;
-          font-size: 14px;
-          line-height: 1.55;
-          margin: 10px 0 0;
+        .docs-featured__orb {
+          background: radial-gradient(
+            circle at 36% 32%,
+            rgba(224, 244, 255, 0.95) 0%,
+            rgba(104, 188, 255, 0.78) 16%,
+            rgba(39, 112, 176, 0.4) 38%,
+            rgba(13, 21, 29, 0) 70%
+          );
+          border: 1px solid rgba(174, 221, 255, 0.12);
+          border-radius: 50%;
+          height: 150px;
+          opacity: 0.82;
+          position: absolute;
+          right: -28px;
+          top: -34px;
+          width: 150px;
         }
 
-        .seo-card__link {
+        .docs-featured h3 {
+          font-size: clamp(28px, 4vw, 40px);
+          letter-spacing: -0.035em;
+          line-height: 1.04;
+          margin: auto 0 0;
+          max-width: 440px;
+          position: relative;
+        }
+
+        .docs-featured__copy {
+          color: #a0a0a0;
+          font-size: 15px;
+          line-height: 1.65;
+          margin: 16px 0 0;
+          max-width: 460px;
+          position: relative;
+        }
+
+        .docs-featured__link {
           align-items: center;
-          color: #9fd2ff;
+          color: #b6dcff;
           display: inline-flex;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 650;
           gap: 6px;
-          margin-top: auto;
-          padding-top: 18px;
+          margin-top: 26px;
+          position: relative;
+          width: fit-content;
         }
 
-        .seo-card__arrow {
-          display: inline-block;
-          transition: transform 180ms ease;
+        .docs-path-list {
+          border-top: 1px solid #292929;
         }
 
-        .seo-card:hover .seo-card__arrow,
-        .seo-card:focus-visible .seo-card__arrow {
+        .docs-path {
+          align-items: center;
+          border-bottom: 1px solid #292929;
+          color: inherit;
+          display: grid;
+          gap: 18px;
+          grid-template-columns: minmax(0, 1fr) auto;
+          padding: 20px 4px;
+          text-decoration: none;
+        }
+
+        .docs-path h3 {
+          font-size: 17px;
+          letter-spacing: -0.015em;
+          line-height: 1.25;
+          margin: 6px 0 0;
+          transition: color 160ms ease;
+        }
+
+        .docs-path p {
+          color: #858585;
+          font-size: 13px;
+          line-height: 1.5;
+          margin: 8px 0 0;
+          max-width: 390px;
+        }
+
+        .docs-path__arrow,
+        .docs-index-link__arrow {
+          color: #5d5d5d;
+          font-size: 18px;
+          transition:
+            color 160ms ease,
+            transform 160ms ease;
+        }
+
+        .docs-path:hover h3,
+        .docs-path:focus-visible h3 {
+          color: #b6dcff;
+        }
+
+        .docs-path:hover .docs-path__arrow,
+        .docs-path:focus-visible .docs-path__arrow,
+        .docs-index-link:hover .docs-index-link__arrow,
+        .docs-index-link:focus-visible .docs-index-link__arrow {
+          color: #b6dcff;
           transform: translateX(4px);
+        }
+
+        .docs-directory__index {
+          border-top: 1px solid #252525;
+          display: grid;
+          gap: 56px;
+          grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.7fr);
+          margin-top: 44px;
+          padding-top: 38px;
+        }
+
+        .docs-index-group__header {
+          align-items: baseline;
+          display: flex;
+          gap: 12px;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .docs-index-group__header h3 {
+          font-size: 16px;
+          margin: 0;
+        }
+
+        .docs-index-group__header span {
+          color: #5d5d5d;
+          font-family: ${MONOSPACE_FONT};
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+
+        .docs-index-grid {
+          display: grid;
+          gap: 0 24px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .docs-index-grid--single {
+          grid-template-columns: 1fr;
+        }
+
+        .docs-index-link {
+          align-items: center;
+          border-top: 1px solid #252525;
+          color: inherit;
+          display: grid;
+          gap: 10px;
+          grid-template-columns: minmax(0, 1fr) auto;
+          min-height: 58px;
+          text-decoration: none;
+        }
+
+        .docs-index-link__label {
+          display: block;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .docs-index-link__detail {
+          color: #737373;
+          display: block;
+          font-size: 11px;
+          margin-top: 3px;
+        }
+
+        @media (max-width: 780px) {
+          .docs-directory__header,
+          .docs-directory__paths,
+          .docs-directory__index {
+            grid-template-columns: 1fr;
+          }
+
+          .docs-directory__header {
+            align-items: start;
+          }
+
+          .docs-directory__paths {
+            gap: 28px;
+          }
+
+          .docs-directory__index {
+            gap: 38px;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .docs-directory {
+            padding: 0 16px;
+          }
+
+          .docs-directory__shell {
+            border-radius: 18px;
+          }
+
+          .docs-featured {
+            min-height: 300px;
+          }
+
+          .docs-index-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
       <nav
@@ -763,76 +1017,94 @@ export default function App() {
         </pre>
       </section>
 
-      {/* ── SEO Content ─────────────────────────────────────────────────── */}
-      <section style={{ padding: '16px 32px 32px', maxWidth: 980, margin: '0 auto' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 14,
-          }}
-        >
-          {SEO_SECTIONS.map((section) => (
-            <a key={section.id} id={section.id} href={section.link} className="seo-card">
-              <h2 style={{ fontSize: 18, color: '#fff', margin: 0, lineHeight: 1.25 }}>
-                {section.title}
+      {/* ── Documentation directory ─────────────────────────────────────── */}
+      <section className="docs-directory" aria-labelledby="docs-directory-title">
+        <div className="docs-directory__shell">
+          <header className="docs-directory__header">
+            <div>
+              <div className="docs-directory__eyebrow">Documentation</div>
+              <h2 id="docs-directory-title" className="docs-directory__title">
+                Build the interface around your voice agent.
               </h2>
-              <p className="seo-card__copy">{section.copy}</p>
-              <span className="seo-card__link">
-                {section.linkLabel}
-                <span className="seo-card__arrow" aria-hidden="true">
-                  →
-                </span>
+            </div>
+            <p className="docs-directory__intro">
+              Start with the interaction model, connect the provider that owns your session, then
+              tune the states and motion for your product.
+            </p>
+          </header>
+
+          <div className="docs-directory__paths">
+            <a id={FEATURED_GUIDE.id} href={FEATURED_GUIDE.link} className="docs-featured">
+              <div className="docs-featured__orb" aria-hidden="true" />
+              <span className="docs-featured__eyebrow">Start here · Foundations</span>
+              <h3>{FEATURED_GUIDE.title}</h3>
+              <p className="docs-featured__copy">{FEATURED_GUIDE.copy}</p>
+              <span className="docs-featured__link">
+                {FEATURED_GUIDE.linkLabel}
+                <span aria-hidden="true">→</span>
               </span>
             </a>
-          ))}
+
+            <div className="docs-path-list">
+              {DOCUMENTATION_PATHS.map((section, index) => (
+                <a key={section.id} id={section.id} href={section.link} className="docs-path">
+                  <div>
+                    <span className="docs-path__eyebrow">
+                      {String(index + 1).padStart(2, '0')} · {section.linkLabel}
+                    </span>
+                    <h3>{section.title}</h3>
+                    <p>{section.copy}</p>
+                  </div>
+                  <span className="docs-path__arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <nav className="docs-directory__index" aria-label="Voice agent documentation">
+            <div className="docs-index-group">
+              <div className="docs-index-group__header">
+                <h3>Provider guides</h3>
+                <span>Choose your stack</span>
+              </div>
+              <div className="docs-index-grid">
+                {PROVIDER_GUIDES.map((guide) => (
+                  <a key={guide.href} href={guide.href} className="docs-index-link">
+                    <span>
+                      <span className="docs-index-link__label">{guide.label}</span>
+                      <span className="docs-index-link__detail">{guide.detail}</span>
+                    </span>
+                    <span className="docs-index-link__arrow" aria-hidden="true">
+                      →
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="docs-index-group">
+              <div className="docs-index-group__header">
+                <h3>Implementation guides</h3>
+                <span>Ship the experience</span>
+              </div>
+              <div className="docs-index-grid docs-index-grid--single">
+                {USE_CASE_GUIDES.map((guide) => (
+                  <a key={guide.href} href={guide.href} className="docs-index-link">
+                    <span>
+                      <span className="docs-index-link__label">{guide.label}</span>
+                      <span className="docs-index-link__detail">{guide.detail}</span>
+                    </span>
+                    <span className="docs-index-link__arrow" aria-hidden="true">
+                      →
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </nav>
         </div>
-
-        <nav aria-label="Voice agent documentation" style={{ marginTop: 28 }}>
-          <h2 style={{ fontSize: 20, color: '#fff', margin: '0 0 12px' }}>
-            Voice agent provider guides
-          </h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {PROVIDER_GUIDES.map((guide) => (
-              <a
-                key={guide.href}
-                href={guide.href}
-                style={{
-                  color: '#aaa',
-                  border: '1px solid #242424',
-                  borderRadius: 999,
-                  padding: '8px 12px',
-                  textDecoration: 'none',
-                  fontSize: 13,
-                }}
-              >
-                {guide.label}
-              </a>
-            ))}
-          </div>
-
-          <h2 style={{ fontSize: 20, color: '#fff', margin: '24px 0 12px' }}>
-            Voice AI implementation guides
-          </h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {USE_CASE_GUIDES.map((guide) => (
-              <a
-                key={guide.href}
-                href={guide.href}
-                style={{
-                  color: '#aaa',
-                  border: '1px solid #242424',
-                  borderRadius: 999,
-                  padding: '8px 12px',
-                  textDecoration: 'none',
-                  fontSize: 13,
-                }}
-              >
-                {guide.label}
-              </a>
-            ))}
-          </div>
-        </nav>
       </section>
 
       <footer
