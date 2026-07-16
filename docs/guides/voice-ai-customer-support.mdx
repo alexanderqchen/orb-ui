@@ -1,50 +1,122 @@
 ---
-title: Voice AI customer support UI patterns
+title: Voice AI Customer Support UI Patterns
 description: Design voice AI customer support interfaces with clear state, interruption, handoff, transcript, and error patterns.
 ---
-
-# Voice AI customer support UI patterns
 
 Customer support voice agents need clear UI because the user is often trying to solve a problem quickly. The interface should reduce uncertainty, not add another thing to interpret.
 
 orb-ui is not a contact-center platform. It is a React UI layer that can make customer support voice agents easier to understand.
 
-## Important states
+## Start with the support journey
 
-Support flows often need to communicate:
+The visual state should answer one immediate question at each point in the conversation:
 
-- ready
-- connecting
-- listening
-- speaking
-- muted
-- interrupted
-- transcribing
-- handoff
-- error
+| Voice state  | User-facing meaning                                     |
+| ------------ | ------------------------------------------------------- |
+| `idle`       | The assistant is ready or the conversation has ended    |
+| `connecting` | The support session is starting                         |
+| `listening`  | The user has the floor                                  |
+| `thinking`   | The assistant is processing the request or using a tool |
+| `speaking`   | The assistant is answering                              |
+| `error`      | The session needs attention or a retry                  |
 
-orb-ui supports the core lifecycle today. Custom apps can use controlled mode to map more detailed internal states into the closest supported state.
+Events such as muted, interrupted, transcribing, looking up an order, and requesting a human do not
+need new animation states. Keep the orb on the closest core state and show the precise event in a
+status label. This keeps visual behavior consistent while the copy explains what is actually
+happening.
 
-## Handoff and transcript
+## Build more than an orb
 
 The orb should not be the only interface element in a support setting. Pair it with:
 
-- a transcript
-- an explicit stop or mute control
-- a handoff affordance
-- status copy for failures
+- a transcript that identifies the user and assistant turns
+- explicit mute, stop, retry, and human-handoff controls
+- a short, live status label for connection and tool activity
+- visible confirmation before destructive or account-changing actions
+- a text or form fallback when voice is unavailable
+
+Keep the transcript and controls stable when the animation changes. A person who is scanning an
+order number or troubleshooting instructions should not lose their place because the assistant
+started speaking.
 
 ## Controlled mode example
 
-```tsx
-import { Orb } from 'orb-ui'
+Map contact-center or application events to orb-ui's core states in a small boundary function.
 
-export function SupportVoiceStatus({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="bars" />
+```tsx
+import { Orb, type OrbState } from 'orb-ui'
+
+function toOrbState(sessionState: string): OrbState {
+  if (sessionState === 'starting' || sessionState === 'routing') return 'connecting'
+  if (sessionState === 'user-speaking') return 'listening'
+  if (sessionState === 'agent-speaking') return 'speaking'
+  if (sessionState === 'tool-call' || sessionState === 'transcribing') return 'thinking'
+  if (sessionState === 'failed') return 'error'
+  return 'idle'
+}
+
+export function SupportVoiceStatus({ sessionState, inputVolume, outputVolume }) {
+  const state = toOrbState(sessionState)
+
+  return (
+    <div>
+      <Orb signal={{ state, inputVolume, outputVolume }} theme="bars" interactive={false} />
+      <p aria-live="polite">{sessionState}</p>
+    </div>
+  )
 }
 ```
+
+When the application already owns start and stop behavior, `interactive={false}` makes the orb a
+passive status visualization. This avoids creating a second, ambiguous call control next to the
+product's labeled buttons.
+
+## Interruption and handoff
+
+When a user interrupts the assistant, stop remote playback promptly, return the normalized state
+to `listening`, and keep the transcript aligned with the audible conversation. Do not show speaking
+after output audio has stopped just because an earlier provider event is still in flight.
+
+Human handoff needs a clear sequence: acknowledge the request, explain what will happen, show the
+transfer status, and preserve conversation context for the next agent. The orb can remain passive
+during routing, but adjacent copy should distinguish “Request received,” “Finding an agent,” and
+“Connected.”
+
+## Error and recovery design
+
+Support users are often already frustrated, so failures should be specific and recoverable. Treat
+microphone denial, connection timeout, provider error, and lost network as different application
+messages even if they all map to the orb's `error` state. Offer the next useful action: enable the
+microphone, retry, switch to text, or request a person.
+
+Do not discard the transcript when a voice session fails. Preserving context reduces repetition and
+makes a fallback channel feel like part of the same support journey.
+
+## Accessibility
+
+- Put a text status next to the animation and announce meaningful changes with `aria-live`.
+- Give every call control a visible label and predictable keyboard order.
+- Keep information available when reduced motion is enabled.
+- Do not use color alone to distinguish listening, speaking, and error.
+- Avoid rapid idle motion that competes with troubleshooting content.
+- Provide captions or a transcript for users who cannot rely on audio.
+
+## Production checklist
+
+- State changes come from the real provider or application session.
+- Input and output levels are normalized separately between `0` and `1`.
+- Permission, connection, tool, and provider failures have distinct recovery copy.
+- Interruption stops playback and returns the UI to listening promptly.
+- Handoff preserves transcript and account context.
+- Text, keyboard, and reduced-motion fallbacks are tested.
+
+Use the [adapter overview](/adapters/overview) to choose a provider-backed path. If your support
+platform already owns the session, follow the [custom integration guide](/adapters/custom) and feed
+its normalized signal into controlled mode.
 
 ## Related
 
 - [Voice agent UI guide](/guides/voice-agent-ui)
 - [Voice agent platforms guide](/guides/voice-agent-platforms)
+- [Voice orb UI example](/examples/voice-orb-ui)
+- [Themes and voice states](/themes/voice-states)

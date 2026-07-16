@@ -50,12 +50,22 @@
       "permanent": true
     },
     {
+      "source": "/guides/voice-agent-ui/index.html",
+      "destination": "/docs/guides/voice-agent-ui",
+      "permanent": true
+    },
+    {
       "source": "/examples/voice-orb-ui",
       "destination": "/docs/examples/voice-orb-ui",
       "permanent": true
     },
     {
       "source": "/examples/voice-orb-ui/",
+      "destination": "/docs/examples/voice-orb-ui",
+      "permanent": true
+    },
+    {
+      "source": "/examples/voice-orb-ui/index.html",
       "destination": "/docs/examples/voice-orb-ui",
       "permanent": true
     },
@@ -70,12 +80,22 @@
       "permanent": true
     },
     {
+      "source": "/compare/voice-agent-platforms/index.html",
+      "destination": "/docs/guides/voice-agent-platforms",
+      "permanent": true
+    },
+    {
       "source": "/guides/ai-voice-sales-agents",
       "destination": "/docs/guides/ai-voice-sales-agents",
       "permanent": true
     },
     {
       "source": "/guides/ai-voice-sales-agents/",
+      "destination": "/docs/guides/ai-voice-sales-agents",
+      "permanent": true
+    },
+    {
+      "source": "/guides/ai-voice-sales-agents/index.html",
       "destination": "/docs/guides/ai-voice-sales-agents",
       "permanent": true
     },
@@ -90,12 +110,22 @@
       "permanent": true
     },
     {
+      "source": "/guides/voice-ai-customer-support/index.html",
+      "destination": "/docs/guides/voice-ai-customer-support",
+      "permanent": true
+    },
+    {
       "source": "/docs/vapi-voice-ui",
       "destination": "/docs/adapters/vapi",
       "permanent": true
     },
     {
       "source": "/docs/vapi-voice-ui/",
+      "destination": "/docs/adapters/vapi",
+      "permanent": true
+    },
+    {
+      "source": "/docs/vapi-voice-ui/index.html",
       "destination": "/docs/adapters/vapi",
       "permanent": true
     },
@@ -110,12 +140,22 @@
       "permanent": true
     },
     {
+      "source": "/docs/elevenlabs-voice-ui/index.html",
+      "destination": "/docs/adapters/elevenlabs",
+      "permanent": true
+    },
+    {
       "source": "/docs/pipecat-voice-ui",
       "destination": "/docs/adapters/pipecat",
       "permanent": true
     },
     {
       "source": "/docs/pipecat-voice-ui/",
+      "destination": "/docs/adapters/pipecat",
+      "permanent": true
+    },
+    {
+      "source": "/docs/pipecat-voice-ui/index.html",
       "destination": "/docs/adapters/pipecat",
       "permanent": true
     },
@@ -130,12 +170,22 @@
       "permanent": true
     },
     {
+      "source": "/docs/openai-realtime-voice-ui/index.html",
+      "destination": "/docs/adapters/openai-realtime",
+      "permanent": true
+    },
+    {
       "source": "/docs/gemini-live-voice-ui",
       "destination": "/docs/adapters/gemini-live",
       "permanent": true
     },
     {
       "source": "/docs/gemini-live-voice-ui/",
+      "destination": "/docs/adapters/gemini-live",
+      "permanent": true
+    },
+    {
+      "source": "/docs/gemini-live-voice-ui/index.html",
       "destination": "/docs/adapters/gemini-live",
       "permanent": true
     },

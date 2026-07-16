@@ -1,11 +1,23 @@
 ---
-title: Themes and states
+title: Voice orb themes and states
 description: Reference for orb-ui themes and voice agent states.
 ---
 
-# Themes and states
-
 orb-ui ships with a small set of themes for common voice agent UI needs.
+
+## Choose a theme by interaction role
+
+| Theme    | Best fit                                                       | Control model          |
+| -------- | -------------------------------------------------------------- | ---------------------- |
+| `radial` | A prominent call surface with distinct input and output motion | Interactive or passive |
+| `cloud`  | A calm assistant presence beside separate controls             | Usually passive        |
+| `circle` | A compact, primary voice-assistant control                     | Interactive or passive |
+| `bars`   | A waveform-adjacent status visualization                       | Interactive or passive |
+| `debug`  | Adapter setup and normalized-signal inspection                 | Development only       |
+
+Choose based on the job the visualization performs, not only its appearance. A support workflow
+with permanent mute and end-call buttons may benefit from a passive theme, while a compact
+assistant launcher can use a clickable circle.
 
 ## Radial
 
@@ -84,3 +96,25 @@ Themes do not need a unique treatment for every state. They may intentionally re
 when another animation would add noise without improving comprehension.
 
 Keep motion calm during idle states and more responsive during active voice states. Audio-reactive movement should support comprehension, not compete with the transcript or controls.
+
+## Accessibility and reduced motion
+
+Every production theme needs a nearby text label for the current state. Do not require a user to
+distinguish listening from speaking by color or animation alone. When the orb is the call control,
+pass an `aria-label`; when labeled controls live elsewhere, use `interactive={false}`.
+
+orb-ui respects reduced-motion preferences by limiting animation. Test that state copy, controls,
+and error recovery remain usable when motion is reduced or the canvas is unavailable.
+
+## Theme review checklist
+
+- Idle motion is quiet and does not imply that recording has started.
+- Connecting is visibly different from an active conversation.
+- Listening responds to microphone input when that level is available.
+- Speaking responds to assistant output instead of reusing the microphone meter.
+- Error has adjacent recovery copy and does not rely on color alone.
+- The theme works at the smallest size used in the product.
+- Keyboard focus and labels are clear for interactive variants.
+
+See the [voice orb UI example](/examples/voice-orb-ui) for controlled and provider-backed patterns,
+or the [voice agent UI guide](/guides/voice-agent-ui) for the complete lifecycle design.

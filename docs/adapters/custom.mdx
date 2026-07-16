@@ -1,9 +1,7 @@
 ---
-title: Custom integrations
+title: Custom Voice AI UI Integrations
 description: Use controlled mode to connect orb-ui to custom realtime voice AI stacks, WebRTC sessions, WebSocket streams, telephony, or speech pipelines.
 ---
-
-# Custom voice AI integrations
 
 Controlled mode lets orb-ui work with custom realtime voice AI stacks without a dedicated provider adapter.
 
@@ -21,6 +19,19 @@ export function CustomVoiceUI({ voiceSignal }) {
 }
 ```
 
+`OrbSignal` is the boundary between your voice runtime and the visual layer. Keep provider-specific
+events on one side of that boundary and emit the same small contract to React:
+
+```ts
+type OrbSignal = {
+  state: 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
+  volume?: number
+  inputVolume?: number
+  outputVolume?: number
+  error?: unknown
+}
+```
+
 ## Common sources
 
 Controlled mode works well with:
@@ -32,7 +43,28 @@ Controlled mode works well with:
 - provider SDK wrappers
 - experimental OpenAI Realtime or Gemini Live API prototypes
 
-## Normalize volume
+## Normalize state once
+
+Custom runtimes often expose more states than a voice visualization needs. Map them in one
+function so the rest of the UI does not depend on transport terminology.
+
+```ts
+import type { OrbState } from 'orb-ui'
+
+function toOrbState(runtimeState: string): OrbState {
+  if (runtimeState === 'negotiating' || runtimeState === 'joining') return 'connecting'
+  if (runtimeState === 'user-talking') return 'listening'
+  if (runtimeState === 'tool-running' || runtimeState === 'generating') return 'thinking'
+  if (runtimeState === 'assistant-talking') return 'speaking'
+  if (runtimeState === 'failed') return 'error'
+  return 'idle'
+}
+```
+
+Application-only states such as muted, transferring, or waiting for approval can remain visible in
+adjacent text while the orb uses the closest core lifecycle state.
+
+## Normalize both volume directions
 
 `volume`, `inputVolume`, and `outputVolume` should be normalized from `0` to `1`.
 
@@ -42,9 +74,49 @@ function normalizeVolume(raw: number) {
 }
 ```
 
+Prefer `inputVolume` for microphone activity and `outputVolume` for assistant playback. Themes can
+then respond to the side of the conversation that owns the turn:
+
+```tsx
+<Orb
+  signal={{
+    state: toOrbState(runtime.state),
+    inputVolume: normalizeVolume(runtime.microphoneLevel),
+    outputVolume: normalizeVolume(runtime.playbackLevel),
+  }}
+  theme="radial"
+/>
+```
+
+If a source reports decibels, RMS, or an unbounded analyser value, shape it before clamping rather
+than assuming it is already linear. Test normal speech, background noise, silence, and loud input.
+
+## Keep session controls explicit
+
+When your application already owns the call lifecycle, render the orb as a passive visualization
+and keep labeled controls beside it:
+
+```tsx
+export function CustomVoiceSurface({ runtime, signal }) {
+  return (
+    <section aria-label="Voice assistant">
+      <Orb signal={signal} theme="cloud" interactive={false} />
+      <button onClick={() => runtime.start()}>Start conversation</button>
+      <button onClick={() => runtime.stop()}>End conversation</button>
+      <p aria-live="polite">{signal.state}</p>
+    </section>
+  )
+}
+```
+
+This keeps the animation from becoming a second, unlabeled control and makes permission or network
+errors easier to explain outside the canvas.
+
 ## Build an adapter later
 
-If your integration becomes reusable, wrap it in an adapter.
+If the same runtime integration is used in several components or applications, wrap it in an
+adapter. The adapter should subscribe to runtime events, emit a complete signal snapshot, own start
+and stop behavior when appropriate, and release every listener and browser resource during cleanup.
 
 See the [signal-based voice agent UI guide](/guides/signal-based-voice-agent-ui) for the complete
 contract, state and volume normalization guidance, and a production-shaped adapter with cleanup.
@@ -66,3 +138,30 @@ const adapter = {
   stop: () => voiceSession.stop(),
 }
 ```
+
+Avoid emitting only the field that changed. A complete snapshot prevents a stale input level or
+error from leaking into the next state. Return the real unsubscribe callback so React remounts do
+not accumulate provider listeners.
+
+## Errors and cleanup
+
+Translate runtime failures into `state: 'error'` with the original `Error` when possible, but keep
+user-facing recovery copy in the application. Microphone denial, transport timeout, and remote
+session rejection usually need different next steps.
+
+On stop or unmount, release any microphone tracks, analyser loops, audio contexts, media elements,
+WebRTC peer connections, WebSocket listeners, and provider subscriptions your integration created.
+The orb can only reflect lifecycle accuracy if the underlying runtime actually returns to idle.
+
+## Custom integration checklist
+
+- Provider events map to the six supported states in one place.
+- Input and output levels are separately normalized between `0` and `1`.
+- Every subscription has a matching cleanup function.
+- Start and stop can be called again after an error.
+- Microphone permission and connection failures have visible recovery actions.
+- A text label communicates state without relying on motion or color.
+
+For an end-to-end example, see the [voice orb UI example](/examples/voice-orb-ui). If your provider
+already has a first-party adapter, compare this setup with the [adapter overview](/adapters/overview)
+before maintaining a custom wrapper.
