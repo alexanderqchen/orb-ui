@@ -71,15 +71,16 @@ Completed direction:
 Before naming another public theme, validate the visual direction against direct product UI research
 and a concrete interaction reference.
 
-### Better demo
+### Better demo — complete
 
-Make the homepage demo feel like an actual product surface:
+The homepage now presents orb-ui as a complete product surface instead of a loose collection of
+controls:
 
-- Clickable simulated session
-- Live theme switching
-- Clear adapter examples
-- Better examples for provider and controlled modes
-- Separate session controls for passive visual themes
+- Live simulated and manual session modes
+- Theme, state, and audio-level controls
+- Provider-specific integration examples with copyable code
+- Clear provider and controlled-mode paths
+- An editorial documentation directory for deeper implementation guidance
 
 ### Theme- and direction-aware calibration — future
 
