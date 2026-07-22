@@ -18,7 +18,7 @@ Use orb-ui when you want users to understand whether a voice agent is idle, conn
 import { Orb } from 'orb-ui'
 
 export function VoiceAgentStatus({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="circle" />
+  return <Orb signal={{ state, inputVolume: volume }} theme="circle" />
 }
 ```
 

@@ -93,6 +93,7 @@
         "pages": [
           "guides/voice-agent-ui",
           "guides/signal-based-voice-agent-ui",
+          "guides/volume-calibration",
           "examples/voice-orb-ui",
           "guides/voice-agent-platforms",
           "guides/ai-voice-sales-agents",

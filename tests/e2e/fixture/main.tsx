@@ -7,7 +7,6 @@ import { createLiveKitAdapter as createManagedLiveKitAdapter } from 'orb-ui/adap
 
 const IDLE_SIGNAL: OrbSignal = {
   state: 'idle',
-  volume: 0,
   inputVolume: 0,
   outputVolume: 0,
 }
@@ -29,7 +28,7 @@ function App() {
         return () => listeners.delete(listener)
       },
       start() {
-        emit({ state: 'listening', volume: 0.42, inputVolume: 0.42, outputVolume: 0 })
+        emit({ state: 'listening', inputVolume: 0.42, outputVolume: 0 })
       },
       stop() {
         emit(IDLE_SIGNAL)

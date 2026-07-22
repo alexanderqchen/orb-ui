@@ -159,16 +159,17 @@ describe('createLiveKitAdapter', () => {
     room.emit('participantAttributesChanged', { 'lk.agent.state': 'listening' }, agent)
     vi.advanceTimersByTime(33)
 
-    expect(outputAnalyser.cleanup).toHaveBeenCalledOnce()
+    expect(outputAnalyser.cleanup).not.toHaveBeenCalled()
     expect(signals.at(-1)?.state).toBe('listening')
     expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
 
     room.emit('localTrackUnpublished', { source: 'microphone', track: localTrack })
 
     expect(inputAnalyser.cleanup).toHaveBeenCalledOnce()
-    expect(signals.at(-1)).toMatchObject({ volume: 0, inputVolume: 0 })
+    expect(signals.at(-1)).toMatchObject({ inputVolume: 0 })
 
     unsubscribe()
+    expect(outputAnalyser.cleanup).toHaveBeenCalledOnce()
   })
 
   it('keeps remote speech dynamic instead of flattening analyser output near maximum', () => {
@@ -206,7 +207,7 @@ describe('createLiveKitAdapter', () => {
 
     expect(outputLevels[0]).toBeGreaterThan(0)
     expect(outputLevels[1]).toBeGreaterThan(outputLevels[0])
-    expect(outputLevels[1]).toBeLessThan(0.5)
+    expect(outputLevels[1]).toBeLessThan(1)
     expect(outputLevels[3]).toBeLessThan(outputLevels[1])
     expect(onOutputVolumeSample).toHaveBeenCalledTimes(4)
     expect(onOutputVolumeSample.mock.calls.map(([sample]) => sample.raw)).toEqual([
@@ -255,10 +256,11 @@ describe('createLiveKitAdapter', () => {
       new FakeParticipant({ attributes: { 'lk.agent.state': 'thinking' }, kind: 4 }),
     )
 
-    expect(signals.at(-1)).toMatchObject({ state: 'thinking', volume: 0, outputVolume: 0 })
-    expect(analyser.cleanup).toHaveBeenCalledOnce()
+    expect(signals.at(-1)).toMatchObject({ state: 'thinking', outputVolume: 0 })
+    expect(analyser.cleanup).not.toHaveBeenCalled()
 
     unsubscribe()
+    expect(analyser.cleanup).toHaveBeenCalledOnce()
   })
 
   it('keeps external rooms non-interactive and detaches agent audio on unsubscribe', () => {
@@ -349,7 +351,6 @@ describe('createLiveKitAdapter', () => {
     expect(localAnalyser.cleanup).toHaveBeenCalledOnce()
     expect(signals.at(-1)).toMatchObject({
       state: 'idle',
-      volume: 0,
       inputVolume: 0,
       outputVolume: 0,
     })

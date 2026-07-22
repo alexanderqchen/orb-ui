@@ -25,7 +25,6 @@ events on one side of that boundary and emit the same small contract to React:
 ```ts
 type OrbSignal = {
   state: 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
-  volume?: number
   inputVolume?: number
   outputVolume?: number
   error?: unknown
@@ -157,6 +156,7 @@ The orb can only reflect lifecycle accuracy if the underlying runtime actually r
 
 - Provider events map to the six supported states in one place.
 - Input and output levels are separately normalized between `0` and `1`.
+- Normal speech occupies the middle of the range instead of clustering near zero or one.
 - Every subscription has a matching cleanup function.
 - Start and stop can be called again after an error.
 - Microphone permission and connection failures have visible recovery actions.

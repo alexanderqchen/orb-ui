@@ -63,7 +63,7 @@ Controlled mode is especially useful for teams experimenting with OpenAI Realtim
 import { Orb } from 'orb-ui'
 
 export function VoiceAgentStatus({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="circle" size={240} />
+  return <Orb signal={{ state, inputVolume: volume }} theme="circle" size={240} />
 }
 ```
 

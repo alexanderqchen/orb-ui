@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { OrbProps, OrbSignal } from './Orb.types'
-import { deriveOrbState, deriveOrbVolume } from './signals'
+import { deriveOrbState, selectOrbVolume } from './signals'
 import { DebugTheme } from '../../themes/debug'
 import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
@@ -10,7 +10,6 @@ import { RadialTheme } from '../../themes/radial'
 export function Orb({
   signal: signalProp,
   state: stateProp,
-  volume: volumeProp,
   adapter,
   theme = 'debug',
   size = 200,
@@ -34,7 +33,7 @@ export function Orb({
 
   const activeSignal = signalProp ?? adapterSignal
   const state = deriveOrbState(stateProp, signalProp, adapterSignal)
-  const volume = deriveOrbVolume(volumeProp, state, activeSignal)
+  const volume = selectOrbVolume(state, activeSignal)
 
   const isActive = state !== 'idle' && state !== 'error'
 

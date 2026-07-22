@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { Orb } from './Orb'
-import { deriveOrbState, deriveOrbVolume } from './signals'
+import { deriveOrbState, selectOrbVolume } from './signals'
 import type { OrbAdapter, OrbSignal } from './Orb.types'
 
 function createAdapter(): OrbAdapter {
@@ -136,9 +136,12 @@ describe('Orb accessibility', () => {
     expect(html).toContain('0.72')
   })
 
-  it('lets scalar controlled props override signal values', () => {
+  it('selects the volume channel for an overridden controlled state', () => {
     const html = renderToStaticMarkup(
-      <Orb signal={{ state: 'speaking', outputVolume: 0.72 }} state="listening" volume={0.4} />,
+      <Orb
+        signal={{ state: 'speaking', inputVolume: 0.4, outputVolume: 0.72 }}
+        state="listening"
+      />,
     )
 
     expect(html).toContain('listening')
@@ -155,15 +158,13 @@ describe('Orb accessibility', () => {
 })
 
 describe('Orb signal helpers', () => {
-  it('derives state and volume with controlled prop precedence', () => {
+  it('derives state and selects the matching directional volume', () => {
     const adapterSignal: OrbSignal = { state: 'speaking', outputVolume: 0.9 }
 
     expect(deriveOrbState(undefined, undefined, adapterSignal)).toBe('speaking')
     expect(deriveOrbState('listening', { state: 'speaking' }, adapterSignal)).toBe('listening')
-    expect(deriveOrbVolume(undefined, 'speaking', adapterSignal)).toBe(0.9)
-    expect(deriveOrbVolume(undefined, 'listening', { state: 'listening', inputVolume: 0.3 })).toBe(
-      0.3,
-    )
-    expect(deriveOrbVolume(0.4, 'speaking', adapterSignal)).toBe(0.4)
+    expect(selectOrbVolume('speaking', adapterSignal)).toBe(0.9)
+    expect(selectOrbVolume('listening', { state: 'listening', inputVolume: 0.3 })).toBe(0.3)
+    expect(selectOrbVolume('thinking', adapterSignal)).toBe(0)
   })
 })

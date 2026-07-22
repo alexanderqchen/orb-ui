@@ -1,4 +1,7 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
+import { createVolumeNormalizer } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 // Minimal interface for the Vapi client from @vapi-ai/web.
 // We define our own so orb-ui doesn't require @vapi-ai/web as a dependency —
@@ -38,13 +41,9 @@ interface VapiMessage {
 //    not actual silence between words. Without treatment it causes visible
 //    jitter in any animation driven by this signal.
 //
-// Normalization pipeline (runs at Vapi tick rate, ~10 Hz):
-//   a. Noise gate — anything below NOISE_FLOOR is treated as silence (→ 0).
-//   b. Linear ramp — rescales the gated value to the full 0–1 range.
-//   c. EMA — smooths the alternating loud/silent pattern.
-//      Fast attack (0.65) catches new speech; slow release (0.12) bridges dips.
-
-const NOISE_FLOOR = 0.12
+// A short source-specific hold removes the alternating false-zero artifact
+// before the canonical elapsed-time envelope is applied.
+const DROPOUT_HOLD_MS = 160
 
 // ─── Vapi-specific state debouncing ──────────────────────────────────────────
 //
@@ -95,16 +94,20 @@ function makeStateEmitter(onStateChange: (s: OrbState) => void) {
  *   call-end                               → 'idle'
  *   error                                  → 'error'
  *
- * Volume: raw Vapi values are normalized (noise gate + EMA) before being emitted
- * as outputVolume while the assistant is speaking.
+ * Volume: raw Vapi values are mapped through the provider profile and emitted
+ * as a stable normalized outputVolume envelope while the assistant is speaking.
  *
  * @param client  - A Vapi instance from @vapi-ai/web
  * @param options - Optional config (e.g. assistantId to pass to vapi.start())
  */
 
-interface VapiAdapterOptions {
+export interface VapiAdapterOptions {
   /** Assistant ID passed to vapi.start() when the orb is clicked. */
   assistantId?: string
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptions): OrbAdapter {
@@ -138,16 +141,11 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
     },
 
     subscribe(listener: OrbSignalListener) {
-      let signal: OrbSignal = { state: 'idle', volume: 0, outputVolume: 0 }
-      let emaVol = 0
-
-      function normalizeVapiVolume(raw: number): number {
-        const gated = raw < NOISE_FLOOR ? 0 : (raw - NOISE_FLOOR) / (1 - NOISE_FLOOR)
-        // Light EMA to bridge Vapi's alternating loud/silent artifact
-        const rate = gated > emaVol ? 0.8 : 0.5
-        emaVol = emaVol + (gated - emaVol) * rate
-        return emaVol
-      }
+      let signal: OrbSignal = { state: 'idle', outputVolume: 0 }
+      const outputNormalizer = createVolumeNormalizer(
+        PROVIDER_VOLUME_CALIBRATIONS.vapi.output,
+        options?.outputVolumeCalibration,
+      )
 
       function emitSignal(nextSignal: OrbSignal) {
         signal = nextSignal
@@ -169,7 +167,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         callActive = true
         currentState = 'listening'
         emitState('listening')
-        emitPatch({ volume: 0, outputVolume: 0 })
+        emitPatch({ outputVolume: 0 })
       }
 
       const onCallEnd = () => {
@@ -177,15 +175,14 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         currentState = 'idle'
         stopVolLoop()
         emitState('idle')
-        emitPatch({ volume: 0, outputVolume: 0 })
-        emaVol = 0
+        emitPatch({ outputVolume: 0 })
       }
 
       const onSpeechStart = () => {
         if (!callActive) return
         currentState = 'speaking'
         emitState('speaking')
-        emitPatch({ volume: 0, outputVolume: 0 })
+        emitPatch({ outputVolume: 0 })
         startVolLoop()
       }
 
@@ -193,21 +190,23 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         if (!callActive) return
         stopVolLoop()
         currentState = 'listening'
-        emitPatch({ volume: 0, outputVolume: 0 })
-        emaVol = 0
+        emitPatch({ outputVolume: 0 })
         emitState('listening')
       }
 
-      // ── 60fps interpolation loop ──────────────────────────────────────
-      // Vapi emits volume at ~10Hz. We lerp at 60fps so themes get smooth data.
-      let targetVol = 0
-      let currentVol = 0
+      // Vapi emits volume at ~10Hz. Sample its latest level per frame so elapsed-
+      // time envelope behavior remains smooth and consistent with other providers.
+      let targetRawVolume = 0
+      let heldRawVolume = 0
+      let lastActiveSampleAt = 0
       let volRaf = 0
 
-      const volLoop = () => {
+      const volLoop = (now: number) => {
         if (currentState === 'speaking') {
-          currentVol += (targetVol - currentVol) * 0.1
-          emitPatch({ volume: currentVol, outputVolume: currentVol })
+          const raw = now - lastActiveSampleAt <= DROPOUT_HOLD_MS ? heldRawVolume : targetRawVolume
+          const sample = outputNormalizer.sample(raw, now)
+          options?.onOutputVolumeSample?.(sample)
+          emitPatch({ outputVolume: sample.normalized })
         }
         volRaf = requestAnimationFrame(volLoop)
       }
@@ -220,16 +219,20 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
           cancelAnimationFrame(volRaf)
           volRaf = 0
         }
-        currentVol = 0
-        targetVol = 0
+        targetRawVolume = 0
+        heldRawVolume = 0
+        lastActiveSampleAt = 0
+        outputNormalizer.reset()
       }
 
       const onVolumeLevel = (volume: number) => {
-        // Only use Vapi's volume-level for speaking (AI output)
-        // Apply sigmoid curve, then set target for the 60fps lerp loop
+        // Only use Vapi's volume-level for speaking (AI output).
         if (currentState === 'speaking') {
-          const normalized = normalizeVapiVolume(volume)
-          targetVol = normalized / (normalized + 0.3)
+          targetRawVolume = volume
+          if (volume > PROVIDER_VOLUME_CALIBRATIONS.vapi.output.amplitude.silenceFloor) {
+            heldRawVolume = volume
+            lastActiveSampleAt = performance.now()
+          }
         }
       }
 
@@ -243,8 +246,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         currentState = 'error'
         clearTimer()
         stopVolLoop()
-        emitPatch({ state: 'error', volume: 0, outputVolume: 0, error })
-        emaVol = 0
+        emitPatch({ state: 'error', outputVolume: 0, error })
       }
 
       client.on('call-start', onCallStart)
@@ -262,7 +264,6 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
       return () => {
         clearTimer()
         stopVolLoop()
-        emaVol = 0
         client.removeListener('call-start', onCallStart as () => void)
         client.removeListener('call-end', onCallEnd as () => void)
         client.removeListener('speech-start', onSpeechStart as () => void)

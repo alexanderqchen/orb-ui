@@ -217,7 +217,16 @@ function App() {
   const [state, setState] = useState('idle')
   const [volume, setVolume] = useState(0)
 
-  return <Orb state={state} volume={volume} theme="circle" />
+  return (
+    <Orb
+      signal={{
+        state,
+        inputVolume: state === 'listening' ? volume : 0,
+        outputVolume: state === 'speaking' ? volume : 0,
+      }}
+      theme="circle"
+    />
+  )
 }
 ```
 
