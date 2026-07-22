@@ -1,0 +1,153 @@
+---
+title: Customize Orb Themes
+description: Choose orb-ui motion presets and override theme-specific colors, geometry, response, timing, and autonomous motion with a typed theme object.
+---
+
+A theme name is shorthand for its balanced preset:
+
+```tsx
+<Orb theme="circle" signal={signal} />
+```
+
+Use a theme object when you want a preset or low-level control:
+
+```tsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: {
+      colors: {
+        listening: '#8b9cff',
+        speaking: '#f4f7ff',
+      },
+      speakingGlow: 32,
+    },
+    geometry: {
+      listeningMinScale: 0.86,
+      listeningMaxScale: 1.02,
+    },
+    motion: {
+      responseExponent: 0.9,
+      activityRiseMs: 80,
+      activityFallMs: 180,
+    },
+  }}
+/>
+```
+
+orb-ui resolves customization in this order:
+
+1. Load `balanced`, `calm`, or `expressive` for the selected theme.
+2. Apply `appearance`, `geometry`, and `motion` overrides.
+3. Render the resulting complete theme configuration.
+
+You can therefore start with a preset and override one field without copying every internal value.
+All properties are optional except `name`.
+
+## Presets
+
+- `balanced` preserves the existing theme's intended visual behavior and is the default.
+- `calm` uses less visual range, slower response, and more restrained autonomous motion.
+- `expressive` uses more visual range, faster response, and stronger autonomous motion.
+
+Presets are theme-specific. `calm` does not force every theme into one universal set of numbers; it
+chooses values appropriate for that theme's geometry.
+
+```tsx
+<Orb theme={{ name: 'cloud', preset: 'expressive' }} signal={signal} />
+```
+
+## Visual response versus volume normalization
+
+Provider calibration and theme motion solve different problems:
+
+- Adapter `riseTimeMs` and `fallTimeMs` produce a stable provider-independent speech envelope.
+- Theme `activityRiseMs` and `activityFallMs` control how quickly artwork follows that envelope.
+- `stateTransitionMs` controls blending between conversation states.
+- Autonomous speed or tempo fields control motion that continues even when volume is unchanged.
+
+Theme timing values are the milliseconds required to move 90% toward a visual target. This makes
+them stable across display refresh rates. `responseExponent` maps the normalized envelope before
+animation: values below `1` lift quiet activity, `1` is linear, and values above `1` reserve more
+motion for loud activity.
+
+Do not change provider calibration to make one theme more dramatic. Choose a theme preset or adjust
+its motion and geometry instead. See [volume calibration](/guides/volume-calibration) for the signal
+layer.
+
+## Circle parameters
+
+`appearance`:
+
+- `colors`: partial state-to-hex-color map
+- `listeningGlow`, `speakingGlow`: maximum glow radius in pixels
+
+`geometry`:
+
+- `diameterRatio`: artwork diameter relative to the `size` prop
+- `listeningMinScale`, `listeningMaxScale`: scale at silence and peak input activity
+- `speakingMinScale`, `speakingMaxScale`: scale at silence and peak output activity
+
+`motion`:
+
+- `responseExponent`, `activityRiseMs`, `activityFallMs`, `stateTransitionMs`
+- `idlePulseMs`, `processingPulseMs`: CSS pulse durations
+
+## Bars parameters
+
+`appearance.colors` is a partial state-to-hex-color map.
+
+`geometry` controls `barWidthRatio`, `gapRatio`, `minHeightRatio`, `maxHeightRatio`, and
+`borderRadiusRatio`, all relative to `size`.
+
+`motion` controls the shared response fields plus `waveFrequency`, `listeningTempo`,
+`speakingTempo`, and `loadingTempo`.
+
+## Cloud parameters
+
+`appearance` exposes `deepColor`, `upperColor`, `lowerColor`, `highlightColor`, `launchColor`, and
+`spinnerColor`. Use six-digit hex colors; shader colors are compiled from these values.
+
+`geometry` controls `diameterRatio`, `listeningMinScale`, `speakingMaxScale`, and `idleDotScale`.
+
+`motion` provides the shared response fields plus `idleSpeed`, `listeningBaseSpeed`,
+`listeningSpeedRange`, `speakingBaseSpeed`, `speakingSpeedRange`, `entranceHoldMs`,
+`entranceGrowMs`, and `entranceSettleMs`.
+
+## Radial parameters
+
+`appearance` exposes the shader palette (`deepColor`, `cobaltColor`, `aquaColor`, `paleColor`,
+`membraneColor`, and `seamColor`) and the three phone-control colors (`idleControlColor`,
+`activeControlColor`, and `connectingControlColor`). Use six-digit hex colors.
+
+`geometry` controls `diameterRatio` and `controlRatio`.
+
+`motion` provides the shared response fields plus `idleSpeed`, `listeningBaseSpeed`,
+`listeningSpeedRange`, `speakingBaseSpeed`, `speakingSpeedRange`, and `rotationAmount`.
+
+The radial control cutout still uses the typed
+`--orb-ui-radial-control-surround` root style variable because that value belongs to the surrounding
+page surface rather than the theme palette.
+
+## Debug parameters
+
+The debug theme supports state `colors`, `backgroundColor`, `textColor`, and `borderColor` under
+`appearance`; `borderRadius` and `padding` under `geometry`; and `responseExponent` under `motion`.
+
+## Root CSS and layout
+
+`className` and `style` apply to the rendered theme root. Every root also includes
+`data-orb-ui-theme` and `data-orb-ui-preset`, which are useful for page-level layout and contextual
+styling:
+
+```css
+.voice-panel [data-orb-ui-theme='circle'] {
+  margin-inline: auto;
+}
+```
+
+Theme artwork uses inline animation styles and WebGL shaders, so internal colors, geometry, and
+motion should be customized through the typed theme object instead of fragile descendant CSS
+overrides.

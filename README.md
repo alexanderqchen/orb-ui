@@ -240,6 +240,26 @@ function App() {
 }
 ```
 
+### Theme presets and overrides
+
+Theme strings keep the current balanced behavior. Choose `calm` or `expressive`, then override only
+the theme-specific values your product needs:
+
+```jsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: { colors: { listening: '#8b9cff', speaking: '#f4f7ff' } },
+    motion: { responseExponent: 0.9, activityRiseMs: 80, activityFallMs: 180 },
+  }}
+/>
+```
+
+See the [theme customization guide](https://orb-ui.com/docs/themes/customization) for every
+theme-specific appearance, geometry, and motion field.
+
 ### External session controls
 
 Keep the orb as a passive visual when start and stop controls belong elsewhere in your layout.

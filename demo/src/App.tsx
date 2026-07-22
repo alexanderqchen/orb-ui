@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Orb } from 'orb-ui'
-import type { OrbSignal, OrbState, OrbTheme } from 'orb-ui'
+import type { OrbSignal, OrbState, OrbThemeName } from 'orb-ui'
 import { highlightTsx } from './syntax-highlight'
 
 // Constants
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
-const THEMES: OrbTheme[] = ['circle', 'bars', 'cloud', 'radial', 'debug']
+const THEMES: OrbThemeName[] = ['circle', 'bars', 'cloud', 'radial', 'debug']
 const GITHUB_REPO_URL = 'https://github.com/alexanderqchen/orb-ui'
 const GITHUB_STAR_COLOR = '#8bc7ff'
 
@@ -392,7 +392,7 @@ function codeForTab(tab: CodeTab) {
 export default function App() {
   const [simulationStartedAt] = useState(nowMs)
   const simulation = useConversationSimulation(simulationStartedAt)
-  const [theme, setTheme] = useState<OrbTheme>('cloud')
+  const [theme, setTheme] = useState<OrbThemeName>('cloud')
   const [mode, setMode] = useState<DemoMode>('simulation')
   const [manualState, setManualState] = useState<OrbState>('idle')
   const [manualVolume, setManualVolume] = useState(0)

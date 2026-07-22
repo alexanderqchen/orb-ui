@@ -18,7 +18,7 @@ import { Orb } from 'orb-ui'
 | `signal`      | `OrbSignal`        | adapter signal         | Current voice signal with state, input volume, and output volume.  |
 | `state`       | `OrbState`         | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
 | `adapter`     | `OrbAdapter`       | none                   | Provider adapter that subscribes to normalized signal updates.     |
-| `theme`       | `OrbTheme`         | `debug`                | Visual theme: `debug`, `circle`, `bars`, `cloud`, or `radial`.     |
+| `theme`       | `OrbTheme`         | `debug`                | Theme name or typed preset/override object.                        |
 | `size`        | `number`           | `200`                  | Component size in pixels.                                          |
 | `className`   | `string`           | none                   | Optional class name for the rendered theme.                        |
 | `style`       | `OrbStyle`         | none                   | Inline styles, including the radial control surround variable.     |
@@ -41,7 +41,9 @@ Use these states consistently across providers so your product has one voice UI 
 ## Themes
 
 ```ts
-type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
+type OrbThemeName = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
+type OrbThemePreset = 'balanced' | 'calm' | 'expressive'
+type OrbTheme = OrbThemeName | OrbThemeConfig
 ```
 
 - `debug`: visible state and start/stop controls while integrating.
@@ -49,6 +51,24 @@ type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
 - `bars`: waveform-like audio activity.
 - `cloud`: a soft atmospheric sphere with opposing input/output scale response.
 - `radial`: a four-lobe field with an input-reactive membrane and output-reactive twist.
+
+A string uses the theme's `balanced` preset. To select another preset or change low-level values,
+pass `{ name, preset, appearance, geometry, motion }`. Override fields are specific to the selected
+theme and fully typed.
+
+```tsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: { colors: { speaking: '#f8f0ff' } },
+    motion: { activityRiseMs: 90, activityFallMs: 220 },
+  }}
+/>
+```
+
+See [theme customization](/themes/customization) for preset semantics and every low-level field.
 
 When an adapter or `onStart`/`onStop` handler is provided, visual themes include a `<button type="button">` control with native keyboard activation. `radial` uses a separate phone button while the other clickable visuals use the artwork itself. If there is no visible label, pass `aria-label`.
 
@@ -139,6 +159,7 @@ Custom adapters should implement `OrbAdapter`; the removed `AdapterCallbacks` an
 ## Related
 
 - [Themes and states](/themes/voice-states)
+- [Theme customization](/themes/customization)
 - [Custom integrations](/adapters/custom)
 - [Signal-based adapter architecture](/guides/signal-based-voice-agent-ui)
 - [Vapi adapter](/adapters/vapi)

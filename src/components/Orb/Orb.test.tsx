@@ -79,6 +79,8 @@ describe('Orb accessibility', () => {
     expect(html).toContain('<canvas')
     expect(html).toContain('data-radial-surface=""')
     expect(html).toContain('data-radial-control=""')
+    expect(html).toContain('data-orb-ui-theme="radial"')
+    expect(html).toContain('data-orb-ui-preset="balanced"')
     expect(html).toContain('id="radial-control"')
     expect(html).toContain('aria-label="Start radial voice assistant"')
     expect(html).toContain('background:#080808')
@@ -134,6 +136,23 @@ describe('Orb accessibility', () => {
 
     expect(html).toContain('speaking')
     expect(html).toContain('0.72')
+  })
+
+  it('applies a preset before theme-specific low-level overrides', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        signal={{ state: 'speaking', outputVolume: 0.25 }}
+        theme={{
+          name: 'debug',
+          preset: 'expressive',
+          appearance: { colors: { speaking: '#12ab34' } },
+          motion: { responseExponent: 0.5 },
+        }}
+      />,
+    )
+
+    expect(html).toContain('#12ab34')
+    expect(html).toContain('0.50')
   })
 
   it('selects the volume channel for an overridden controlled state', () => {

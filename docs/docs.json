@@ -71,7 +71,7 @@
       {
         "group": "Reference",
         "icon": "book-open",
-        "pages": ["reference/orb-component", "themes/voice-states"]
+        "pages": ["reference/orb-component", "themes/voice-states", "themes/customization"]
       },
       {
         "group": "Adapters",

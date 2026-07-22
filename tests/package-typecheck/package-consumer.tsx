@@ -116,6 +116,16 @@ export function PackageConsumerSmoke() {
         theme="radial"
       />
       <Orb adapter={customAdapter} interactive={false} theme="cloud" />
+      <Orb
+        signal={signal}
+        theme={{
+          name: 'radial',
+          preset: 'expressive',
+          appearance: { aquaColor: '#44dddd', activeControlColor: '#ff3344' },
+          geometry: { diameterRatio: 0.7 },
+          motion: { rotationAmount: 1.2, stateTransitionMs: 240 },
+        }}
+      />
     </>
   )
 }

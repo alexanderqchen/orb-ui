@@ -1,5 +1,6 @@
 import type { CSSProperties, HTMLAttributes } from 'react'
 import type { OrbState } from '../../components/Orb/Orb.types'
+import type { ResolvedDebugTheme } from '../config'
 
 type DebugThemeRootProps = Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'>
 
@@ -12,18 +13,10 @@ interface DebugThemeProps extends DebugThemeRootProps {
   disabled?: boolean
   onStart?: () => void
   onStop?: () => void
+  config: ResolvedDebugTheme
 }
 
 const ALL_STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
-
-const STATE_COLORS: Record<OrbState, string> = {
-  idle: '#888',
-  connecting: '#f0c040',
-  listening: '#40c0f0',
-  thinking: '#c084fc',
-  speaking: '#40f080',
-  error: '#f04040',
-}
 
 export function DebugTheme({
   state,
@@ -34,8 +27,11 @@ export function DebugTheme({
   disabled = false,
   onStart,
   onStop,
+  config,
   ...rootProps
 }: DebugThemeProps) {
+  const displayedVolume = Math.pow(Math.max(0, volume), config.motion.responseExponent)
+
   return (
     <div
       {...rootProps}
@@ -44,11 +40,11 @@ export function DebugTheme({
         width: size,
         fontFamily: 'monospace',
         fontSize: 12,
-        background: '#111',
-        color: '#ccc',
-        border: '1px solid #333',
-        borderRadius: 8,
-        padding: 12,
+        background: config.appearance.backgroundColor,
+        color: config.appearance.textColor,
+        border: `1px solid ${config.appearance.borderColor}`,
+        borderRadius: config.geometry.borderRadius,
+        padding: config.geometry.padding,
         boxSizing: 'border-box',
         userSelect: 'none',
         ...style,
@@ -62,13 +58,13 @@ export function DebugTheme({
       {/* State */}
       <div style={{ marginBottom: 8 }}>
         <span style={{ color: '#555' }}>state </span>
-        <span style={{ color: STATE_COLORS[state], fontWeight: 'bold' }}>{state}</span>
+        <span style={{ color: config.appearance.colors[state], fontWeight: 'bold' }}>{state}</span>
       </div>
 
       {/* Volume */}
       <div style={{ marginBottom: 10 }}>
         <span style={{ color: '#555' }}>volume </span>
-        <span style={{ color: '#ccc' }}>{volume.toFixed(2)}</span>
+        <span style={{ color: config.appearance.textColor }}>{displayedVolume.toFixed(2)}</span>
         <div
           style={{
             marginTop: 4,
@@ -81,8 +77,8 @@ export function DebugTheme({
           <div
             style={{
               height: '100%',
-              width: `${volume * 100}%`,
-              background: STATE_COLORS[state],
+              width: `${displayedVolume * 100}%`,
+              background: config.appearance.colors[state],
               borderRadius: 2,
               transition: 'width 50ms linear',
             }}
@@ -101,9 +97,9 @@ export function DebugTheme({
               style={{
                 fontSize: 10,
                 padding: '2px 6px',
-                background: state === s ? STATE_COLORS[s] : '#222',
+                background: state === s ? config.appearance.colors[s] : '#222',
                 color: state === s ? '#000' : '#888',
-                border: `1px solid ${state === s ? STATE_COLORS[s] : '#333'}`,
+                border: `1px solid ${state === s ? config.appearance.colors[s] : '#333'}`,
                 borderRadius: 3,
                 cursor: disabled ? 'not-allowed' : 'pointer',
               }}

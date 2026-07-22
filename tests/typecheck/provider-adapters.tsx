@@ -166,6 +166,16 @@ export function ProviderAdapterSmokeExamples() {
       <Orb signal={signal} theme="circle" />
       <Orb signal={{ state: 'listening', inputVolume: 0.45 }} theme="radial" />
       <Orb adapter={customSignalAdapter} interactive={false} theme="cloud" />
+      <Orb
+        signal={signal}
+        theme={{
+          name: 'circle',
+          preset: 'calm',
+          appearance: { colors: { speaking: '#f8f0ff' }, speakingGlow: 30 },
+          geometry: { speakingMaxScale: 1.08 },
+          motion: { responseExponent: 0.9, activityRiseMs: 80, activityFallMs: 180 },
+        }}
+      />
       <Orb signal={{ state: 'listening', inputVolume: 0.4 }} theme="debug" id="controlled-orb" />
     </>
   )

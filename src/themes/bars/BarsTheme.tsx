@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type { ResolvedBarsTheme } from '../config'
 
 interface BarsThemeProps extends OrbHtmlAttributes {
   state: OrbState
@@ -11,23 +12,12 @@ interface BarsThemeProps extends OrbHtmlAttributes {
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
+  config: ResolvedBarsTheme
 }
 
 const BAR_COUNT = 5
 
-// Traveling wave: all bars share one frequency, evenly phase-shifted left→right.
-const WAVE_FREQ = 1.4
 const WAVE_PHASE_STEP = (Math.PI * 2) / BAR_COUNT
-
-// Match Circle's per-state colors
-const STATE_COLORS: Record<string, string> = {
-  idle: '#cccccc',
-  connecting: '#cccccc',
-  listening: '#999999',
-  thinking: '#d8d8d8',
-  speaking: '#e8e8e8',
-  error: '#f87171',
-}
 
 function hexToRgb(hex: string): [number, number, number] {
   return [
@@ -35,6 +25,11 @@ function hexToRgb(hex: string): [number, number, number] {
     parseInt(hex.slice(3, 5), 16),
     parseInt(hex.slice(5, 7), 16),
   ]
+}
+
+function followRate(durationMs: number, elapsedMs: number) {
+  if (durationMs <= 0) return 1
+  return 1 - Math.pow(0.1, elapsedMs / durationMs)
 }
 
 export function BarsTheme({
@@ -46,6 +41,7 @@ export function BarsTheme({
   disabled = false,
   interactive = false,
   onClick,
+  config,
   ...controlProps
 }: BarsThemeProps) {
   const barRefs = useRef<(HTMLSpanElement | null)[]>([])
@@ -55,10 +51,9 @@ export function BarsTheme({
   const volumeRef = useRef(volume)
   const hoveredRef = useRef(false)
   const hoverBoostRef = useRef(0)
-  const currentColorRef = useRef<[number, number, number]>(hexToRgb(STATE_COLORS.idle))
+  const currentColorRef = useRef<[number, number, number]>(hexToRgb(config.appearance.colors.idle))
 
-  // State transition: blend targets over BLEND_MS so bar heights don't jump
-  const BLEND_MS = 300
+  // State transition: blend from frozen heights so bars do not jump.
   const blendStartRef = useRef<number | null>(null)
   const frozenHeightsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0))
   const prevStateRef = useRef(state)
@@ -77,10 +72,10 @@ export function BarsTheme({
 
   // Animation loop
   useEffect(() => {
-    const maxH = size * 0.55
-    const minH = size * 0.06
+    const maxH = size * config.geometry.maxHeightRatio
+    const minH = size * config.geometry.minHeightRatio
 
-    const color = STATE_COLORS[state] ?? STATE_COLORS.idle
+    const color = config.appearance.colors[state] ?? config.appearance.colors.idle
 
     const hoverBoostMax = size * 0.1
     // Diamond shape: center bar gets full boost, outer bars get less
@@ -96,15 +91,16 @@ export function BarsTheme({
       hoverBoostRef.current += (target - hoverBoostRef.current) * 0.15
     }
 
-    const setBars = (heights: number[], col: string) => {
+    const setBars = (heights: number[], col: string, elapsedMs: number) => {
       updateHoverBoost()
       // Lerp color toward target
       const tRgb = hexToRgb(col)
       const [cr, cg, cb] = currentColorRef.current
+      const colorRate = followRate(config.motion.stateTransitionMs, elapsedMs)
       currentColorRef.current = [
-        cr + (tRgb[0] - cr) * 0.08,
-        cg + (tRgb[1] - cg) * 0.08,
-        cb + (tRgb[2] - cb) * 0.08,
+        cr + (tRgb[0] - cr) * colorRate,
+        cg + (tRgb[1] - cg) * colorRate,
+        cb + (tRgb[2] - cb) * colorRate,
       ]
       const [r, g, b] = currentColorRef.current.map(Math.round)
       const lerpedColor = `rgb(${r},${g},${b})`
@@ -122,35 +118,49 @@ export function BarsTheme({
     }
 
     if (state === 'listening' || state === 'speaking') {
-      const freqScale = state === 'speaking' ? 1.0 : 0.4
+      const freqScale =
+        state === 'speaking' ? config.motion.speakingTempo : config.motion.listeningTempo
+      let previousTime = performance.now()
 
-      const animate = () => {
-        const vol = volumeRef.current
+      const animate = (now: number) => {
+        const elapsedMs = Math.min(now - previousTime, 100)
+        previousTime = now
+        const vol = Math.pow(Math.max(0, volumeRef.current), config.motion.responseExponent)
 
         // Volume curves are now in the adapters — theme just animates
         const t = Date.now() / 1000
 
         for (let i = 0; i < BAR_COUNT; i++) {
           const osc =
-            0.5 + 0.15 * Math.sin(t * WAVE_FREQ * freqScale * Math.PI * 2 + i * WAVE_PHASE_STEP)
+            0.5 +
+            0.15 *
+              Math.sin(
+                t * config.motion.waveFrequency * freqScale * Math.PI * 2 + i * WAVE_PHASE_STEP,
+              )
           let targetH = minH + (maxH - minH) * vol * osc
 
           // During state transition, blend the target from frozen heights
           if (blendStartRef.current !== null) {
             const elapsed = Date.now() - blendStartRef.current
-            const progress = Math.min(elapsed / BLEND_MS, 1)
+            const progress =
+              config.motion.stateTransitionMs <= 0
+                ? 1
+                : Math.min(elapsed / config.motion.stateTransitionMs, 1)
             const ease = 1 - (1 - progress) * (1 - progress)
             targetH = frozenHeightsRef.current[i] + (targetH - frozenHeightsRef.current[i]) * ease
             if (progress >= 1) blendStartRef.current = null
           }
 
-          // Uniform lerp — speaking uses lower rate since bars show steps more visibly
-          const rate = state === 'listening' ? 0.45 : 1.0
+          const duration =
+            targetH > smoothed.current[i]
+              ? config.motion.activityRiseMs
+              : config.motion.activityFallMs
+          const rate = followRate(duration, elapsedMs)
 
           smoothed.current[i] += (targetH - smoothed.current[i]) * rate
         }
 
-        setBars(smoothed.current, color)
+        setBars(smoothed.current, color, elapsedMs)
         rafRef.current = requestAnimationFrame(animate)
       }
       rafRef.current = requestAnimationFrame(animate)
@@ -161,18 +171,22 @@ export function BarsTheme({
     // connecting / thinking — regular wave animation (loading feel)
     if (state === 'connecting' || state === 'thinking') {
       const startTime = Date.now()
-      const animate = () => {
+      let previousTime = performance.now()
+      const animate = (now: number) => {
+        const elapsedMs = Math.min(now - previousTime, 100)
+        previousTime = now
         const t = (Date.now() - startTime) / 1000
         updateHoverBoost()
         for (let i = 0; i < BAR_COUNT; i++) {
           // Sine hump: 50% sweep, 50% rest — left to right
-          const cycle = (t * 0.6 + (i / BAR_COUNT) * 0.5) % 1.0
+          const cycle = (t * config.motion.loadingTempo + (i / BAR_COUNT) * 0.5) % 1.0
           const wave = cycle < 0.5 ? Math.sin((cycle / 0.5) * Math.PI) : 0
           const targetH = minH + (maxH * 0.4 - minH) * wave
           // Lerp from current height into wave for smooth transition from hover
-          smoothed.current[i] += (targetH - smoothed.current[i]) * 0.15
+          smoothed.current[i] +=
+            (targetH - smoothed.current[i]) * followRate(config.motion.stateTransitionMs, elapsedMs)
         }
-        setBars(smoothed.current, color)
+        setBars(smoothed.current, color, elapsedMs)
         rafRef.current = requestAnimationFrame(animate)
       }
       rafRef.current = requestAnimationFrame(animate)
@@ -181,23 +195,27 @@ export function BarsTheme({
 
     // idle / error — use rAF so hover boost is responsive
     cancelAnimationFrame(rafRef.current)
-    const animateStatic = () => {
+    let previousTime = performance.now()
+    const animateStatic = (now: number) => {
+      const elapsedMs = Math.min(now - previousTime, 100)
+      previousTime = now
       updateHoverBoost()
       for (let i = 0; i < BAR_COUNT; i++) {
-        smoothed.current[i] += (minH - smoothed.current[i]) * 0.16
+        smoothed.current[i] +=
+          (minH - smoothed.current[i]) * followRate(config.motion.stateTransitionMs, elapsedMs)
       }
-      setBars(smoothed.current, color)
+      setBars(smoothed.current, color, elapsedMs)
       rafRef.current = requestAnimationFrame(animateStatic)
     }
     rafRef.current = requestAnimationFrame(animateStatic)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [state, size])
+  }, [config, size, state])
 
-  const barW = size * 0.055
-  const gap = size * 0.035
-  const radius = size * 0.03
-  const maxH = size * 0.55
-  const minH = size * 0.06
+  const barW = size * config.geometry.barWidthRatio
+  const gap = size * config.geometry.gapRatio
+  const radius = size * config.geometry.borderRadiusRatio
+  const maxH = size * config.geometry.maxHeightRatio
+  const minH = size * config.geometry.minHeightRatio
   const rootStyle: CSSProperties = {
     width: size,
     height: size,
@@ -246,7 +264,7 @@ export function BarsTheme({
             maxHeight: maxH,
             height: minH,
             borderRadius: radius,
-            background: STATE_COLORS[state] ?? STATE_COLORS.idle,
+            background: config.appearance.colors[state] ?? config.appearance.colors.idle,
           }}
         />
       ))}

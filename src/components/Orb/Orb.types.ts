@@ -1,4 +1,32 @@
 import type { AriaAttributes, CSSProperties } from 'react'
+import type { OrbTheme } from '../../themes/config'
+
+export type {
+  BarsAppearance,
+  BarsGeometry,
+  BarsMotion,
+  BarsThemeConfig,
+  CircleAppearance,
+  CircleGeometry,
+  CircleMotion,
+  CircleThemeConfig,
+  CloudAppearance,
+  CloudGeometry,
+  CloudMotion,
+  CloudThemeConfig,
+  DebugAppearance,
+  DebugGeometry,
+  DebugMotion,
+  DebugThemeConfig,
+  OrbTheme,
+  OrbThemeConfig,
+  OrbThemeName,
+  OrbThemePreset,
+  RadialAppearance,
+  RadialGeometry,
+  RadialMotion,
+  RadialThemeConfig,
+} from '../../themes/config'
 
 export type OrbStyle = CSSProperties & {
   /** Background color revealed around the radial theme's floating phone control. */
@@ -6,8 +34,6 @@ export type OrbStyle = CSSProperties & {
 }
 
 export type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
-
-export type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
 
 export interface OrbSignal {
   state: OrbState
@@ -66,7 +92,7 @@ export interface OrbProps extends OrbHtmlAttributes {
    */
   adapter?: OrbAdapter
 
-  /** Visual theme. Defaults to 'debug'. */
+  /** Theme name or preset/override object. Defaults to 'debug'. */
   theme?: OrbTheme
 
   /** Size in pixels. Defaults to 200. */

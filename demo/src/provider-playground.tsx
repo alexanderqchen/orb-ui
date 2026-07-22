@@ -2,7 +2,7 @@ import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'r
 import { createRoot } from 'react-dom/client'
 import type { LiveCallbacks, LiveConnectConfig } from '@google/genai'
 import { Orb } from 'orb-ui'
-import type { OrbAdapter, OrbSignal, OrbState, OrbTheme } from 'orb-ui'
+import type { OrbAdapter, OrbSignal, OrbState, OrbThemeName, OrbThemePreset } from 'orb-ui'
 import {
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
@@ -87,7 +87,8 @@ const PIPECAT_CONNECTION_MODES: Array<{ id: PipecatConnectionMode; label: string
   { id: 'small-webrtc', label: 'Self-hosted WebRTC' },
 ]
 
-const THEMES: OrbTheme[] = ['radial', 'cloud', 'circle', 'bars', 'debug']
+const THEMES: OrbThemeName[] = ['radial', 'cloud', 'circle', 'bars', 'debug']
+const THEME_PRESETS: OrbThemePreset[] = ['balanced', 'calm', 'expressive']
 const STATES: OrbState[] = ['idle', 'connecting', 'listening', 'thinking', 'speaking', 'error']
 const DEFAULT_LIVEKIT_ROOM_PREFIX = 'orb-ui-playground'
 const DEFAULT_OPENAI_MODEL = 'gpt-realtime-2.1'
@@ -205,8 +206,12 @@ function normalizeProvider(value: unknown): ProviderId {
   return PROVIDERS.some((provider) => provider.id === value) ? (value as ProviderId) : 'manual'
 }
 
-function normalizeTheme(value: unknown): OrbTheme {
-  return THEMES.includes(value as OrbTheme) ? (value as OrbTheme) : 'circle'
+function normalizeTheme(value: unknown): OrbThemeName {
+  return THEMES.includes(value as OrbThemeName) ? (value as OrbThemeName) : 'circle'
+}
+
+function normalizeThemePreset(value: unknown): OrbThemePreset {
+  return THEME_PRESETS.includes(value as OrbThemePreset) ? (value as OrbThemePreset) : 'balanced'
 }
 
 function createLiveKitRoomName(prefix: string) {
@@ -364,29 +369,41 @@ function readStoredConfig(): Partial<ProviderConfig> {
   }
 }
 
-function readStoredSelection(): { provider: ProviderId; theme: OrbTheme } {
+function readStoredSelection(): {
+  provider: ProviderId
+  theme: OrbThemeName
+  themePreset: OrbThemePreset
+} {
   const storage = getStorage()
-  if (!storage) return { provider: 'manual', theme: 'circle' }
+  if (!storage) return { provider: 'manual', theme: 'circle', themePreset: 'balanced' }
 
   try {
     const parsed = JSON.parse(storage.getItem(CONFIG_STORAGE_KEY) ?? '{}')
-    if (!isRecord(parsed)) return { provider: 'manual', theme: 'circle' }
+    if (!isRecord(parsed)) {
+      return { provider: 'manual', theme: 'circle', themePreset: 'balanced' }
+    }
 
     return {
       provider: normalizeProvider(parsed.provider),
       theme: normalizeTheme(parsed.theme),
+      themePreset: normalizeThemePreset(parsed.themePreset),
     }
   } catch {
-    return { provider: 'manual', theme: 'circle' }
+    return { provider: 'manual', theme: 'circle', themePreset: 'balanced' }
   }
 }
 
-function writeStoredConfig(config: ProviderConfig, provider: ProviderId, theme: OrbTheme) {
+function writeStoredConfig(
+  config: ProviderConfig,
+  provider: ProviderId,
+  theme: OrbThemeName,
+  themePreset: OrbThemePreset,
+) {
   const storage = getStorage()
   if (!storage) return
 
   try {
-    storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ ...config, provider, theme }))
+    storage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ ...config, provider, theme, themePreset }))
   } catch {
     // Storage can be disabled or full in some browser modes.
   }
@@ -1201,7 +1218,8 @@ function ProviderPlayground() {
   const [config, setConfig] = useState<ProviderConfig>(() => readConfig())
   const [storedSelection] = useState(() => readStoredSelection())
   const [provider, setProvider] = useState<ProviderId>(storedSelection.provider)
-  const [theme, setTheme] = useState<OrbTheme>(storedSelection.theme)
+  const [theme, setTheme] = useState<OrbThemeName>(storedSelection.theme)
+  const [themePreset, setThemePreset] = useState<OrbThemePreset>(storedSelection.themePreset)
   const [manualState, setManualState] = useState<OrbState>('idle')
   const [manualInputVolume, setManualInputVolume] = useState(0.35)
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
@@ -1229,8 +1247,8 @@ function ProviderPlayground() {
   >()
 
   useEffect(() => {
-    writeStoredConfig(config, provider, theme)
-  }, [config, provider, theme])
+    writeStoredConfig(config, provider, theme, themePreset)
+  }, [config, provider, theme, themePreset])
 
   useEffect(() => {
     calibrationRef.current = calibration
@@ -1291,6 +1309,10 @@ function ProviderPlayground() {
   )
 
   const activeConfig = useMemo(() => normalizeConfig(config), [config])
+  const activeTheme = useMemo(
+    () => ({ name: theme, preset: themePreset }) as const,
+    [theme, themePreset],
+  )
   const providerReady = getProviderReady(provider, activeConfig)
   const providerAdapter = useMemo(
     () =>
@@ -1636,6 +1658,22 @@ function ProviderPlayground() {
                   ))}
                 </div>
               </div>
+
+              <div className="provider-control-group">
+                <span className="provider-label">Motion preset</span>
+                <div className="provider-segment">
+                  {THEME_PRESETS.map((item) => (
+                    <button
+                      className={`provider-button ${themePreset === item ? 'is-selected' : ''}`}
+                      key={item}
+                      onClick={() => setThemePreset(item)}
+                      type="button"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="provider-orb-zone">
@@ -1646,7 +1684,7 @@ function ProviderPlayground() {
                   signal={manualSignal}
                   size={280}
                   style={{ '--orb-ui-radial-control-surround': '#101010' }}
-                  theme={theme}
+                  theme={activeTheme}
                 />
               ) : (
                 <Orb
@@ -1657,7 +1695,7 @@ function ProviderPlayground() {
                   interactive={theme !== 'cloud'}
                   size={280}
                   style={{ '--orb-ui-radial-control-surround': '#101010' }}
-                  theme={theme}
+                  theme={activeTheme}
                 />
               )}
             </div>

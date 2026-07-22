@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { OrbProps, OrbSignal } from './Orb.types'
 import { deriveOrbState, selectOrbVolume } from './signals'
 import { DebugTheme } from '../../themes/debug'
@@ -6,6 +6,7 @@ import { CircleTheme } from '../../themes/circle'
 import { BarsTheme } from '../../themes/bars'
 import { CloudTheme } from '../../themes/cloud'
 import { RadialTheme } from '../../themes/radial'
+import { resolveOrbTheme } from '../../themes/config'
 
 export function Orb({
   signal: signalProp,
@@ -34,6 +35,11 @@ export function Orb({
   const activeSignal = signalProp ?? adapterSignal
   const state = deriveOrbState(stateProp, signalProp, adapterSignal)
   const volume = selectOrbVolume(state, activeSignal)
+  const themeKey = JSON.stringify(theme)
+  const resolvedTheme = useMemo(
+    () => resolveOrbTheme(JSON.parse(themeKey) as NonNullable<OrbProps['theme']>),
+    [themeKey],
+  )
 
   const isActive = state !== 'idle' && state !== 'error'
 
@@ -56,6 +62,8 @@ export function Orb({
   const clickHandler = interactive && !disabled ? handleClick : undefined
   const controlProps = {
     ...htmlProps,
+    'data-orb-ui-theme': resolvedTheme.name,
+    'data-orb-ui-preset': resolvedTheme.preset,
     'aria-label':
       htmlProps['aria-label'] ??
       (interactive ? `${isActive ? 'Stop' : 'Start'} voice session` : undefined),
@@ -76,20 +84,25 @@ export function Orb({
     interactive,
   }
 
-  switch (theme) {
+  switch (resolvedTheme.name) {
     case 'circle':
-      return <CircleTheme {...interactiveThemeProps} onClick={clickHandler} />
+      return (
+        <CircleTheme {...interactiveThemeProps} config={resolvedTheme} onClick={clickHandler} />
+      )
     case 'bars':
-      return <BarsTheme {...interactiveThemeProps} onClick={clickHandler} />
+      return <BarsTheme {...interactiveThemeProps} config={resolvedTheme} onClick={clickHandler} />
     case 'cloud':
-      return <CloudTheme {...interactiveThemeProps} onClick={clickHandler} />
+      return <CloudTheme {...interactiveThemeProps} config={resolvedTheme} onClick={clickHandler} />
     case 'radial':
-      return <RadialTheme {...interactiveThemeProps} onClick={clickHandler} />
+      return (
+        <RadialTheme {...interactiveThemeProps} config={resolvedTheme} onClick={clickHandler} />
+      )
     case 'debug':
     default:
       return (
         <DebugTheme
           {...sharedThemeProps}
+          config={resolvedTheme}
           disabled={disabled || !interactiveProp}
           onStart={
             disabled || !interactiveProp ? undefined : (onStart ?? (() => adapter?.start?.()))
