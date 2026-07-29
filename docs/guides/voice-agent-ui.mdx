@@ -1,11 +1,52 @@
 ---
 title: Voice Agent UI Components for React
-description: Design React voice agent UI components that communicate listening, speaking, connecting, and error states clearly.
+description: Build a React voice agent UI with animated orbs, lifecycle states, provider adapters, accessible controls, and production-ready patterns.
 ---
 
-A voice agent needs more than a microphone button. Users need to know when the agent is connecting, listening, thinking, speaking, or failing. orb-ui gives React teams a small UI layer for those moments: animated voice orbs, audio-reactive themes, provider adapters, and controlled mode.
+A React voice agent UI is the visual and interactive layer that shows what a realtime voice
+assistant is doing. It should make connecting, listening, thinking, speaking, interruption, and
+failure understandable without forcing users to interpret an animation on its own.
 
-## What the UI has to communicate
+orb-ui gives React teams that layer through animated voice orbs, audio-reactive themes, provider
+adapters, and controlled state. Use it with Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Realtime,
+Gemini Live, or a custom browser voice stack.
+
+## Build a React voice agent UI
+
+Install the component package:
+
+```bash
+npm install orb-ui
+```
+
+Start in controlled mode when your application already owns the voice session state:
+
+```tsx
+import { Orb, type OrbState } from 'orb-ui'
+
+type VoiceAgentUIProps = {
+  state: OrbState
+  volume: number
+}
+
+export function VoiceAgentUI({ state, volume }: VoiceAgentUIProps) {
+  return (
+    <Orb
+      state={state}
+      volume={volume}
+      theme="circle"
+      size={240}
+      aria-label={`Voice assistant is ${state}`}
+    />
+  )
+}
+```
+
+For a provider-backed experience, connect an orb-ui adapter so the provider session drives the
+visual state and audio levels. The [adapter comparison](/adapters/overview) explains which
+integration owns authentication, media, playback, state mapping, and cleanup.
+
+## What a voice agent UI has to communicate
 
 The important job of a voice agent UI is trust. A user should understand whether the app heard them, whether the assistant is waiting, and whether the assistant is speaking. The visual state should change quickly enough to feel alive, but it should not distract from the conversation.
 
@@ -50,7 +91,7 @@ Do not treat a click as proof that a voice session started. Provider authenticat
 permission, WebRTC negotiation, or device selection can still fail. The visible state should follow
 the session, not the optimistic button press.
 
-## Component architecture
+## React voice agent UI architecture
 
 Use an adapter when a provider can supply a normalized voice signal for you. Use controlled mode when your app already owns the voice session lifecycle.
 
@@ -58,14 +99,6 @@ For the complete `OrbSignal` and `OrbAdapter` contract, separate input/output me
 adapter example, read the [signal-based voice agent UI guide](/guides/signal-based-voice-agent-ui).
 
 Controlled mode is especially useful for teams experimenting with OpenAI Realtime, Gemini Live API, telephony backends, or internal speech pipelines.
-
-```tsx
-import { Orb } from 'orb-ui'
-
-export function VoiceAgentStatus({ state, volume }) {
-  return <Orb state={state} volume={volume} theme="circle" size={240} />
-}
-```
 
 Use `OrbSignal` when the browser can measure the user and agent independently:
 
@@ -146,7 +179,7 @@ evaluating a polished theme.
 | Integration     | Start with                                                      | Why                                                                     |
 | --------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Vapi            | [Vapi Voice UI for React](/adapters/vapi)                       | Wrap an existing Vapi browser client and assistant                      |
-| ElevenLabs      | [ElevenLabs Voice UI for React](/adapters/elevenlabs)           | Let the adapter manage the conversational session and both audio levels |
+| ElevenLabs      | [ElevenLabs Voice Orb UI for React](/adapters/elevenlabs)       | Let the adapter manage the conversational session and both audio levels |
 | LiveKit Agents  | [LiveKit Voice UI for React](/adapters/livekit)                 | Connect through a token endpoint and map agent participant state        |
 | Pipecat         | [Pipecat Voice UI for React](/adapters/pipecat)                 | Reuse a configured Pipecat client across supported transports           |
 | OpenAI Realtime | [OpenAI Realtime Voice UI for React](/adapters/openai-realtime) | Let orb-ui own browser WebRTC and audio playback                        |
@@ -170,7 +203,7 @@ The UI should make the voice agent feel present without pretending to be the voi
 itself. A useful adoption page also includes the failure path: microphone requirements, credential
 boundaries, cleanup behavior, and what developers should expect after pressing start.
 
-## Production checklist
+## React voice agent UI production checklist
 
 Before shipping a React voice agent UI, verify that:
 

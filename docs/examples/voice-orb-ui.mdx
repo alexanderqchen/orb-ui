@@ -1,9 +1,16 @@
 ---
 title: Voice Orb UI Example for React
-description: Build a React voice orb UI with animated states, audio-reactive motion, adapters, and controlled mode.
+description: Build an animated React voice orb UI with lifecycle states, audio-reactive motion, provider adapters, accessible controls, and custom signals.
 ---
 
-The orb is the visible state layer for a voice agent. It should communicate activity quickly and stay out of the way while a user is talking.
+A React voice orb is the visible state layer for a voice agent. It should make listening, thinking,
+speaking, and error states understandable at a glance while staying out of the way of the
+conversation.
+
+## Build an animated voice orb in React
+
+Start with a controlled `Orb` when you want to preview the component before connecting a live
+voice provider:
 
 ```tsx
 import { Orb } from 'orb-ui'
@@ -13,9 +20,9 @@ export function VoiceOrbExample() {
 }
 ```
 
-For a production voice experience, drive the state and volume from a real session. A fixed value is
-useful for previews and visual tests, but it should not be used to imply that the microphone or
-assistant is active.
+This renders an animated voice orb in its listening state. For a production voice experience,
+drive the state and volume from a real session. A fixed value is useful for previews and visual
+tests, but it should not be used to imply that the microphone or assistant is active.
 
 ## Simulate the full lifecycle
 
