@@ -165,6 +165,41 @@ export type OrbThemeConfig =
 
 export type OrbTheme = OrbThemeName | OrbThemeConfig
 
+/** Preserve literal theme inference when defining a reusable application theme. */
+export function defineOrbTheme<const Theme extends OrbThemeConfig>(theme: Theme): Theme {
+  return theme
+}
+
+export function mergeOrbThemes(
+  base: OrbTheme | undefined,
+  override: OrbTheme | undefined,
+): OrbTheme {
+  if (!base) return override ?? 'debug'
+  if (!override) return base
+  if (typeof override === 'string') return override
+  if (typeof base === 'string' || base.name !== override.name) return override
+
+  const baseAppearance = base.appearance as Record<string, unknown> | undefined
+  const overrideAppearance = override.appearance as Record<string, unknown> | undefined
+  const baseColors = baseAppearance?.colors as Record<string, unknown> | undefined
+  const overrideColors = overrideAppearance?.colors as Record<string, unknown> | undefined
+
+  return {
+    ...base,
+    ...override,
+    preset: override.preset ?? base.preset,
+    appearance: {
+      ...base.appearance,
+      ...override.appearance,
+      ...(baseColors || overrideColors
+        ? { colors: { ...baseColors, ...overrideColors } }
+        : undefined),
+    },
+    geometry: { ...base.geometry, ...override.geometry },
+    motion: { ...base.motion, ...override.motion },
+  } as OrbThemeConfig
+}
+
 interface ResolvedTheme<Name extends OrbThemeName, Appearance, Geometry, Motion> {
   name: Name
   preset: OrbThemePreset

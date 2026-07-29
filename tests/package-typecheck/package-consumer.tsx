@@ -1,4 +1,5 @@
-import { Orb } from 'orb-ui'
+import { Orb, OrbThemeProvider, defineOrbTheme } from 'orb-ui'
+import type { OrbThemeRenderer } from 'orb-ui'
 import {
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
@@ -42,6 +43,20 @@ const signal: OrbSignal = {
   state: 'speaking',
   outputVolume: 0.7,
 }
+
+const applicationTheme = defineOrbTheme({
+  name: 'circle',
+  preset: 'calm',
+  appearance: { colors: { speaking: '#ff55aa' } },
+})
+
+const customRenderer: OrbThemeRenderer = ({ activity, controlProps, rootProps, state }) => (
+  <div {...rootProps}>
+    <button {...controlProps}>
+      {state}:{activity.toFixed(2)}
+    </button>
+  </div>
+)
 
 const liveKitConfig: LiveKitAdapterConfig = {
   getConnectionDetails: async () => ({
@@ -125,6 +140,25 @@ export function PackageConsumerSmoke() {
           geometry: { diameterRatio: 0.7 },
           motion: { rotationAmount: 1.2, stateTransitionMs: 240 },
         }}
+      />
+      <OrbThemeProvider
+        slotProps={{ surface: { className: 'brand-surface' } }}
+        theme={applicationTheme}
+      >
+        <Orb
+          signal={signal}
+          style={{
+            '--orb-ui-size': 'min(70vw, 320px)',
+            '--orb-ui-circle-geometry-diameter-ratio': 0.7,
+          }}
+          theme={{ name: 'circle', appearance: { speakingGlow: 40 } }}
+        />
+      </OrbThemeProvider>
+      <Orb adapter={customAdapter} renderTheme={customRenderer} />
+      <Orb
+        adapter={customAdapter}
+        components={{ controlIcon: <span>Custom icon</span> }}
+        theme="radial"
       />
     </>
   )

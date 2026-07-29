@@ -1,14 +1,22 @@
 import { useRef, useEffect } from 'react'
-import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+} from '../../components/Orb/Orb.types'
 import type { ResolvedBarsTheme } from '../config'
+import { joinClassNames, resolveOrbSlot } from '../slots'
 
 interface BarsThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
@@ -36,8 +44,11 @@ export function BarsTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
   disabled = false,
   interactive = false,
   onClick,
@@ -216,18 +227,30 @@ export function BarsTheme({
   const radius = size * config.geometry.borderRadiusRatio
   const maxH = size * config.geometry.maxHeightRatio
   const minH = size * config.geometry.minHeightRatio
-  const rootStyle: CSSProperties = {
-    width: size,
-    height: size,
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--bars', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const barSlot = resolveOrbSlot(slotProps, 'bar')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: barClassName, style: barStyle, ...barAttributes } = barSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
+  const rootStyle: OrbStyle = {
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
   const content = (
     <span
+      {...contentAttributes}
       ref={hoverRef}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       onMouseEnter={() => {
         if (!interactive || disabled) return
         hoveredRef.current = true
@@ -250,14 +273,20 @@ export function BarsTheme({
         gap,
         transition: 'filter 0.3s ease',
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
+        ...contentStyle,
       }}
     >
       {Array.from({ length: BAR_COUNT }, (_, i) => (
         <span
+          {...barAttributes}
           key={i}
           ref={(el) => {
             barRefs.current[i] = el
           }}
+          className={barClassName}
+          data-orb-ui-index={i}
+          data-orb-ui-slot="bar"
+          aria-hidden="true"
           style={{
             width: barW,
             minHeight: minH,
@@ -265,6 +294,7 @@ export function BarsTheme({
             height: minH,
             borderRadius: radius,
             background: config.appearance.colors[state] ?? config.appearance.colors.idle,
+            ...barStyle,
           }}
         />
       ))}
@@ -274,9 +304,13 @@ export function BarsTheme({
   if (interactive) {
     return (
       <button
+        {...rootAttributes}
+        {...controlAttributes}
         {...controlProps}
+        ref={rootRef}
         type="button"
-        className={className}
+        className={joinClassNames(rootClassName, controlClassName)}
+        data-orb-ui-slot="root"
         disabled={disabled}
         onClick={disabled ? undefined : onClick}
         style={{
@@ -290,6 +324,7 @@ export function BarsTheme({
           font: 'inherit',
           cursor: disabled ? 'not-allowed' : 'pointer',
           ...rootStyle,
+          ...controlStyle,
         }}
       >
         {content}
@@ -298,7 +333,14 @@ export function BarsTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

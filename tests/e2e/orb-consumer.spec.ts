@@ -71,3 +71,35 @@ test('uses the radial phone control for adapter lifecycle', async ({ page }) => 
   await expect(page.getByTestId('adapter-state')).toHaveText('idle')
   expect(browserErrors).toEqual([])
 })
+
+test('applies global defaults, slots, responsive size, and CSS theme variables', async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page)
+
+  await page.goto('/')
+
+  const orb = page.getByTestId('css-variable-orb')
+  await expect(orb).toHaveClass(/fixture-brand-orb/)
+  await expect(orb).toHaveAttribute('data-orb-ui-preset', 'calm')
+  await expect(orb.locator('[data-orb-ui-slot="surface"]')).toHaveClass(/fixture-brand-surface/)
+  await expect(orb).toHaveCSS('width', '180px')
+  await expect(orb.locator('[data-orb-ui-slot="surface"]')).toHaveCSS('width', '126px')
+  expect(browserErrors).toEqual([])
+})
+
+test('keeps adapter lifecycle and normalized activity in a custom renderer', async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page)
+
+  await page.goto('/')
+
+  const control = page.getByTestId('custom-renderer-control')
+  await expect(control).toHaveText('idle:0.00')
+  await expect(control.locator('..')).toHaveAttribute('data-orb-ui-theme', 'custom')
+
+  await control.click()
+  await expect(control).toHaveText('listening:0.42')
+  await control.click()
+  await expect(control).toHaveText('idle:0.00')
+  expect(browserErrors).toEqual([])
+})

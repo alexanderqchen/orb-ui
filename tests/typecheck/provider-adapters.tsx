@@ -3,7 +3,8 @@ import { Conversation } from '@elevenlabs/client'
 import { GoogleGenAI, Modality } from '@google/genai'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport'
-import { Orb } from '../../src'
+import { Orb, OrbThemeProvider, defineOrbTheme } from '../../src'
+import type { OrbThemeRenderer } from '../../src'
 import {
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
@@ -108,6 +109,18 @@ const signal: OrbSignal = {
   outputVolume: 0.7,
 }
 
+const sharedTheme = defineOrbTheme({
+  name: 'bars',
+  preset: 'expressive',
+  appearance: { colors: { listening: '#22ddaa' } },
+})
+
+const customRenderer: OrbThemeRenderer = ({ controlProps, rootProps, state }) => (
+  <div {...rootProps}>
+    <button {...controlProps}>{state}</button>
+  </div>
+)
+
 // @ts-expect-error ElevenLabs sessions require agentId, signedUrl, or conversationToken.
 createElevenLabsAdapter(Conversation, {})
 
@@ -176,6 +189,14 @@ export function ProviderAdapterSmokeExamples() {
           motion: { responseExponent: 0.9, activityRiseMs: 80, activityFallMs: 180 },
         }}
       />
+      <OrbThemeProvider theme={sharedTheme}>
+        <Orb
+          signal={signal}
+          slotProps={{ bar: { className: 'custom-bar', style: { opacity: 0.9 } } }}
+          style={{ '--orb-ui-size': 'clamp(180px, 30vw, 300px)' }}
+        />
+      </OrbThemeProvider>
+      <Orb adapter={customSignalAdapter} renderTheme={customRenderer} />
       <Orb signal={{ state: 'listening', inputVolume: 0.4 }} theme="debug" id="controlled-orb" />
     </>
   )

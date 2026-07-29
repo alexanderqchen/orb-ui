@@ -1,4 +1,9 @@
 export { Orb } from './Orb'
+export { OrbThemeProvider } from './OrbThemeProvider'
+export type { OrbThemeDefaults, OrbThemeProviderProps } from './OrbThemeProvider'
+export { defineOrbTheme } from '../../themes/config'
+export { orbThemeCssVariable } from '../../themes/css-variables'
+export type { OrbThemeCssSection } from '../../themes/css-variables'
 export type {
   BarsAppearance,
   BarsGeometry,
@@ -20,12 +25,22 @@ export type {
   OrbProps,
   OrbSignal,
   OrbSignalListener,
+  OrbSlotAttributes,
+  OrbSlotName,
+  OrbSlotProps,
   OrbState,
   OrbStyle,
   OrbTheme,
+  OrbThemeComponent,
+  OrbThemeComponentContext,
+  OrbThemeComponents,
   OrbThemeConfig,
   OrbThemeName,
   OrbThemePreset,
+  OrbThemeRenderer,
+  OrbThemeRendererControlProps,
+  OrbThemeRendererProps,
+  OrbThemeRendererRootProps,
   RadialAppearance,
   RadialGeometry,
   RadialMotion,

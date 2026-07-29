@@ -1,4 +1,4 @@
-import type { AriaAttributes, CSSProperties } from 'react'
+import type { AriaAttributes, CSSProperties, ReactNode } from 'react'
 import type { OrbTheme } from '../../themes/config'
 
 export type {
@@ -29,8 +29,10 @@ export type {
 } from '../../themes/config'
 
 export type OrbStyle = CSSProperties & {
-  /** Background color revealed around the radial theme's floating phone control. */
-  '--orb-ui-radial-control-surround'?: string
+  /** Responsive rendered size, for example `min(70vw, 320px)`. */
+  '--orb-ui-size'?: string
+  /** Typed access to the stable orb-ui design-token namespace. */
+  [cssVariable: `--orb-ui-${string}`]: string | number | undefined
 }
 
 export type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
@@ -73,6 +75,87 @@ export interface OrbHtmlAttributes extends AriaAttributes {
   [dataAttribute: `data-${string}`]: DataAttributeValue
 }
 
+export interface OrbSlotAttributes extends AriaAttributes {
+  className?: string
+  style?: CSSProperties
+  id?: string
+  title?: string
+  role?: string
+  [dataAttribute: `data-${string}`]: DataAttributeValue
+}
+
+/** Stable semantic hooks shared by the built-in themes. Unsupported slots are ignored. */
+export interface OrbSlotProps {
+  root?: OrbSlotAttributes
+  content?: OrbSlotAttributes
+  surface?: OrbSlotAttributes
+  glow?: OrbSlotAttributes
+  bar?: OrbSlotAttributes
+  launch?: OrbSlotAttributes
+  spinner?: OrbSlotAttributes
+  control?: OrbSlotAttributes
+  icon?: OrbSlotAttributes
+  header?: OrbSlotAttributes
+  label?: OrbSlotAttributes
+  meterTrack?: OrbSlotAttributes
+  meterFill?: OrbSlotAttributes
+  actions?: OrbSlotAttributes
+}
+
+export type OrbSlotName = keyof OrbSlotProps
+
+export interface OrbThemeComponentContext {
+  state: OrbState
+  active: boolean
+  connecting: boolean
+  disabled: boolean
+  size: number
+}
+
+export type OrbThemeComponent = ReactNode | ((context: OrbThemeComponentContext) => ReactNode)
+
+/** Replace small pieces of built-in theme chrome without replacing the entire renderer. */
+export interface OrbThemeComponents {
+  controlIcon?: OrbThemeComponent
+  connectingIndicator?: OrbThemeComponent
+}
+
+export interface OrbThemeRendererRootProps extends OrbHtmlAttributes {
+  ref: (element: HTMLElement | null) => void
+  className?: string
+  style?: OrbStyle
+}
+
+export interface OrbThemeRendererControlProps extends OrbHtmlAttributes {
+  type: 'button'
+  className?: string
+  style?: CSSProperties
+  disabled: boolean
+  onClick?: () => void
+}
+
+export interface OrbThemeRendererProps {
+  state: OrbState
+  signal: OrbSignal
+  inputVolume: number
+  outputVolume: number
+  /** Direction-selected normalized activity for the current state. */
+  activity: number
+  size: number
+  isActive: boolean
+  interactive: boolean
+  disabled: boolean
+  start: () => void | Promise<void>
+  stop: () => void | Promise<void>
+  toggle: () => void | Promise<void>
+  /** Apply to the custom artwork's outer element for sizing, styling, and diagnostics. */
+  rootProps: OrbThemeRendererRootProps
+  /** Apply to its button to preserve Orb's lifecycle and accessible control contract. */
+  controlProps: OrbThemeRendererControlProps
+}
+
+export type OrbThemeRenderer = (props: OrbThemeRendererProps) => ReactNode
+
 export interface OrbProps extends OrbHtmlAttributes {
   /**
    * Current voice signal. Use this controlled mode when your app has separate
@@ -104,6 +187,15 @@ export interface OrbProps extends OrbHtmlAttributes {
   /** Optional inline styles for the rendered orb container/control. */
   style?: OrbStyle
 
+  /** Stable style/class hooks for semantic pieces of built-in themes. */
+  slotProps?: OrbSlotProps
+
+  /** Replace supported built-in controls such as the radial phone icon and spinner. */
+  components?: OrbThemeComponents
+
+  /** Render completely custom artwork while Orb keeps signal and lifecycle ownership. */
+  renderTheme?: OrbThemeRenderer
+
   /** Disable interactive theme and debug start/stop controls. */
   disabled?: boolean
 
@@ -117,11 +209,11 @@ export interface OrbProps extends OrbHtmlAttributes {
    * Called when a clickable theme is activated while idle/error.
    * Overrides adapter.start() when provided.
    */
-  onStart?: () => void
+  onStart?: () => void | Promise<void>
 
   /**
    * Called when a clickable theme is activated while active.
    * Overrides adapter.stop() when provided.
    */
-  onStop?: () => void
+  onStop?: () => void | Promise<void>
 }

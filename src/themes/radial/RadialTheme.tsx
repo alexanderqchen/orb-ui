@@ -1,6 +1,16 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import type { OrbHtmlAttributes, OrbState, OrbStyle } from '../../components/Orb/Orb.types'
+import type { ReactNode } from 'react'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+  OrbThemeComponent,
+  OrbThemeComponentContext,
+  OrbThemeComponents,
+} from '../../components/Orb/Orb.types'
 import type { RadialAppearance, ResolvedRadialTheme } from '../config'
+import { resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -8,8 +18,12 @@ interface RadialThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
   style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
+  components?: OrbThemeComponents
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
@@ -301,12 +315,25 @@ function PhoneIcon({ active }: { active: boolean }) {
   )
 }
 
+function renderThemeComponent(
+  component: OrbThemeComponent | undefined,
+  context: OrbThemeComponentContext,
+  fallback: ReactNode,
+) {
+  if (component === undefined) return fallback
+  return typeof component === 'function' ? component(context) : component
+}
+
 export function RadialTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
+  components,
   disabled = false,
   interactive = false,
   onClick,
@@ -494,22 +521,45 @@ export function RadialTheme({
   const active = isActiveState(state)
   const connecting = state === 'connecting'
   const stackHeight = diameter + (interactive ? controlSize * 0.5 : 0)
+  const componentContext: OrbThemeComponentContext = {
+    state,
+    active,
+    connecting,
+    disabled,
+    size: controlSize,
+  }
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--radial', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const spinnerSlot = resolveOrbSlot(slotProps, 'spinner')
+  const iconSlot = resolveOrbSlot(slotProps, 'icon')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
+  const { className: spinnerClassName, style: spinnerStyle, ...spinnerAttributes } = spinnerSlot
+  const { className: iconClassName, style: iconStyle, ...iconAttributes } = iconSlot
   const rootStyle: OrbStyle = {
     '--orb-ui-radial-control-surround': '#fff',
-    width: size,
-    height: size,
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
 
   const artwork = (
     <canvas
+      {...surfaceAttributes}
       ref={canvasRef}
+      className={surfaceClassName}
       aria-hidden="true"
       data-radial-surface=""
+      data-orb-ui-slot="surface"
       style={{
         position: 'absolute',
         left: 0,
@@ -519,26 +569,34 @@ export function RadialTheme({
         height: diameter,
         borderRadius: '50%',
         background: `conic-gradient(from 12deg, ${config.appearance.deepColor} 0deg, ${config.appearance.cobaltColor} 72deg, ${config.appearance.paleColor} 92deg, ${config.appearance.aquaColor} 172deg, ${config.appearance.deepColor} 196deg, ${config.appearance.cobaltColor} 254deg, ${config.appearance.paleColor} 278deg, ${config.appearance.aquaColor} 360deg)`,
+        ...surfaceStyle,
       }}
     />
   )
 
   const content = (
     <span
+      {...contentAttributes}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       style={{
         position: 'relative',
         display: 'block',
         width: diameter,
         height: stackHeight,
         lineHeight: 0,
+        ...contentStyle,
       }}
     >
       {artwork}
       {interactive ? (
         <button
+          {...controlAttributes}
           {...controlProps}
           type="button"
+          className={controlClassName}
           data-radial-control=""
+          data-orb-ui-slot="control"
           disabled={disabled}
           onClick={disabled ? undefined : onClick}
           style={{
@@ -569,25 +627,54 @@ export function RadialTheme({
             transform: 'translateX(-50%)',
             transition: 'background 160ms ease, opacity 160ms ease, transform 160ms ease',
             font: 'inherit',
+            ...controlStyle,
           }}
         >
           {connecting ? (
-            <span
-              aria-hidden="true"
-              data-radial-spinner=""
-              style={{
-                width: '42%',
-                height: '42%',
-                boxSizing: 'border-box',
-                border: `${Math.max(1.5, controlSize * 0.055)}px solid rgba(255, 255, 255, 0.38)`,
-                borderTopColor: '#fff',
-                borderRightColor: '#fff',
-                borderRadius: '50%',
-                animation: 'orb-radial-spinner 760ms linear infinite',
-              }}
-            />
+            components?.connectingIndicator === undefined ? (
+              <span
+                {...spinnerAttributes}
+                aria-hidden="true"
+                className={spinnerClassName}
+                data-radial-spinner=""
+                data-orb-ui-slot="spinner"
+                style={{
+                  width: '42%',
+                  height: '42%',
+                  boxSizing: 'border-box',
+                  border: `${Math.max(1.5, controlSize * 0.055)}px solid rgba(255, 255, 255, 0.38)`,
+                  borderTopColor: '#fff',
+                  borderRightColor: '#fff',
+                  borderRadius: '50%',
+                  animation: 'orb-radial-spinner 760ms linear infinite',
+                  ...spinnerStyle,
+                }}
+              />
+            ) : (
+              <span
+                {...spinnerAttributes}
+                aria-hidden="true"
+                className={spinnerClassName}
+                data-orb-ui-slot="spinner"
+                style={spinnerStyle}
+              >
+                {renderThemeComponent(components.connectingIndicator, componentContext, null)}
+              </span>
+            )
           ) : (
-            <PhoneIcon active={active} />
+            <span
+              {...iconAttributes}
+              aria-hidden="true"
+              className={iconClassName}
+              data-orb-ui-slot="icon"
+              style={{ display: 'contents', ...iconStyle }}
+            >
+              {renderThemeComponent(
+                components?.controlIcon,
+                componentContext,
+                <PhoneIcon active={active} />,
+              )}
+            </span>
           )}
         </button>
       ) : null}
@@ -597,9 +684,13 @@ export function RadialTheme({
   if (interactive) {
     return (
       <div
-        className={className}
+        {...rootAttributes}
+        ref={rootRef}
+        className={rootClassName}
         data-orb-ui-theme={config.name}
         data-orb-ui-preset={config.preset}
+        data-orb-ui-state={state}
+        data-orb-ui-slot="root"
         style={rootStyle}
       >
         {content}
@@ -608,7 +699,14 @@ export function RadialTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

@@ -3,6 +3,12 @@ title: Customize Orb Themes
 description: Choose orb-ui motion presets and override theme-specific colors, geometry, response, timing, and autonomous motion with a typed theme object.
 ---
 
+orb-ui has three customization levels:
+
+1. Choose a built-in preset.
+2. Customize a built-in theme through typed tokens, CSS variables, and stable slots.
+3. Supply a custom renderer while Orb continues to own provider signals and session lifecycle.
+
 A theme name is shorthand for its balanced preset:
 
 ```tsx
@@ -45,6 +51,19 @@ orb-ui resolves customization in this order:
 
 You can therefore start with a preset and override one field without copying every internal value.
 All properties are optional except `name`.
+
+Use `defineOrbTheme` to keep literal types when a reusable theme lives outside JSX:
+
+```tsx
+import { defineOrbTheme } from 'orb-ui'
+
+export const supportTheme = defineOrbTheme({
+  name: 'circle',
+  preset: 'calm',
+  appearance: { colors: { listening: '#60a5fa', speaking: '#f472b6' } },
+  geometry: { diameterRatio: 0.68 },
+})
+```
 
 ## Presets
 
@@ -136,18 +155,190 @@ page surface rather than the theme palette.
 The debug theme supports state `colors`, `backgroundColor`, `textColor`, and `borderColor` under
 `appearance`; `borderRadius` and `padding` under `geometry`; and `responseExponent` under `motion`.
 
-## Root CSS and layout
+## Application-wide defaults
+
+`OrbThemeProvider` supplies reusable theme, size, style, slots, component replacements, or a custom
+renderer. A local theme object for the same built-in theme deep-merges over the provider default;
+choosing another theme name replaces it.
+
+```tsx
+import { Orb, OrbThemeProvider } from 'orb-ui'
+
+export function VoiceSurface() {
+  return (
+    <OrbThemeProvider
+      size={260}
+      theme={supportTheme}
+      slotProps={{ surface: { className: 'support-orb__surface' } }}
+    >
+      <Orb adapter={primaryAgent} />
+      <Orb adapter={secondaryAgent} theme={{ name: 'circle', appearance: { speakingGlow: 48 } }} />
+    </OrbThemeProvider>
+  )
+}
+```
+
+The provider only supplies visual defaults. Each `Orb` still owns its own adapter, signal,
+accessibility label, disabled state, and lifecycle handlers.
+
+## Responsive sizing and CSS variables
+
+Use `--orb-ui-size` when layout should respond to its container or viewport. Orb measures the
+rendered root and keeps canvas resolution and numeric theme geometry aligned with its actual width.
+
+```tsx
+<Orb
+  className="responsive-orb"
+  signal={signal}
+  theme="cloud"
+  style={{ '--orb-ui-size': 'clamp(180px, 34vw, 360px)' }}
+/>
+```
+
+Every typed built-in token has a matching stable CSS variable:
+
+```text
+--orb-ui-{theme}-{section}-{property}
+--orb-ui-{theme}-{section}-{nested-property}-{key}
+```
+
+For example:
+
+```css
+.support-orb {
+  --orb-ui-size: min(68vw, 320px);
+  --orb-ui-circle-appearance-colors-listening: #60a5fa;
+  --orb-ui-circle-appearance-colors-speaking: #f472b6;
+  --orb-ui-circle-appearance-speaking-glow: 42;
+  --orb-ui-circle-geometry-diameter-ratio: 0.68;
+  --orb-ui-circle-motion-activity-rise-ms: 70;
+  --orb-ui-circle-motion-activity-fall-ms: 180;
+}
+```
+
+The variable section is `appearance`, `geometry`, or `motion`; property names are the documented
+camel-case token names converted to kebab case. Nested state colors use `colors-{state}`. Numeric
+variables may be unitless or include a descriptive unit such as `ms`; orb-ui reads their numeric
+value. Built-in and shader palette colors should use six-digit hex values.
+
+`orbThemeCssVariable(theme, section, property, nestedProperty?)` is exported when a library or
+design-system integration needs to generate a variable name safely.
+
+## Stable slots
 
 `className` and `style` apply to the rendered theme root. Every root also includes
-`data-orb-ui-theme` and `data-orb-ui-preset`, which are useful for page-level layout and contextual
-styling:
+`data-orb-ui-theme`, `data-orb-ui-preset`, `data-orb-ui-state`, and `data-orb-ui-slot="root"`.
+Internal semantic pieces use stable `orb-ui__*` classes and `data-orb-ui-slot` attributes.
+
+`slotProps` is the typed way to attach a class, inline style, ARIA attribute, title, role, or data
+attribute to those pieces:
+
+```tsx
+<Orb
+  signal={signal}
+  theme="bars"
+  slotProps={{
+    root: { className: 'brand-orb' },
+    content: { style: { filter: 'drop-shadow(0 16px 32px rgb(59 130 246 / 30%))' } },
+    bar: { className: 'brand-orb__bar', style: { opacity: 0.9 } },
+  }}
+/>
+```
+
+Available built-in slots:
+
+| Theme  | Slots                                                                      |
+| ------ | -------------------------------------------------------------------------- |
+| circle | `root`, `control`, `content`, `glow`, `surface`                            |
+| bars   | `root`, `control`, `content`, `bar`                                        |
+| cloud  | `root`, `control`, `content`, `launch`, `surface`, `spinner`               |
+| radial | `root`, `content`, `surface`, `control`, `icon`, `spinner`                 |
+| debug  | `root`, `header`, `label`, `meterTrack`, `meterFill`, `control`, `actions` |
+
+Repeated bars include `data-orb-ui-index`. Unsupported slots are ignored, so one provider-level
+slot object can be shared across themes.
+
+Stable selectors also work for contextual CSS:
 
 ```css
 .voice-panel [data-orb-ui-theme='circle'] {
   margin-inline: auto;
 }
+
+.voice-panel .orb-ui__content {
+  filter: saturate(1.15);
+}
 ```
 
-Theme artwork uses inline animation styles and WebGL shaders, so internal colors, geometry, and
-motion should be customized through the typed theme object instead of fragile descendant CSS
-overrides.
+Animation loops own some surface properties such as transform and color. Use the typed theme object
+or matching CSS variables for those semantic values; use slots for surrounding layout, filters,
+opacity, shadows, and other presentational details. For unrestricted artwork, use a custom renderer.
+
+## Replacing built-in control chrome
+
+The radial theme's phone icon and connecting indicator can be replaced without rebuilding its
+WebGL artwork:
+
+```tsx
+<Orb
+  adapter={adapter}
+  theme="radial"
+  components={{
+    controlIcon: ({ active }) => <MyCallIcon active={active} />,
+    connectingIndicator: <MySpinner />,
+  }}
+/>
+```
+
+Component callbacks receive `state`, `active`, `connecting`, `disabled`, and the control `size`.
+They can also be supplied once through `OrbThemeProvider`.
+
+## Completely custom renderers
+
+Use `renderTheme` when the built-in artwork and semantic tokens are not the right abstraction. The
+renderer receives both directional volumes, the direction-selected `activity`, actual pixel size,
+state, and lifecycle actions.
+
+```tsx
+import type { OrbThemeRenderer } from 'orb-ui'
+
+const renderBrandOrb: OrbThemeRenderer = ({
+  activity,
+  controlProps,
+  rootProps,
+  state,
+}) => (
+  <div
+    {...rootProps}
+    style={{
+      ...rootProps.style,
+      display: 'grid',
+      placeItems: 'center',
+    }}
+  >
+    <button
+      {...controlProps}
+      style={{
+        ...controlProps.style,
+        width: '70%',
+        height: '70%',
+        border: 0,
+        borderRadius: `${42 + activity * 20}%`,
+        background: state === 'speaking' ? '#f472b6' : '#60a5fa',
+        transform: `scale(${0.82 + activity * 0.18})`,
+      }}
+    />
+  </div>
+)
+
+<Orb adapter={adapter} renderTheme={renderBrandOrb} />
+```
+
+Spread `rootProps` on the outer element so responsive sizing, root classes, state diagnostics, and
+CSS variables continue to work. Spread `controlProps` on the lifecycle button so generated labels,
+disabled behavior, keyboard activation, and adapter start/stop behavior remain intact.
+
+The full renderer contract also includes `signal`, `inputVolume`, `outputVolume`, `isActive`,
+`interactive`, `disabled`, `start`, `stop`, and `toggle`. A custom renderer controls its own DOM and
+artwork; Orb continues to own adapter subscription, normalized signal selection, and lifecycle
+semantics.

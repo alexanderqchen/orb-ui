@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { resolveOrbTheme } from './config'
+import { defineOrbTheme, mergeOrbThemes, resolveOrbTheme } from './config'
+import { orbThemeCssVariable } from './css-variables'
 
 describe('theme configuration', () => {
   it('keeps string theme names on the balanced preset', () => {
@@ -57,5 +58,39 @@ describe('theme configuration', () => {
       activityFallMs: 110,
       stateTransitionMs: 0,
     })
+  })
+
+  it('merges provider defaults with local overrides for the same theme', () => {
+    const merged = mergeOrbThemes(
+      defineOrbTheme({
+        name: 'circle',
+        preset: 'calm',
+        appearance: { colors: { listening: '#112233' }, speakingGlow: 18 },
+      }),
+      {
+        name: 'circle',
+        appearance: { colors: { speaking: '#445566' } },
+        geometry: { diameterRatio: 0.7 },
+      },
+    )
+
+    expect(merged).toMatchObject({
+      name: 'circle',
+      preset: 'calm',
+      appearance: {
+        colors: { listening: '#112233', speaking: '#445566' },
+        speakingGlow: 18,
+      },
+      geometry: { diameterRatio: 0.7 },
+    })
+  })
+
+  it('generates stable CSS variable names for every theme section', () => {
+    expect(orbThemeCssVariable('circle', 'appearance', 'colors', 'speaking')).toBe(
+      '--orb-ui-circle-appearance-colors-speaking',
+    )
+    expect(orbThemeCssVariable('radial', 'motion', 'stateTransitionMs')).toBe(
+      '--orb-ui-radial-motion-state-transition-ms',
+    )
   })
 })

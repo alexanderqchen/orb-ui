@@ -1,7 +1,12 @@
 import { useRef, useEffect, useLayoutEffect } from 'react'
-import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+} from '../../components/Orb/Orb.types'
 import type { ResolvedCircleTheme } from '../config'
+import { joinClassNames, resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -9,8 +14,11 @@ interface CircleThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
@@ -54,8 +62,11 @@ export function CircleTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
   disabled = false,
   interactive = false,
   onClick,
@@ -244,18 +255,32 @@ export function CircleTheme({
   }, [config, state])
 
   const d = size * config.geometry.diameterRatio
-  const rootStyle: CSSProperties = {
-    width: size,
-    height: size,
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--circle', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const glowSlot = resolveOrbSlot(slotProps, 'glow')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: glowClassName, style: glowStyle, ...glowAttributes } = glowSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
+  const rootStyle: OrbStyle = {
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
   const content = (
     <span
+      {...contentAttributes}
       ref={hoverRef}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       onMouseEnter={() => {
         if (hoverRef.current && interactive && !disabled) {
           hoverRef.current.style.transform = 'scale(1.06)'
@@ -284,11 +309,16 @@ export function CircleTheme({
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
         borderRadius: '50%',
         lineHeight: 0,
+        ...contentStyle,
       }}
     >
       {/* Glow element — behind the circle */}
       <span
+        {...glowAttributes}
         ref={glowRef}
+        className={glowClassName}
+        data-orb-ui-slot="glow"
+        aria-hidden="true"
         style={{
           position: 'absolute',
           display: 'block',
@@ -296,11 +326,16 @@ export function CircleTheme({
           height: d,
           borderRadius: '50%',
           pointerEvents: 'none',
+          ...glowStyle,
         }}
       />
       {/* Circle — on top */}
       <span
+        {...surfaceAttributes}
         ref={circleRef}
+        className={surfaceClassName}
+        data-orb-ui-slot="surface"
+        aria-hidden="true"
         style={{
           position: 'relative',
           display: 'block',
@@ -308,6 +343,7 @@ export function CircleTheme({
           height: d,
           borderRadius: '50%',
           background: config.appearance.colors[state],
+          ...surfaceStyle,
         }}
       />
     </span>
@@ -316,9 +352,13 @@ export function CircleTheme({
   if (interactive) {
     return (
       <button
+        {...rootAttributes}
+        {...controlAttributes}
         {...controlProps}
+        ref={rootRef}
         type="button"
-        className={className}
+        className={joinClassNames(rootClassName, controlClassName)}
+        data-orb-ui-slot="root"
         disabled={disabled}
         onClick={disabled ? undefined : onClick}
         style={{
@@ -332,6 +372,7 @@ export function CircleTheme({
           font: 'inherit',
           cursor: disabled ? 'not-allowed' : 'pointer',
           ...rootStyle,
+          ...controlStyle,
         }}
       >
         {content}
@@ -340,7 +381,14 @@ export function CircleTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

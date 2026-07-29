@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Orb } from 'orb-ui'
+import { Orb, OrbThemeProvider } from 'orb-ui'
 import type { OrbAdapter, OrbSignal } from 'orb-ui'
 import { createElevenLabsAdapter, createLiveKitAdapter, createVapiAdapter } from 'orb-ui/adapters'
 import { createLiveKitAdapter as createManagedLiveKitAdapter } from 'orb-ui/adapters/livekit'
@@ -98,6 +98,40 @@ function App() {
         <button onClick={() => void adapter.stop?.()} type="button">
           Stop externally
         </button>
+      </section>
+
+      <section aria-label="Application theme defaults">
+        <OrbThemeProvider
+          className="fixture-brand-orb"
+          slotProps={{ surface: { className: 'fixture-brand-surface' } }}
+          theme={{ name: 'circle', preset: 'calm' }}
+        >
+          <Orb
+            data-testid="css-variable-orb"
+            signal={{ state: 'speaking', outputVolume: 0.65 }}
+            style={{
+              '--orb-ui-size': '180px',
+              '--orb-ui-circle-appearance-colors-speaking': '#ff00aa',
+              '--orb-ui-circle-geometry-diameter-ratio': 0.7,
+            }}
+          />
+        </OrbThemeProvider>
+      </section>
+
+      <section aria-label="Custom renderer">
+        <Orb
+          adapter={adapter}
+          aria-label="Toggle custom renderer"
+          data-testid="custom-renderer-control"
+          renderTheme={({ activity, controlProps, rootProps, state }) => (
+            <div {...rootProps}>
+              <button {...controlProps}>
+                {state}:{activity.toFixed(2)}
+              </button>
+            </div>
+          )}
+          size={180}
+        />
       </section>
     </main>
   )

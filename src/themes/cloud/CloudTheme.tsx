@@ -1,7 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+} from '../../components/Orb/Orb.types'
 import type { CloudAppearance, ResolvedCloudTheme } from '../config'
+import { joinClassNames, resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -9,8 +15,11 @@ interface CloudThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
@@ -303,8 +312,11 @@ export function CloudTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
   disabled = false,
   interactive = false,
   onClick,
@@ -505,18 +517,34 @@ export function CloudTheme({
     }
   }, [config, diameter])
 
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--cloud', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const launchSlot = resolveOrbSlot(slotProps, 'launch')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const spinnerSlot = resolveOrbSlot(slotProps, 'spinner')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: launchClassName, style: launchStyle, ...launchAttributes } = launchSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: spinnerClassName, style: spinnerStyle, ...spinnerAttributes } = spinnerSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
   const rootStyle: CSSProperties = {
-    width: size,
-    height: size,
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
 
   const content = (
     <span
+      {...contentAttributes}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       style={{
         position: 'relative',
         display: 'block',
@@ -525,11 +553,15 @@ export function CloudTheme({
         borderRadius: '50%',
         lineHeight: 0,
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
+        ...contentStyle,
       }}
     >
       <span
+        {...launchAttributes}
         ref={launchDotRef}
+        className={launchClassName}
         data-cloud-launch-dot=""
+        data-orb-ui-slot="launch"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -541,10 +573,14 @@ export function CloudTheme({
           transform: `scale(${config.geometry.idleDotScale})`,
           transformOrigin: 'center',
           willChange: 'opacity, transform',
+          ...launchStyle,
         }}
       />
       <canvas
+        {...surfaceAttributes}
         ref={canvasRef}
+        className={surfaceClassName}
+        data-orb-ui-slot="surface"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -557,10 +593,14 @@ export function CloudTheme({
           transform: `scale(${config.geometry.idleDotScale})`,
           transformOrigin: 'center',
           willChange: 'opacity, transform',
+          ...surfaceStyle,
         }}
       />
       <span
+        {...spinnerAttributes}
         ref={spinnerRef}
+        className={spinnerClassName}
+        data-orb-ui-slot="spinner"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -579,6 +619,7 @@ export function CloudTheme({
           marginLeft: diameter * -0.0525,
           marginTop: diameter * -0.0525,
           willChange: 'opacity, transform',
+          ...spinnerStyle,
         }}
       />
     </span>
@@ -587,9 +628,13 @@ export function CloudTheme({
   if (interactive) {
     return (
       <button
+        {...rootAttributes}
+        {...controlAttributes}
         {...controlProps}
+        ref={rootRef}
         type="button"
-        className={className}
+        className={joinClassNames(rootClassName, controlClassName)}
+        data-orb-ui-slot="root"
         disabled={disabled}
         onClick={disabled ? undefined : onClick}
         style={{
@@ -603,6 +648,7 @@ export function CloudTheme({
           font: 'inherit',
           cursor: disabled ? 'not-allowed' : 'pointer',
           ...rootStyle,
+          ...controlStyle,
         }}
       >
         {content}
@@ -611,7 +657,14 @@ export function CloudTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

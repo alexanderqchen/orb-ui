@@ -111,6 +111,8 @@ Completed direction:
 - Add `balanced`, `calm`, and `expressive` presets while keeping today's behavior as `balanced`
 - Add theme-specific appearance, geometry, and motion overrides with semantic parameter names
 - Keep visual response timing and easing separate from provider rise/fall normalization
+- Add responsive design tokens, stable semantic slots, and application-wide theme defaults
+- Allow custom renderers and replaceable control chrome without giving up Orb signal/lifecycle logic
 - Add preset selection to the provider playground for comparing every provider, theme, and speaking
   direction against the same normalized signal
 - Keep provider-specific measurement details out of theme implementations
