@@ -53,13 +53,18 @@ value mapped to normalized `0.5`. `speechPeak` is the raw value mapped to `1`. o
 curve between these anchors, so consumers do not have to tune an unexplained exponent.
 
 `riseTimeMs` and `fallTimeMs` are the time required for the normalized envelope to move 90% toward
-a new value. Shipped profiles currently use `100ms` rise and `250ms` fall. Processing is based on
+a new value. Shipped profiles currently use `100ms` rise and `400ms` fall. Processing is based on
 elapsed time rather than callback count, so providers with different meter rates still behave
 consistently.
 
 These times belong to signal normalization, not theme choreography. They remove provider jitter and
 produce a portable speech envelope. A theme can add its own visual response, easing, state
 transition, and autonomous motion after normalization.
+
+Built-in adapters keep every available directional envelope warm while a session is active.
+Changing between `listening`, `thinking`, and `speaking` selects a direction for rendering; it does
+not reset an envelope to an artificial zero. Disconnecting, stopping, or entering an error state
+does.
 
 ## Override a built-in profile
 
@@ -77,7 +82,7 @@ const adapter = createOpenAIRealtimeAdapter({
       speechReference: 0.12,
       speechPeak: 0.28,
     },
-    envelope: { fallTimeMs: 300 },
+    envelope: { fallTimeMs: 550 },
   },
 })
 ```

@@ -162,7 +162,7 @@ const adapter = createLiveKitAdapter({
   agentName: 'your-agent-name',
   outputVolumeCalibration: {
     amplitude: { speechReference: 0.14 },
-    envelope: { fallTimeMs: 300 },
+    envelope: { fallTimeMs: 550 },
   },
   onOutputVolumeSample: ({ raw, mapped, normalized }) => {
     console.debug({ raw, mapped, normalized })

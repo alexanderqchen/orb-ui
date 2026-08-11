@@ -380,10 +380,10 @@ export function createLiveKitAdapter<TTrack = unknown>(
     }
 
     inputVolumeInterval = setInterval(() => {
-      if (!inputAnalyserResult || currentState !== 'listening') return
+      if (!inputAnalyserResult) return
       const sample = inputNormalizer.sample(inputAnalyserResult.calculateVolume())
       config.onInputVolumeSample?.(sample)
-      emitPatch({ inputVolume: sample.normalized, outputVolume: 0 })
+      emitPatch({ inputVolume: sample.normalized })
     }, 33)
   }
 
@@ -416,17 +416,21 @@ export function createLiveKitAdapter<TTrack = unknown>(
       if (!outputAnalyserResult) return
       const sample = outputNormalizer.sample(outputAnalyserResult.calculateVolume())
       config.onOutputVolumeSample?.(sample)
-      if (currentState === 'speaking') {
-        emitPatch({ inputVolume: 0, outputVolume: sample.normalized })
-      }
+      emitPatch({ outputVolume: sample.normalized })
     }, 33)
   }
 
   function setState(state: OrbState) {
     currentState = state
-    inputNormalizer.reset()
-    outputNormalizer.reset()
-    emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+    if (state === 'idle' || state === 'connecting' || state === 'error') {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+      emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+    } else {
+      // State selects which directional envelope the orb renders; it should not
+      // destroy either envelope. Both meters keep running across turn changes.
+      emitPatch({ state })
+    }
 
     if (agentTrack && !outputAnalyserResult) {
       startOutputVolumeTracking(agentTrack)

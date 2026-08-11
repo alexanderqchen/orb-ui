@@ -7,7 +7,7 @@ export interface DirectionalVolumeCalibration {
 
 const CANONICAL_ENVELOPE = {
   riseTimeMs: 100,
-  fallTimeMs: 250,
+  fallTimeMs: 400,
 } as const
 
 function calibration(
@@ -34,7 +34,7 @@ export const PROVIDER_VOLUME_CALIBRATIONS = {
     output: calibration(0, 0.25, 0.5),
   },
   livekit: {
-    input: calibration(0, 0.293_365, 0.5),
+    input: calibration(0, 0.18, 0.4),
     output: calibration(0.015, 0.133_981, 0.232_391),
   },
   pipecat: {

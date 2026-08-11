@@ -124,8 +124,9 @@ describe('createLiveKitAdapter', () => {
       calculateVolume: vi.fn(() => 0.25),
       cleanup: vi.fn(async () => undefined),
     }
+    let outputRaw = 0
     const outputAnalyser = {
-      calculateVolume: vi.fn(() => 0.5),
+      calculateVolume: vi.fn(() => outputRaw),
       cleanup: vi.fn(async () => undefined),
     }
     const createAudioAnalyser = vi.fn((track: FakeTrack) =>
@@ -144,24 +145,34 @@ describe('createLiveKitAdapter', () => {
     })
     expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
 
+    outputRaw = 0.5
     agent.attributes['lk.agent.state'] = 'speaking'
     room.emit('participantAttributesChanged', { 'lk.agent.state': 'speaking' }, agent)
     vi.advanceTimersByTime(33)
 
     expect(signals.at(-1)).toMatchObject({
       state: 'speaking',
-      inputVolume: 0,
+      inputVolume: expect.any(Number),
       outputVolume: expect.any(Number),
     })
+    expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
     expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
 
+    const speakingOutput = signals.at(-1)?.outputVolume ?? 0
+    outputRaw = 0
     agent.attributes['lk.agent.state'] = 'listening'
     room.emit('participantAttributesChanged', { 'lk.agent.state': 'listening' }, agent)
+    expect(signals.at(-1)).toMatchObject({
+      state: 'listening',
+      outputVolume: speakingOutput,
+    })
     vi.advanceTimersByTime(33)
 
     expect(outputAnalyser.cleanup).not.toHaveBeenCalled()
     expect(signals.at(-1)?.state).toBe('listening')
     expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
+    expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
+    expect(signals.at(-1)?.outputVolume).toBeLessThan(speakingOutput)
 
     room.emit('localTrackUnpublished', { source: 'microphone', track: localTrack })
 
@@ -256,7 +267,8 @@ describe('createLiveKitAdapter', () => {
       new FakeParticipant({ attributes: { 'lk.agent.state': 'thinking' }, kind: 4 }),
     )
 
-    expect(signals.at(-1)).toMatchObject({ state: 'thinking', outputVolume: 0 })
+    expect(signals.at(-1)).toMatchObject({ state: 'thinking' })
+    expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
     expect(analyser.cleanup).not.toHaveBeenCalled()
 
     unsubscribe()

@@ -156,7 +156,15 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
         emitSignal({ ...signal, ...patch, state: patch.state ?? signal.state })
       }
 
-      const { emitState, clearTimer } = makeStateEmitter((state) => emitPatch({ state }))
+      const { emitState, clearTimer } = makeStateEmitter((state) => {
+        currentState = state
+        if (state === 'listening') {
+          stopVolLoop()
+          emitPatch({ state, outputVolume: 0 })
+        } else {
+          emitPatch({ state })
+        }
+      })
       const onStart = () => emitState('connecting')
 
       // Track current state so we can gate volume sources
@@ -165,9 +173,7 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
       const onCallStart = () => {
         callActive = true
-        currentState = 'listening'
         emitState('listening')
-        emitPatch({ outputVolume: 0 })
       }
 
       const onCallEnd = () => {
@@ -180,17 +186,18 @@ export function createVapiAdapter(client: VapiClient, options?: VapiAdapterOptio
 
       const onSpeechStart = () => {
         if (!callActive) return
-        currentState = 'speaking'
         emitState('speaking')
-        emitPatch({ outputVolume: 0 })
         startVolLoop()
       }
 
       const onSpeechEnd = () => {
         if (!callActive) return
-        stopVolLoop()
-        currentState = 'listening'
-        emitPatch({ outputVolume: 0 })
+        // Keep the rAF sampler alive while the debounced speaking state and
+        // canonical fall envelope finish. Resetting here made output snap to
+        // zero up to 350ms before the state actually changed.
+        targetRawVolume = 0
+        heldRawVolume = 0
+        lastActiveSampleAt = 0
         emitState('listening')
       }
 

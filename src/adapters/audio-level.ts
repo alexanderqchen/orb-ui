@@ -82,7 +82,7 @@ export const DEFAULT_VOLUME_CALIBRATION: VolumeCalibration = {
   },
   envelope: {
     riseTimeMs: 100,
-    fallTimeMs: 250,
+    fallTimeMs: 400,
   },
 }
 
@@ -253,7 +253,7 @@ export function fitVolumeCalibration(
     amplitude,
     envelope: {
       riseTimeMs: Math.max(0, finiteOr(envelope.riseTimeMs, 100)),
-      fallTimeMs: Math.max(0, finiteOr(envelope.fallTimeMs, 250)),
+      fallTimeMs: Math.max(0, finiteOr(envelope.fallTimeMs, 400)),
     },
   }
   const allSpeech = [...capture.quiet, ...capture.normal, ...capture.energetic]
