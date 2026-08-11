@@ -18,6 +18,26 @@ Target direction:
 - Remove callback-object adapter compatibility in 0.5.0 — complete
 - Remove surprising global audio behavior from `Orb`
 
+### Directional signal calibration — complete
+
+Every built-in adapter now emits a stable normalized speech envelope with the same semantic
+distribution: silence at `0`, ordinary speech around `0.5`, and strong uncommon peaks near `1`.
+Input and output use separate provider profiles because microphone and playback measurements have
+different raw distributions.
+
+Completed direction:
+
+- Replace provider-specific gain, curve, attack, and release constants with named amplitude anchors
+  and elapsed-time envelope semantics
+- Ship directional defaults for every available provider signal
+- Keep available input and output envelopes warm across active conversation states so provider
+  mode events never inject an artificial zero
+- Add raw, mapped, and normalized diagnostics to all adapter volume callbacks
+- Generate profiles from guided silence, quiet, normal, and energetic captures in the provider
+  playground instead of relying on manual sliders
+- Remove the ambiguous `volume` prop and `OrbSignal.volume` in favor of `inputVolume` and
+  `outputVolume`
+
 ### LiveKit adapter — complete
 
 First-class LiveKit Agents support includes signal-native state, local microphone and remote agent
@@ -82,17 +102,17 @@ controls:
 - Clear provider and controlled-mode paths
 - An editorial documentation directory for deeper implementation guidance
 
-### Theme- and direction-aware calibration — future
+### Theme response and customization — next
 
-Provider adapters currently normalize audio into a portable `OrbSignal`, but one provider-wide
-curve cannot guarantee the same perceived motion across themes. Theme geometry and animation range
-change how a normalized level feels, while human input and agent output can also need different
-response profiles.
+Provider adapters now normalize both directions into a portable `OrbSignal`. The next layer is a
+theme configuration API that lets applications choose an intentional preset or override a theme's
+appearance, geometry, and motion without changing provider measurement semantics.
 
-Future calibration work should explore:
+Next steps:
 
-- Independent input and output calibration profiles
-- Theme-level response mapping or presets layered on top of provider normalization
+- Add `balanced`, `calm`, and `expressive` presets while keeping today's behavior as `balanced`
+- Add theme-specific appearance, geometry, and motion overrides with semantic parameter names
+- Keep visual response timing and easing separate from provider rise/fall normalization
 - A playground matrix for comparing each provider, theme, and speaking direction
 - Keeping provider-specific measurement details out of theme implementations
 

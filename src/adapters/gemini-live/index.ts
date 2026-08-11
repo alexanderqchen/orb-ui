@@ -1,10 +1,7 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
-import { calibrateOutputVolume } from '../audio-level'
-import type {
-  OutputVolumeCalibration,
-  OutputVolumeCalibrationSource,
-  OutputVolumeSample,
-} from '../audio-level'
+import { createVolumeNormalizer } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 export interface GeminiLiveInlineData {
   data?: string
@@ -58,10 +55,14 @@ export interface GeminiLiveAdapterConfig {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
   /** Runtime override for tests or custom browser wrappers. */
   createAudioContext?: () => AudioContext
-  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
-  outputVolumeCalibration?: OutputVolumeCalibrationSource
-  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
-  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 export interface GeminiLiveOrbAdapter extends OrbAdapter {
@@ -70,22 +71,10 @@ export interface GeminiLiveOrbAdapter extends OrbAdapter {
 }
 
 const DEFAULT_INPUT_SAMPLE_RATE = 16_000
-const DEFAULT_GEMINI_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
-  noiseFloor: 0.003,
-  gain: 4,
-  exponent: 0.8,
-  attack: 0.3,
-  release: 0.1,
-}
-
 function calculateRms(samples: Float32Array) {
   let sumSquares = 0
   for (const sample of samples) sumSquares += sample * sample
   return Math.sqrt(sumSquares / samples.length)
-}
-
-function normalizeInputRms(samples: Float32Array) {
-  return Math.min(1, Math.max(0, Math.pow(calculateRms(samples) * 4, 0.8)))
 }
 
 function resample(samples: Float32Array, sourceRate: number, targetRate: number) {
@@ -144,7 +133,7 @@ function sampleRateFromMimeType(mimeType: string | undefined) {
 export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): GeminiLiveOrbAdapter {
   const listeners = new Set<OrbSignalListener>()
   const scheduledSources = new Set<AudioBufferSourceNode>()
-  let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+  let signal: OrbSignal = { state: 'idle', inputVolume: 0, outputVolume: 0 }
   let session: GeminiLiveSession | null = null
   let stream: MediaStream | null = null
   let audioContext: AudioContext | null = null
@@ -156,20 +145,19 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
   let speechEndTimer: ReturnType<typeof setTimeout> | null = null
   let userSpeaking = false
   let nextOutputTime = 0
-  let outputVolumeLevel = 0
   let turnComplete = false
   let stopping = false
+  const inputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.gemini.input,
+    config.inputVolumeCalibration,
+  )
+  const outputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.gemini.output,
+    config.outputVolumeCalibration,
+  )
 
   function usesClientActivityDetection() {
     return config.activityDetection !== 'server'
-  }
-
-  function getOutputVolumeCalibration() {
-    const overrides =
-      typeof config.outputVolumeCalibration === 'function'
-        ? config.outputVolumeCalibration()
-        : config.outputVolumeCalibration
-    return { ...DEFAULT_GEMINI_OUTPUT_CALIBRATION, ...overrides }
   }
 
   function emit(next: OrbSignal) {
@@ -179,12 +167,15 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
 
   function emitState(state: OrbState, error?: unknown) {
     if (signal.state === state && error === undefined) return
-    if (state !== 'speaking') outputVolumeLevel = 0
+    const resetsEnvelope = state === 'idle' || state === 'connecting' || state === 'error'
+    if (resetsEnvelope) {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+    }
     emit({
+      ...signal,
       state,
-      volume: 0,
-      inputVolume: 0,
-      outputVolume: 0,
+      ...(resetsEnvelope ? { inputVolume: 0, outputVolume: 0 } : {}),
       ...(error === undefined ? {} : { error }),
     })
   }
@@ -195,9 +186,14 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     speechEndTimer = null
   }
 
-  function handleInputVolume(inputVolume: number) {
+  function handleInputVolume(rawInputVolume: number) {
+    const sample = inputNormalizer.sample(rawInputVolume)
+    config.onInputVolumeSample?.(sample)
+    const inputVolume = sample.normalized
     const threshold = config.speechThreshold ?? 0.04
-    if (inputVolume > threshold) {
+    // Turn detection should react to the current sample, not wait for the visual
+    // envelope to decay after speech ends.
+    if (sample.mapped > threshold) {
       if (!userSpeaking && usesClientActivityDetection()) {
         session?.sendRealtimeInput({ activityStart: {} })
       }
@@ -215,9 +211,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       }, config.speechEndDelayMs ?? 500)
     }
 
-    if (signal.state === 'listening') {
-      emit({ ...signal, volume: inputVolume, inputVolume, outputVolume: 0 })
-    }
+    emit({ ...signal, inputVolume })
   }
 
   function stopScheduledAudio() {
@@ -296,17 +290,11 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     if (!outputAnalyser) return
     const samples = new Float32Array(outputAnalyser.fftSize)
     outputVolumeInterval = setInterval(() => {
-      if (!outputAnalyser || signal.state !== 'speaking') return
+      if (!outputAnalyser) return
       outputAnalyser.getFloatTimeDomainData(samples)
-      const sample = calibrateOutputVolume(
-        calculateRms(samples),
-        outputVolumeLevel,
-        getOutputVolumeCalibration,
-      )
-      outputVolumeLevel = sample.normalized
+      const sample = outputNormalizer.sample(calculateRms(samples))
       config.onOutputVolumeSample?.(sample)
-      const outputVolume = sample.normalized
-      emit({ ...signal, volume: outputVolume, inputVolume: 0, outputVolume })
+      emit({ ...signal, outputVolume: sample.normalized })
     }, 33)
   }
 
@@ -322,7 +310,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     inputProcessor.onaudioprocess = (event) => {
       if (!session || stopping) return
       const samples = event.inputBuffer.getChannelData(0)
-      handleInputVolume(normalizeInputRms(samples))
+      handleInputVolume(calculateRms(samples))
       const pcm = resample(
         samples,
         audioContext?.sampleRate ?? DEFAULT_INPUT_SAMPLE_RATE,
@@ -358,7 +346,8 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
     session = null
     userSpeaking = false
     turnComplete = false
-    outputVolumeLevel = 0
+    inputNormalizer.reset()
+    outputNormalizer.reset()
     if (emitIdle) emitState('idle')
     stopping = false
   }

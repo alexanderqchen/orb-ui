@@ -4,7 +4,7 @@ import {
   type LiveKitOrbAdapter,
   type LiveKitTokenOptions,
 } from './index'
-import type { OutputVolumeCalibrationSource, OutputVolumeSample } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
 
 interface LiveKitBrowserAdapterBase extends Omit<LiveKitTokenOptions, 'agentName' | 'roomName'> {
   /** Agent dispatched into the room. Required for LiveKit Cloud sandbox sessions. */
@@ -15,10 +15,14 @@ interface LiveKitBrowserAdapterBase extends Omit<LiveKitTokenOptions, 'agentName
   connectOptions?: Record<string, unknown>
   /** Enable the local microphone after connecting. Defaults to true. */
   enableMicrophone?: boolean
-  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
-  outputVolumeCalibration?: OutputVolumeCalibrationSource
-  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
-  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 export type LiveKitTokenEndpointOptions = Omit<RequestInit, 'body'>
@@ -75,7 +79,9 @@ export function createLiveKitAdapter(config: LiveKitBrowserAdapterConfig): LiveK
     participantMetadata,
     participantName,
     roomName = createRoomName,
+    inputVolumeCalibration,
     outputVolumeCalibration,
+    onInputVolumeSample,
     onOutputVolumeSample,
   } = config
 
@@ -98,7 +104,9 @@ export function createLiveKitAdapter(config: LiveKitBrowserAdapterConfig): LiveK
     },
     connectOptions,
     enableMicrophone,
+    inputVolumeCalibration,
     outputVolumeCalibration,
+    onInputVolumeSample,
     onOutputVolumeSample,
     createAudioAnalyser,
     RoomClass: Room,

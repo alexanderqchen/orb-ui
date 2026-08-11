@@ -1,12 +1,12 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
-import { calibrateOutputVolume, createMediaStreamTrackVolumeMeter } from '../audio-level'
+import { createMediaStreamTrackVolumeMeter, createVolumeNormalizer } from '../audio-level'
 import type {
   AudioContextSource,
   MediaStreamTrackVolumeMeter,
-  OutputVolumeCalibration,
-  OutputVolumeCalibrationSource,
-  OutputVolumeSample,
+  VolumeCalibrationSource,
+  VolumeSample,
 } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 type PipecatListener = (...args: unknown[]) => void
 
@@ -51,10 +51,14 @@ export interface PipecatAdapterOptions {
   createAudioElement?: () => HTMLAudioElement
   /** Return undefined to disable browser-track volume metering. */
   createAudioContext?: AudioContextSource
-  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
-  outputVolumeCalibration?: OutputVolumeCalibrationSource
-  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
-  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 export interface PipecatOrbAdapter extends OrbAdapter {
@@ -80,23 +84,6 @@ const PIPECAT_EVENTS = {
   botLlmStarted: 'botLlmStarted',
   botTtsStarted: 'botTtsStarted',
 } as const
-
-// Daily/Pipecat reports audio gain in the full 0-1 range, but conversational
-// speech commonly occupies only the bottom few hundredths of that range. Shape
-// those values before they reach a theme so quiet speech still produces useful
-// motion, then smooth the 100 ms level updates without making speech feel laggy.
-const INPUT_AUDIO_LEVEL_NOISE_FLOOR = 0.002
-const INPUT_AUDIO_LEVEL_GAIN = 4
-const INPUT_AUDIO_LEVEL_EXPONENT = 0.8
-const INPUT_AUDIO_LEVEL_ATTACK = 0.6
-const INPUT_AUDIO_LEVEL_RELEASE = 0.2
-const DEFAULT_PIPECAT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
-  noiseFloor: 0.002,
-  gain: 5.1,
-  exponent: 0.8,
-  attack: 0.5,
-  release: 0.22,
-}
 
 function defaultCreateAudioContext() {
   if (typeof window === 'undefined') return undefined
@@ -125,25 +112,6 @@ function stateFromTransport(state: string): OrbState | undefined {
   }
 }
 
-function shapeAudioLevel(level: unknown): number {
-  if (
-    typeof level !== 'number' ||
-    !Number.isFinite(level) ||
-    level <= INPUT_AUDIO_LEVEL_NOISE_FLOOR
-  ) {
-    return 0
-  }
-
-  const gated = Math.min(1, Math.max(0, level - INPUT_AUDIO_LEVEL_NOISE_FLOOR))
-  return Math.pow(Math.min(1, gated * INPUT_AUDIO_LEVEL_GAIN), INPUT_AUDIO_LEVEL_EXPONENT)
-}
-
-function smoothAudioLevel(level: unknown, previous: number): number {
-  const shaped = shapeAudioLevel(level)
-  const rate = shaped > previous ? INPUT_AUDIO_LEVEL_ATTACK : INPUT_AUDIO_LEVEL_RELEASE
-  return previous + (shaped - previous) * rate
-}
-
 function isMediaStreamTrack(track: unknown): track is MediaStreamTrack {
   return (
     typeof track === 'object' &&
@@ -167,25 +135,22 @@ export function createPipecatAdapter(
   const remoteAudioElements = new Map<MediaStreamTrack, HTMLAudioElement>()
   let signal: OrbSignal = {
     state: stateFromTransport(client.state ?? '') ?? 'idle',
-    volume: 0,
     inputVolume: 0,
     outputVolume: 0,
   }
   let listening = false
-  let inputLevel = 0
-  let outputLevel = 0
   let inputMeterTrack: MediaStreamTrack | null = null
   let outputMeterTrack: MediaStreamTrack | null = null
   let inputMeter: MediaStreamTrackVolumeMeter | undefined
   let outputMeter: MediaStreamTrackVolumeMeter | undefined
-
-  function getOutputVolumeCalibration() {
-    const overrides =
-      typeof options.outputVolumeCalibration === 'function'
-        ? options.outputVolumeCalibration()
-        : options.outputVolumeCalibration
-    return { ...DEFAULT_PIPECAT_OUTPUT_CALIBRATION, ...overrides }
-  }
+  const inputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.pipecat.input,
+    options.inputVolumeCalibration,
+  )
+  const outputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.pipecat.output,
+    options.outputVolumeCalibration,
+  )
 
   function emit(next: OrbSignal) {
     signal = next
@@ -193,27 +158,26 @@ export function createPipecatAdapter(
   }
 
   function emitState(state: OrbState, error?: unknown) {
-    inputLevel = 0
-    outputLevel = 0
+    const resetsEnvelope = state === 'idle' || state === 'connecting' || state === 'error'
+    if (resetsEnvelope) {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+    }
     emit({
+      ...signal,
       state,
-      volume: 0,
-      inputVolume: 0,
-      outputVolume: 0,
+      ...(resetsEnvelope ? { inputVolume: 0, outputVolume: 0 } : {}),
       ...(error === undefined ? {} : { error }),
     })
   }
 
   function emitInputVolume(level: unknown) {
-    if (signal.state !== 'listening') return
-    inputLevel = smoothAudioLevel(level, inputLevel)
-    const inputVolume = inputLevel
-    emit({ ...signal, volume: inputVolume, inputVolume, outputVolume: 0 })
+    const sample = inputNormalizer.sample(typeof level === 'number' ? level : 0)
+    options.onInputVolumeSample?.(sample)
+    emit({ ...signal, inputVolume: sample.normalized })
   }
 
   function emitOutputVolume(level: unknown, participant?: unknown) {
-    if (signal.state !== 'speaking') return
-
     if (participant && typeof participant === 'object') {
       const candidate = participant as PipecatParticipantLike
       if (candidate.local || (options.isBotParticipant && !options.isBotParticipant(candidate))) {
@@ -221,15 +185,9 @@ export function createPipecatAdapter(
       }
     }
 
-    const sample = calibrateOutputVolume(
-      typeof level === 'number' ? level : 0,
-      outputLevel,
-      getOutputVolumeCalibration,
-    )
-    outputLevel = sample.normalized
+    const sample = outputNormalizer.sample(typeof level === 'number' ? level : 0)
     options.onOutputVolumeSample?.(sample)
-    const outputVolume = sample.normalized
-    emit({ ...signal, volume: outputVolume, inputVolume: 0, outputVolume })
+    emit({ ...signal, outputVolume: sample.normalized })
   }
 
   function stopInputMeter() {

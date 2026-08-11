@@ -1,0 +1,145 @@
+---
+title: Normalize Voice Volume Across Providers
+description: Understand orb-ui's directional 0–1 speech envelope, provider calibration profiles, timing semantics, diagnostics, and guided calibration runner.
+---
+
+Every orb-ui theme consumes the same signal: a stable normalized speech envelope from `0` to `1`.
+The provider adapter is responsible for producing it. Themes do not know whether a raw measurement
+came from RMS audio, an SDK gain event, or a provider-specific volume callback.
+
+```text
+raw provider level
+  -> provider artifact cleanup
+  -> amplitude anchors
+  -> stable rise/fall envelope
+  -> inputVolume or outputVolume (0–1)
+  -> theme response
+```
+
+Input and output have separate profiles because microphone and playback measurements often use
+different sources and distributions. Built-in adapters ship with defaults for both directions when
+the provider exposes both. Vapi currently exposes assistant output only.
+
+## The 0–1 contract
+
+- `0` means silence or no meaningful activity.
+- `0.5` means ordinary conversational speech.
+- `1` means a strong, uncommon speech peak.
+- `inputVolume` is active while the user is being heard.
+- `outputVolume` is active while the assistant is speaking.
+
+The distribution matters as much as the endpoints. Normal speech should move through the middle of
+the range instead of remaining near zero or saturating at one. This lets a theme or animation preset
+work consistently across providers.
+
+## Calibration profile
+
+```ts
+interface VolumeCalibration {
+  amplitude: {
+    silenceFloor: number
+    speechReference: number
+    speechPeak: number
+  }
+  envelope: {
+    riseTimeMs: number
+    fallTimeMs: number
+  }
+}
+```
+
+`silenceFloor` is the raw value at or below which the output is zero. `speechReference` is the raw
+value mapped to normalized `0.5`. `speechPeak` is the raw value mapped to `1`. orb-ui derives the
+curve between these anchors, so consumers do not have to tune an unexplained exponent.
+
+`riseTimeMs` and `fallTimeMs` are the time required for the normalized envelope to move 90% toward
+a new value. Shipped profiles currently use `100ms` rise and `400ms` fall. Processing is based on
+elapsed time rather than callback count, so providers with different meter rates still behave
+consistently.
+
+These times belong to signal normalization, not theme choreography. They remove provider jitter and
+produce a portable speech envelope. A theme can add its own visual response, easing, state
+transition, and autonomous motion after normalization.
+
+Built-in adapters keep every available directional envelope warm while a session is active.
+Changing between `listening`, `thinking`, and `speaking` selects a direction for rendering; it does
+not reset an envelope to an artificial zero. Disconnecting, stopping, or entering an error state
+does.
+
+## Override a built-in profile
+
+Most applications should keep the shipped defaults. If a custom audio path has a different raw
+distribution, pass partial overrides for each affected direction:
+
+```tsx
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret,
+  inputVolumeCalibration: {
+    amplitude: { silenceFloor: 0.004 },
+  },
+  outputVolumeCalibration: {
+    amplitude: {
+      speechReference: 0.12,
+      speechPeak: 0.28,
+    },
+    envelope: { fallTimeMs: 550 },
+  },
+})
+```
+
+Pass a getter to apply a generated profile without restarting the adapter. Diagnostic callbacks
+report each stage:
+
+```tsx
+const adapter = createOpenAIRealtimeAdapter({
+  getClientSecret,
+  outputVolumeCalibration: () => currentProfile.output,
+  onOutputVolumeSample: ({ raw, mapped, normalized, elapsedMs }) => {
+    console.debug({ raw, mapped, normalized, elapsedMs })
+  },
+})
+```
+
+`raw` is the provider measurement, `mapped` is the amplitude-mapped value before temporal
+processing, and `normalized` is the stable envelope emitted as `outputVolume`.
+
+## Generate a profile with the guided runner
+
+The provider QA playground generates amplitude anchors instead of asking you to tune sliders:
+
+1. Run `pnpm build` and `pnpm dev:demo`.
+2. Open `/provider-playground` and configure the provider.
+3. Start a real session and select input or output.
+4. Capture silence, quiet speech, normal speech, and energetic speech.
+5. Generate the profile and inspect its mapped distribution.
+6. Repeat for the other direction and compare themes using the same generated profile.
+
+The runner stores generated profiles locally in that browser and applies them to the active session
+through calibration getters. It reports mapped quiet, normal, and energetic medians so a maintainer
+can verify that normal speech centers around `0.5` and energetic speech uses the upper range. Reset
+restores the shipped baseline for the selected direction.
+
+Use the runner when validating a provider default or a materially different audio pipeline. It is
+not intended as an installation step for every application.
+
+## Calibration API
+
+`orb-ui/adapters` exports the reusable pieces used by the built-in adapters and playground:
+
+```ts
+import {
+  PROVIDER_VOLUME_CALIBRATIONS,
+  createVolumeNormalizer,
+  fitVolumeCalibration,
+  mapVolumeAmplitude,
+} from 'orb-ui/adapters'
+```
+
+Custom adapters can use `createVolumeNormalizer` to emit the same stable envelope. The calibration
+fitter accepts four raw sample arrays and returns both a generated profile and distribution metrics.
+
+## What not to calibrate here
+
+Do not tune provider profiles to make one theme larger, faster, or more dramatic. Provider
+calibration standardizes measurement semantics. Theme-specific size, deformation, visual response,
+easing, and transition behavior belong to theme configuration.

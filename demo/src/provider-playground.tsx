@@ -10,19 +10,26 @@ import {
   createOpenAIRealtimeAdapter,
   createPipecatAdapter,
   createVapiAdapter,
+  fitVolumeCalibration,
+  PROVIDER_VOLUME_CALIBRATIONS,
 } from 'orb-ui/adapters'
 import type {
+  DirectionalVolumeCalibration,
   GeminiLiveSession,
-  OutputVolumeCalibration,
-  OutputVolumeSample,
+  VolumeCalibration,
+  VolumeCalibrationCapture,
+  VolumeCalibrationFit,
+  VolumeSample,
 } from 'orb-ui/adapters'
 import './provider-playground.css'
 
 type ProviderId = 'manual' | 'vapi' | 'elevenlabs' | 'livekit' | 'pipecat' | 'openai' | 'gemini'
 type LiveKitConnectionMode = 'sandbox' | 'endpoint' | 'raw'
 type PipecatConnectionMode = 'cloud' | 'small-webrtc'
-type TunableProviderId = 'livekit' | 'pipecat' | 'openai' | 'gemini'
-type OutputCalibrationByProvider = Record<TunableProviderId, OutputVolumeCalibration>
+type CalibratableProviderId = Exclude<ProviderId, 'manual'>
+type VolumeDirection = 'input' | 'output'
+type CalibrationPhase = keyof VolumeCalibrationCapture
+type CalibrationByProvider = Record<CalibratableProviderId, DirectionalVolumeCalibration>
 
 interface ProviderConfig {
   vapiPublicKey: string
@@ -90,72 +97,75 @@ const DEFAULT_GEMINI_VOICE = 'Kore'
 const DEFAULT_INSTRUCTIONS =
   'You are a concise, friendly voice assistant helping test a realtime React UI.'
 
-const EMPTY_SIGNAL: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+const EMPTY_SIGNAL: OrbSignal = { state: 'idle', inputVolume: 0, outputVolume: 0 }
 const CONFIG_STORAGE_KEY = 'orb-ui:provider-playground-config'
-const CALIBRATION_STORAGE_KEY = 'orb-ui:provider-playground-output-calibration'
-const DEFAULT_OUTPUT_CALIBRATION: OutputCalibrationByProvider = {
-  livekit: {
-    noiseFloor: 0.015,
-    gain: 4.6,
-    exponent: 1.15,
-    attack: 0.1,
-    release: 0.48,
-  },
-  pipecat: {
-    noiseFloor: 0.002,
-    gain: 5.1,
-    exponent: 0.8,
-    attack: 0.5,
-    release: 0.22,
-  },
-  openai: {
-    noiseFloor: 0.003,
-    gain: 4,
-    exponent: 0.8,
-    attack: 0.55,
-    release: 0.1,
-  },
-  gemini: {
-    noiseFloor: 0.003,
-    gain: 4,
-    exponent: 0.8,
-    attack: 0.3,
-    release: 0.1,
-  },
-}
-
-const OUTPUT_CALIBRATION_CONTROLS: Array<{
-  key: keyof OutputVolumeCalibration
-  label: string
-  min: number
-  max: number
-  step: number
-  digits: number
-}> = [
-  { key: 'noiseFloor', label: 'Noise floor', min: 0, max: 0.05, step: 0.001, digits: 3 },
-  { key: 'gain', label: 'Gain', min: 1, max: 12, step: 0.1, digits: 1 },
-  { key: 'exponent', label: 'Curve', min: 0.3, max: 1.5, step: 0.05, digits: 2 },
-  { key: 'attack', label: 'Attack', min: 0.05, max: 1, step: 0.05, digits: 2 },
-  { key: 'release', label: 'Release', min: 0.02, max: 1, step: 0.02, digits: 2 },
+const CALIBRATION_STORAGE_KEY = 'orb-ui:provider-playground-volume-calibration-v2'
+const CALIBRATABLE_PROVIDERS: CalibratableProviderId[] = [
+  'vapi',
+  'elevenlabs',
+  'livekit',
+  'pipecat',
+  'openai',
+  'gemini',
 ]
-
-function isTunableProvider(provider: ProviderId): provider is TunableProviderId {
-  return (
-    provider === 'livekit' ||
-    provider === 'pipecat' ||
-    provider === 'openai' ||
-    provider === 'gemini'
-  )
+const CALIBRATION_PHASES: Array<{
+  id: CalibrationPhase
+  label: string
+  instruction: string
+}> = [
+  { id: 'silence', label: '1. Silence', instruction: 'Pause without speaking.' },
+  { id: 'quiet', label: '2. Quiet', instruction: 'Speak softly at a natural distance.' },
+  { id: 'normal', label: '3. Normal', instruction: 'Speak at your normal conversational level.' },
+  { id: 'energetic', label: '4. Energetic', instruction: 'Speak energetically without shouting.' },
+]
+const EMPTY_CAPTURE: VolumeCalibrationCapture = {
+  silence: [],
+  quiet: [],
+  normal: [],
+  energetic: [],
 }
 
-function copyOutputCalibration(
-  calibration: OutputCalibrationByProvider,
-): OutputCalibrationByProvider {
+function isCalibratableProvider(provider: ProviderId): provider is CalibratableProviderId {
+  return provider !== 'manual'
+}
+
+function supportsDirection(provider: CalibratableProviderId, direction: VolumeDirection) {
+  return direction === 'output' || provider !== 'vapi'
+}
+
+function copyCalibration(calibration: VolumeCalibration): VolumeCalibration {
   return {
-    livekit: { ...calibration.livekit },
-    pipecat: { ...calibration.pipecat },
-    openai: { ...calibration.openai },
-    gemini: { ...calibration.gemini },
+    amplitude: { ...calibration.amplitude },
+    envelope: { ...calibration.envelope },
+  }
+}
+
+function copyDirectionalCalibration(
+  calibration: DirectionalVolumeCalibration,
+): DirectionalVolumeCalibration {
+  return {
+    input: calibration.input ? copyCalibration(calibration.input) : undefined,
+    output: calibration.output ? copyCalibration(calibration.output) : undefined,
+  }
+}
+
+function copyProviderCalibrations(): CalibrationByProvider {
+  return {
+    vapi: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.vapi),
+    elevenlabs: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.elevenlabs),
+    livekit: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.livekit),
+    pipecat: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.pipecat),
+    openai: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.openai),
+    gemini: copyDirectionalCalibration(PROVIDER_VOLUME_CALIBRATIONS.gemini),
+  }
+}
+
+function copyCapture(capture: VolumeCalibrationCapture): VolumeCalibrationCapture {
+  return {
+    silence: [...capture.silence],
+    quiet: [...capture.quiet],
+    normal: [...capture.normal],
+    energetic: [...capture.energetic],
   }
 }
 
@@ -219,8 +229,31 @@ function getStorage() {
   }
 }
 
-function readStoredOutputCalibration(): OutputCalibrationByProvider {
-  const defaults = copyOutputCalibration(DEFAULT_OUTPUT_CALIBRATION)
+function readCalibration(value: unknown): VolumeCalibration | undefined {
+  if (!isRecord(value) || !isRecord(value.amplitude) || !isRecord(value.envelope)) {
+    return undefined
+  }
+
+  const { silenceFloor, speechReference, speechPeak } = value.amplitude
+  const { riseTimeMs, fallTimeMs } = value.envelope
+  if (
+    typeof silenceFloor !== 'number' ||
+    typeof speechReference !== 'number' ||
+    typeof speechPeak !== 'number' ||
+    typeof riseTimeMs !== 'number' ||
+    typeof fallTimeMs !== 'number'
+  ) {
+    return undefined
+  }
+
+  return {
+    amplitude: { silenceFloor, speechReference, speechPeak },
+    envelope: { riseTimeMs, fallTimeMs },
+  }
+}
+
+function readStoredCalibration(): CalibrationByProvider {
+  const defaults = copyProviderCalibrations()
   const storage = getStorage()
   if (!storage) return defaults
 
@@ -228,14 +261,14 @@ function readStoredOutputCalibration(): OutputCalibrationByProvider {
     const parsed = JSON.parse(storage.getItem(CALIBRATION_STORAGE_KEY) ?? '{}')
     if (!isRecord(parsed)) return defaults
 
-    for (const provider of ['livekit', 'pipecat', 'openai', 'gemini'] as const) {
+    for (const provider of CALIBRATABLE_PROVIDERS) {
       const storedProvider = parsed[provider]
       if (!isRecord(storedProvider)) continue
 
-      for (const control of OUTPUT_CALIBRATION_CONTROLS) {
-        const value = storedProvider[control.key]
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          defaults[provider][control.key] = value
+      for (const direction of ['input', 'output'] as const) {
+        const calibration = readCalibration(storedProvider[direction])
+        if (calibration && supportsDirection(provider, direction)) {
+          defaults[provider][direction] = calibration
         }
       }
     }
@@ -246,7 +279,7 @@ function readStoredOutputCalibration(): OutputCalibrationByProvider {
   }
 }
 
-function writeStoredOutputCalibration(calibration: OutputCalibrationByProvider) {
+function writeStoredCalibration(calibration: CalibrationByProvider) {
   const storage = getStorage()
   if (!storage) return
 
@@ -426,9 +459,9 @@ function formatVolume(value: number | undefined) {
 }
 
 function createManualSignal(state: OrbState, inputVolume: number, outputVolume: number): OrbSignal {
-  if (state === 'listening') return { state, inputVolume, volume: inputVolume }
-  if (state === 'speaking') return { state, outputVolume, volume: outputVolume }
-  return { state, volume: 0, inputVolume: 0, outputVolume: 0 }
+  if (state === 'listening') return { state, inputVolume }
+  if (state === 'speaking') return { state, outputVolume }
+  return { state, inputVolume: 0, outputVolume: 0 }
 }
 
 function getProviderReady(provider: ProviderId, config: ProviderConfig) {
@@ -523,7 +556,7 @@ function createLazyAdapter(factory: () => OrbAdapter | Promise<OrbAdapter>): Orb
         await adapter.start?.()
       } catch (error) {
         console.error('[orb-ui/demo] Provider start failed:', error)
-        emit({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error })
+        emit({ state: 'error', inputVolume: 0, outputVolume: 0, error })
       }
     },
 
@@ -536,9 +569,11 @@ function createLazyAdapter(factory: () => OrbAdapter | Promise<OrbAdapter>): Orb
 function createProviderAdapter(
   provider: ProviderId,
   config: ProviderConfig,
-  outputCalibration?: {
-    get: () => OutputVolumeCalibration
-    onSample: (sample: OutputVolumeSample) => void
+  volumeCalibration?: {
+    getInput: () => VolumeCalibration
+    getOutput: () => VolumeCalibration
+    onInputSample: (sample: VolumeSample) => void
+    onOutputSample: (sample: VolumeSample) => void
   },
 ): OrbAdapter | undefined {
   if (provider === 'vapi' && getProviderReady(provider, config)) {
@@ -546,6 +581,8 @@ function createProviderAdapter(
       const vapiModule = await import('@vapi-ai/web')
       return createVapiAdapter(new (getVapiConstructor(vapiModule.default))(config.vapiPublicKey), {
         assistantId: config.vapiAssistantId,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
       })
     })
   }
@@ -555,6 +592,10 @@ function createProviderAdapter(
       const { Conversation } = await import('@elevenlabs/client')
       return createElevenLabsAdapter(Conversation, {
         agentId: config.elevenLabsAgentId,
+        inputVolumeCalibration: volumeCalibration?.getInput,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
       })
     })
   }
@@ -575,8 +616,10 @@ function createProviderAdapter(
       })
 
       return createPipecatAdapter(client, {
-        outputVolumeCalibration: outputCalibration?.get,
-        onOutputVolumeSample: outputCalibration?.onSample,
+        inputVolumeCalibration: volumeCalibration?.getInput,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
         connect:
           config.pipecatConnectionMode === 'cloud'
             ? () =>
@@ -595,8 +638,10 @@ function createProviderAdapter(
   if (provider === 'openai' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
       createOpenAIRealtimeAdapter({
-        outputVolumeCalibration: outputCalibration?.get,
-        onOutputVolumeSample: outputCalibration?.onSample,
+        inputVolumeCalibration: volumeCalibration?.getInput,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
         getClientSecret: () =>
           postProviderJson<{ value: string }>('/api/openai-realtime-token', {
             apiKey: config.openAIApiKey,
@@ -611,8 +656,10 @@ function createProviderAdapter(
   if (provider === 'gemini' && getProviderReady(provider, config)) {
     return createLazyAdapter(() =>
       createGeminiLiveAdapter({
-        outputVolumeCalibration: outputCalibration?.get,
-        onOutputVolumeSample: outputCalibration?.onSample,
+        inputVolumeCalibration: volumeCalibration?.getInput,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
         connect: async (callbacks) => {
           const { GoogleGenAI } = await import('@google/genai')
           const token = await postProviderJson<{
@@ -649,8 +696,10 @@ function createProviderAdapter(
           sandboxId: config.liveKitSandboxId,
           agentName: config.liveKitAgentName,
           roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
-          outputVolumeCalibration: outputCalibration?.get,
-          onOutputVolumeSample: outputCalibration?.onSample,
+          inputVolumeCalibration: volumeCalibration?.getInput,
+          outputVolumeCalibration: volumeCalibration?.getOutput,
+          onInputVolumeSample: volumeCalibration?.onInputSample,
+          onOutputVolumeSample: volumeCalibration?.onOutputSample,
         })
       }
 
@@ -661,8 +710,10 @@ function createProviderAdapter(
           tokenEndpoint: config.liveKitTokenEndpoint,
           agentName: config.liveKitAgentName,
           roomName: () => createLiveKitRoomName(config.liveKitRoomPrefix),
-          outputVolumeCalibration: outputCalibration?.get,
-          onOutputVolumeSample: outputCalibration?.onSample,
+          inputVolumeCalibration: volumeCalibration?.getInput,
+          outputVolumeCalibration: volumeCalibration?.getOutput,
+          onInputVolumeSample: volumeCalibration?.onInputSample,
+          onOutputVolumeSample: volumeCalibration?.onOutputSample,
         })
       }
 
@@ -672,8 +723,10 @@ function createProviderAdapter(
         participantToken: config.liveKitParticipantToken,
         createAudioAnalyser,
         RoomClass: Room,
-        outputVolumeCalibration: outputCalibration?.get,
-        onOutputVolumeSample: outputCalibration?.onSample,
+        inputVolumeCalibration: volumeCalibration?.getInput,
+        outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
+        onOutputVolumeSample: volumeCalibration?.onOutputSample,
       })
     })
   }
@@ -701,57 +754,97 @@ function SignalRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function OutputCalibrationControls({
-  calibration,
-  onChange,
+function GuidedCalibrationControls({
+  provider,
+  direction,
+  onDirectionChange,
+  capture,
+  activePhase,
+  onTogglePhase,
+  onGenerate,
   onReset,
-  peakRaw,
+  calibration,
   sample,
+  fit,
 }: {
-  calibration: OutputVolumeCalibration
-  onChange: (key: keyof OutputVolumeCalibration, value: number) => void
+  provider: CalibratableProviderId
+  direction: VolumeDirection
+  onDirectionChange: (direction: VolumeDirection) => void
+  capture: VolumeCalibrationCapture
+  activePhase: CalibrationPhase | undefined
+  onTogglePhase: (phase: CalibrationPhase) => void
+  onGenerate: () => void
   onReset: () => void
-  peakRaw: number
-  sample: OutputVolumeSample | undefined
+  calibration: VolumeCalibration
+  sample: VolumeSample | undefined
+  fit: VolumeCalibrationFit | undefined
 }) {
+  const readyToGenerate = CALIBRATION_PHASES.every(({ id }) => capture[id].length > 0)
+
   return (
     <section className="provider-panel provider-diagnostics">
       <div className="provider-calibration-heading">
-        <span className="provider-label">Live Output Calibration</span>
+        <span className="provider-label">Guided Volume Calibration</span>
         <button className="provider-button" onClick={onReset} type="button">
-          Reset suggested
+          Reset shipped
         </button>
       </div>
       <p className="provider-note">
-        These controls update the active session immediately. Lower attack/release values add more
-        smoothing; lower curve values lift quiet audio.
+        Start the provider session, capture all four speaking conditions, then generate a profile.
+        The active session uses the generated values immediately.
       </p>
-      <div className="provider-sliders provider-calibration-sliders">
-        {OUTPUT_CALIBRATION_CONTROLS.map((control) => (
-          <label className="provider-slider-row" key={control.key}>
-            <span>{control.label}</span>
-            <input
-              data-testid={`output-calibration-${control.key}`}
-              max={control.max}
-              min={control.min}
-              onChange={(event) => onChange(control.key, Number(event.currentTarget.value))}
-              step={control.step}
-              type="range"
-              value={calibration[control.key]}
-            />
-            <span>{calibration[control.key].toFixed(control.digits)}</span>
-          </label>
+      <div className="provider-control-group">
+        <span className="provider-label">Direction</span>
+        <div className="provider-segment">
+          {(['input', 'output'] as const).map((item) => (
+            <button
+              className={`provider-button ${direction === item ? 'is-selected' : ''}`}
+              disabled={!supportsDirection(provider, item)}
+              key={item}
+              onClick={() => onDirectionChange(item)}
+              type="button"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="provider-calibration-phases">
+        {CALIBRATION_PHASES.map((phase) => (
+          <button
+            className={`provider-calibration-phase ${activePhase === phase.id ? 'is-recording' : ''}`}
+            key={phase.id}
+            onClick={() => onTogglePhase(phase.id)}
+            type="button"
+          >
+            <span>{phase.label}</span>
+            <strong>{capture[phase.id].length} samples</strong>
+            <small>{phase.instruction}</small>
+          </button>
         ))}
       </div>
+      <button
+        className="provider-button"
+        disabled={!readyToGenerate || activePhase !== undefined}
+        onClick={onGenerate}
+        type="button"
+      >
+        Generate {direction} profile
+      </button>
       <div className="provider-signal-list">
-        <SignalRow label="raw RMS" value={(sample?.raw ?? 0).toFixed(4)} />
-        <SignalRow label="peak raw" value={peakRaw.toFixed(4)} />
-        <SignalRow label="shaped" value={(sample?.shaped ?? 0).toFixed(3)} />
-        <SignalRow label="smoothed" value={(sample?.normalized ?? 0).toFixed(3)} />
+        <SignalRow label="raw" value={(sample?.raw ?? 0).toFixed(4)} />
+        <SignalRow label="mapped" value={(sample?.mapped ?? 0).toFixed(3)} />
+        <SignalRow label="normalized" value={(sample?.normalized ?? 0).toFixed(3)} />
+        {fit ? (
+          <SignalRow
+            label="mapped medians"
+            value={`${fit.metrics.quietMedian.toFixed(2)} / ${fit.metrics.normalMedian.toFixed(2)} / ${fit.metrics.energeticMedian.toFixed(2)}`}
+          />
+        ) : null}
       </div>
-      <span className="provider-label provider-preset-label">Preset to send back</span>
-      <pre className="provider-code" data-testid="output-calibration-preset">
-        {JSON.stringify(calibration)}
+      <span className="provider-label provider-preset-label">Generated provider profile</span>
+      <pre className="provider-code" data-testid="volume-calibration-profile">
+        {JSON.stringify(calibration, null, 2)}
       </pre>
     </section>
   )
@@ -1114,31 +1207,88 @@ function ProviderPlayground() {
   const [manualOutputVolume, setManualOutputVolume] = useState(0.65)
   const [latestSignal, setLatestSignal] = useState<OrbSignal>(EMPTY_SIGNAL)
   const [events, setEvents] = useState<EventEntry[]>([])
-  const [outputCalibration, setOutputCalibration] = useState<OutputCalibrationByProvider>(() =>
-    readStoredOutputCalibration(),
+  const [calibration, setCalibration] = useState<CalibrationByProvider>(() =>
+    readStoredCalibration(),
   )
-  const outputCalibrationRef = useRef(outputCalibration)
-  const [latestOutputSample, setLatestOutputSample] = useState<OutputVolumeSample>()
-  const [peakRawOutput, setPeakRawOutput] = useState(0)
+  const calibrationRef = useRef(calibration)
+  const [calibrationDirection, setCalibrationDirection] = useState<VolumeDirection>('input')
+  const [captures, setCaptures] = useState<Record<VolumeDirection, VolumeCalibrationCapture>>({
+    input: copyCapture(EMPTY_CAPTURE),
+    output: copyCapture(EMPTY_CAPTURE),
+  })
+  const [activeCapture, setActiveCapture] = useState<
+    { direction: VolumeDirection; phase: CalibrationPhase } | undefined
+  >()
+  const activeCaptureRef = useRef(activeCapture)
+  const [latestSamples, setLatestSamples] = useState<
+    Partial<Record<VolumeDirection, VolumeSample>>
+  >({})
+  const [lastFit, setLastFit] = useState<
+    | { provider: CalibratableProviderId; direction: VolumeDirection; fit: VolumeCalibrationFit }
+    | undefined
+  >()
 
   useEffect(() => {
     writeStoredConfig(config, provider, theme)
   }, [config, provider, theme])
 
   useEffect(() => {
-    outputCalibrationRef.current = outputCalibration
-    writeStoredOutputCalibration(outputCalibration)
-  }, [outputCalibration])
+    calibrationRef.current = calibration
+    writeStoredCalibration(calibration)
+  }, [calibration])
 
-  const getActiveOutputCalibration = useCallback(() => {
-    if (!isTunableProvider(provider)) return DEFAULT_OUTPUT_CALIBRATION.openai
-    return outputCalibrationRef.current[provider]
-  }, [provider])
+  useEffect(() => {
+    if (activeCapture?.phase !== 'silence') return
 
-  const recordOutputSample = useCallback((sample: OutputVolumeSample) => {
-    setLatestOutputSample(sample)
-    setPeakRawOutput((current) => Math.max(current, sample.raw))
+    // Some SDKs stop emitting meter callbacks when a direction is silent. A
+    // periodic zero records that absence as silence while real raw callbacks
+    // still determine the high-percentile floor.
+    const interval = window.setInterval(() => {
+      setCaptures((current) => ({
+        ...current,
+        [activeCapture.direction]: {
+          ...current[activeCapture.direction],
+          silence: [...current[activeCapture.direction].silence, 0].slice(-5000),
+        },
+      }))
+    }, 100)
+
+    return () => window.clearInterval(interval)
+  }, [activeCapture])
+
+  const getActiveCalibration = useCallback(
+    (direction: VolumeDirection) => {
+      if (!isCalibratableProvider(provider)) {
+        return copyCalibration(PROVIDER_VOLUME_CALIBRATIONS.openai[direction])
+      }
+      const current = calibrationRef.current[provider][direction]
+      return current ?? copyCalibration(PROVIDER_VOLUME_CALIBRATIONS.openai[direction])
+    },
+    [provider],
+  )
+
+  const recordVolumeSample = useCallback((direction: VolumeDirection, sample: VolumeSample) => {
+    setLatestSamples((current) => ({ ...current, [direction]: sample }))
+    const capture = activeCaptureRef.current
+    if (!capture || capture.direction !== direction) return
+
+    setCaptures((current) => ({
+      ...current,
+      [direction]: {
+        ...current[direction],
+        [capture.phase]: [...current[direction][capture.phase], sample.raw].slice(-5000),
+      },
+    }))
   }, [])
+
+  const recordInputSample = useCallback(
+    (sample: VolumeSample) => recordVolumeSample('input', sample),
+    [recordVolumeSample],
+  )
+  const recordOutputSample = useCallback(
+    (sample: VolumeSample) => recordVolumeSample('output', sample),
+    [recordVolumeSample],
+  )
 
   const activeConfig = useMemo(() => normalizeConfig(config), [config])
   const providerReady = getProviderReady(provider, activeConfig)
@@ -1147,11 +1297,16 @@ function ProviderPlayground() {
       createProviderAdapter(
         provider,
         activeConfig,
-        isTunableProvider(provider)
-          ? { get: getActiveOutputCalibration, onSample: recordOutputSample }
+        isCalibratableProvider(provider)
+          ? {
+              getInput: () => getActiveCalibration('input'),
+              getOutput: () => getActiveCalibration('output'),
+              onInputSample: recordInputSample,
+              onOutputSample: recordOutputSample,
+            }
           : undefined,
       ),
-    [activeConfig, getActiveOutputCalibration, provider, recordOutputSample],
+    [activeConfig, getActiveCalibration, provider, recordInputSample, recordOutputSample],
   )
 
   const updateConfig = useCallback(function updateConfig<TKey extends keyof ProviderConfig>(
@@ -1315,49 +1470,95 @@ function ProviderPlayground() {
   useEffect(() => {
     setLatestSignal(EMPTY_SIGNAL)
     setEvents([])
-    setLatestOutputSample(undefined)
-    setPeakRawOutput(0)
+    setCalibrationDirection(provider === 'vapi' ? 'output' : 'input')
+    setCaptures({
+      input: copyCapture(EMPTY_CAPTURE),
+      output: copyCapture(EMPTY_CAPTURE),
+    })
+    activeCaptureRef.current = undefined
+    setActiveCapture(undefined)
+    setLatestSamples({})
+    setLastFit(undefined)
   }, [provider])
 
-  const updateOutputCalibration = useCallback(
-    (key: keyof OutputVolumeCalibration, value: number) => {
-      if (!isTunableProvider(provider)) return
-      setOutputCalibration((current) => {
-        const next = {
+  const toggleCapturePhase = useCallback(
+    (phase: CalibrationPhase) => {
+      const next =
+        activeCapture?.direction === calibrationDirection && activeCapture.phase === phase
+          ? undefined
+          : { direction: calibrationDirection, phase }
+
+      if (next) {
+        setCaptures((current) => ({
           ...current,
-          [provider]: { ...current[provider], [key]: value },
-        }
-        outputCalibrationRef.current = next
-        return next
-      })
+          [calibrationDirection]: {
+            ...current[calibrationDirection],
+            [phase]: [],
+          },
+        }))
+      }
+      activeCaptureRef.current = next
+      setActiveCapture(next)
     },
-    [provider],
+    [activeCapture, calibrationDirection],
   )
 
-  const resetOutputCalibration = useCallback(() => {
-    if (!isTunableProvider(provider)) return
-    setOutputCalibration((current) => {
+  const generateCalibration = useCallback(() => {
+    if (!isCalibratableProvider(provider)) return
+    const fit = fitVolumeCalibration(captures[calibrationDirection])
+    setCalibration((current) => {
       const next = {
         ...current,
-        [provider]: { ...DEFAULT_OUTPUT_CALIBRATION[provider] },
+        [provider]: {
+          ...current[provider],
+          [calibrationDirection]: fit.calibration,
+        },
       }
-      outputCalibrationRef.current = next
+      calibrationRef.current = next
       return next
     })
-    setLatestOutputSample(undefined)
-    setPeakRawOutput(0)
-  }, [provider])
+    setLastFit({ provider, direction: calibrationDirection, fit })
+  }, [calibrationDirection, captures, provider])
+
+  const resetCalibration = useCallback(() => {
+    if (!isCalibratableProvider(provider)) return
+    const shipped = copyProviderCalibrations()[provider][calibrationDirection]
+    if (!shipped) return
+    setCalibration((current) => {
+      const next = {
+        ...current,
+        [provider]: {
+          ...current[provider],
+          [calibrationDirection]: copyCalibration(shipped),
+        },
+      }
+      calibrationRef.current = next
+      return next
+    })
+    setCaptures((current) => ({
+      ...current,
+      [calibrationDirection]: copyCapture(EMPTY_CAPTURE),
+    }))
+    activeCaptureRef.current = undefined
+    setActiveCapture(undefined)
+    setLatestSamples((current) => ({ ...current, [calibrationDirection]: undefined }))
+    setLastFit(undefined)
+  }, [calibrationDirection, provider])
+
+  const changeCalibrationDirection = useCallback((direction: VolumeDirection) => {
+    activeCaptureRef.current = undefined
+    setActiveCapture(undefined)
+    setCalibrationDirection(direction)
+  }, [])
 
   const displayedSignal = provider === 'manual' ? manualSignal : latestSignal
   const activeState = provider === 'manual' ? manualSignal.state : latestSignal.state
   const activeVolume =
-    provider === 'manual'
-      ? manualSignal.volume
-      : activeState === 'listening'
-        ? (latestSignal.inputVolume ?? latestSignal.volume)
-        : activeState === 'speaking'
-          ? (latestSignal.outputVolume ?? latestSignal.volume)
-          : latestSignal.volume
+    activeState === 'listening'
+      ? (displayedSignal.inputVolume ?? 0)
+      : activeState === 'speaking'
+        ? (displayedSignal.outputVolume ?? 0)
+        : 0
 
   const updateManualState = useCallback(
     (state: OrbState) => {
@@ -1608,13 +1809,27 @@ function ProviderPlayground() {
               </section>
             ) : null}
 
-            {isTunableProvider(provider) ? (
-              <OutputCalibrationControls
-                calibration={outputCalibration[provider]}
-                onChange={updateOutputCalibration}
-                onReset={resetOutputCalibration}
-                peakRaw={peakRawOutput}
-                sample={latestOutputSample}
+            {isCalibratableProvider(provider) ? (
+              <GuidedCalibrationControls
+                activePhase={
+                  activeCapture?.direction === calibrationDirection
+                    ? activeCapture.phase
+                    : undefined
+                }
+                calibration={getActiveCalibration(calibrationDirection)}
+                capture={captures[calibrationDirection]}
+                direction={calibrationDirection}
+                fit={
+                  lastFit?.provider === provider && lastFit.direction === calibrationDirection
+                    ? lastFit.fit
+                    : undefined
+                }
+                onDirectionChange={changeCalibrationDirection}
+                onGenerate={generateCalibration}
+                onReset={resetCalibration}
+                onTogglePhase={toggleCapturePhase}
+                provider={provider}
+                sample={latestSamples[calibrationDirection]}
               />
             ) : null}
 
@@ -1622,7 +1837,6 @@ function ProviderPlayground() {
               <span className="provider-label">Latest Signal</span>
               <div className="provider-signal-list">
                 <SignalRow label="state" value={displayedSignal.state} />
-                <SignalRow label="volume" value={formatVolume(displayedSignal.volume)} />
                 <SignalRow label="inputVolume" value={formatVolume(displayedSignal.inputVolume)} />
                 <SignalRow
                   label="outputVolume"

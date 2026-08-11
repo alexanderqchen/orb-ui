@@ -1,4 +1,4 @@
-export { createVapiAdapter } from './vapi'
+export { createVapiAdapter, type VapiAdapterOptions } from './vapi'
 export {
   createElevenLabsAdapter,
   type ElevenLabsCallbacks,
@@ -44,9 +44,21 @@ export {
   type GeminiLiveSession,
 } from './gemini-live'
 export {
-  DEFAULT_OUTPUT_VOLUME_CALIBRATION,
-  type OutputVolumeCalibration,
-  type OutputVolumeCalibrationSource,
-  type OutputVolumeSample,
+  DEFAULT_VOLUME_CALIBRATION,
+  calibrateVolume,
+  createVolumeNormalizer,
+  fitVolumeCalibration,
+  mapVolumeAmplitude,
+  type VolumeAmplitudeCalibration,
+  type VolumeCalibration,
+  type VolumeCalibrationCapture,
+  type VolumeCalibrationFit,
+  type VolumeCalibrationMetrics,
+  type VolumeCalibrationOverrides,
+  type VolumeCalibrationSource,
+  type VolumeEnvelopeCalibration,
+  type VolumeNormalizer,
+  type VolumeSample,
 } from './audio-level'
+export { PROVIDER_VOLUME_CALIBRATIONS, type DirectionalVolumeCalibration } from './volume-presets'
 export type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from './types'

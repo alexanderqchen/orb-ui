@@ -38,7 +38,7 @@ const tokenElevenLabsAdapter = createElevenLabsAdapter(Conversation, {
 const liveKitAdapter = createLiveKitAdapter({
   tokenEndpoint: '/api/livekit-token',
   agentName: 'support-agent',
-  outputVolumeCalibration: { release: 0.12 },
+  outputVolumeCalibration: { envelope: { fallTimeMs: 120 } },
   onOutputVolumeSample: ({ normalized }) => void normalized,
 })
 
@@ -58,7 +58,7 @@ const pipecatClient = new PipecatClient({
 })
 const pipecatAdapter = createPipecatAdapter(pipecatClient, {
   connect: () => pipecatClient.connect({ webrtcUrl: 'https://agent.example.com/api/offer' }),
-  outputVolumeCalibration: () => ({ gain: 3.5 }),
+  outputVolumeCalibration: () => ({ amplitude: { speechPeak: 0.35 } }),
   onOutputVolumeSample: ({ raw }) => void raw,
 })
 
@@ -166,7 +166,7 @@ export function ProviderAdapterSmokeExamples() {
       <Orb signal={signal} theme="circle" />
       <Orb signal={{ state: 'listening', inputVolume: 0.45 }} theme="radial" />
       <Orb adapter={customSignalAdapter} interactive={false} theme="cloud" />
-      <Orb state="listening" volume={0.4} theme="debug" id="controlled-orb" />
+      <Orb signal={{ state: 'listening', inputVolume: 0.4 }} theme="debug" id="controlled-orb" />
     </>
   )
 }

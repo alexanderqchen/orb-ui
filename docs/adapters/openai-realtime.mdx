@@ -82,23 +82,27 @@ key in browser code or a `VITE_*`/`NEXT_PUBLIC_*` variable.
 The adapter meters the local microphone into `inputVolume` while listening and the remote WebRTC
 track into `outputVolume` while speaking. It also attaches and plays the model audio automatically.
 
-## Output calibration
+## Directional calibration
 
-OpenAI Realtime ships with tuned output defaults for noise floor, gain, curve, attack, and release.
-Most applications should use those defaults. If your audio environment needs different shaping,
-pass a partial `outputVolumeCalibration` object:
+OpenAI Realtime ships with separate input and output defaults that map normal speech to the same
+portable 0–1 distribution as the other adapters. Most applications should use those defaults. If
+your audio path needs different amplitude anchors or envelope timing, pass a partial directional
+override:
 
 ```tsx
 const adapter = createOpenAIRealtimeAdapter({
   getClientSecret,
   outputVolumeCalibration: {
-    release: 0.14,
+    amplitude: { speechReference: 0.12 },
+    envelope: { fallTimeMs: 550 },
   },
 })
 ```
 
 Pass a getter instead of an object to update calibration while a session is active. The optional
-`onOutputVolumeSample` callback reports raw RMS, shaped, and smoothed values for diagnostics.
+`onInputVolumeSample` and `onOutputVolumeSample` callbacks report raw, mapped, and normalized values
+for diagnostics. See [volume calibration](/guides/volume-calibration) for the exact contract and
+guided profile generator.
 
 ## Runtime overrides
 
@@ -122,12 +126,12 @@ then inspect the WebRTC connection and remote track. The adapter creates and pla
 unless a custom runtime override replaces that behavior.
 
 **Listening does not react to speech.** Confirm microphone permission and the requested media
-constraints. Test the raw input diagnostics before changing visual calibration; a silent or wrong
-input device cannot be fixed with gain.
+constraints. Test the raw input diagnostics before changing calibration; a silent or wrong input
+device cannot be fixed with amplitude mapping.
 
-**Speaking motion is too quiet or too aggressive.** Start with the tuned defaults, inspect samples
-with `onOutputVolumeSample`, and change one calibration field at a time. Validate normal speech and
-silence rather than tuning to a single loud clip.
+**Speaking motion is too quiet or too aggressive.** Start with the shipped defaults and use the
+guided calibration runner to capture silence, quiet, normal, and energetic speech. Avoid tuning the
+provider profile to compensate for one theme's visual range.
 
 ## Production checklist
 

@@ -97,29 +97,30 @@ export function PipecatVoiceUI() {
 RTVI `LocalAudioLevel` becomes `inputVolume`; bot `RemoteAudioLevel` becomes `outputVolume`. The
 adapter also meters the `PipecatClient` local and bot `MediaStreamTrack` values directly when they
 are available. That browser fallback keeps both levels working with SmallWebRTC and with transports
-whose RTVI level events are unavailable or sparse. The adapter shapes low raw gain values and
+whose RTVI level events are unavailable or sparse. The adapter maps low raw gain values and
 attaches remote bot audio tracks automatically. Use `isBotParticipant` to filter audio in a
 multi-participant session, or set `playRemoteAudio: false` when your app owns playback.
 
-## Output calibration
+## Directional calibration
 
-The default output curve is tuned against a real Pipecat Cloud agent session using the `cloud`
-theme and works for both RTVI gain events and browser-track RMS samples. It is a provider baseline,
-so a different theme, transport, or audio mix may benefit from a partial override:
+Pipecat ships with separate input and output profiles for both RTVI level events and browser-track
+RMS samples. Most applications should use them unchanged. A custom transport or materially
+different audio path can provide partial directional overrides:
 
 ```tsx
 const adapter = createPipecatAdapter(client, {
   connect,
   outputVolumeCalibration: {
-    gain: 3.5,
+    amplitude: { speechPeak: 0.22 },
   },
-  onOutputVolumeSample: ({ raw, shaped, normalized }) => {
-    console.debug({ raw, shaped, normalized })
+  onOutputVolumeSample: ({ raw, mapped, normalized }) => {
+    console.debug({ raw, mapped, normalized })
   },
 })
 ```
 
-Pass a getter instead of an object to tune the values while a session is active. Set
+Pass a getter instead of an object to apply generated values while a session is active. See
+[volume calibration](/guides/volume-calibration) for the anchor contract and guided runner. Set
 `createAudioContext` to a custom factory—or return `undefined`—when your runtime needs to own or
 disable browser-track metering.
 

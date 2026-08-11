@@ -112,23 +112,25 @@ declared by each response chunk. An interruption stops all queued audio immediat
 
 `inputVolume` follows the local microphone. `outputVolume` follows the PCM playback analyser.
 
-## Output calibration
+## Directional calibration
 
-Output shaping is optional. Use `outputVolumeCalibration` only when you need provider-specific gain
-or smoothing, and use a getter when values must change during an active session:
+Gemini Live ships with separate microphone and PCM playback profiles. Use partial directional
+overrides only for a materially different audio path, and use a getter when a generated profile
+must update during an active session:
 
 ```tsx
 const adapter = createGeminiLiveAdapter({
   connect,
   outputVolumeCalibration: () => currentCalibration,
-  onOutputVolumeSample: ({ raw, shaped, normalized }) => {
-    console.debug({ raw, shaped, normalized })
+  onOutputVolumeSample: ({ raw, mapped, normalized }) => {
+    console.debug({ raw, mapped, normalized })
   },
 })
 ```
 
-The provider playground exposes the same noise-floor, gain, curve, attack, and release controls for
-calibrating a real conversation before choosing application defaults.
+The provider playground captures silence, quiet, normal, and energetic speech and generates the
+amplitude anchors automatically. See [volume calibration](/guides/volume-calibration) for the
+shared contract and runner workflow.
 
 ## Token handling
 

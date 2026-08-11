@@ -56,7 +56,7 @@ describe('managed LiveKit browser adapter', () => {
   it('creates sandbox adapters and forwards optional token values', () => {
     const roomName = () => 'custom-room'
     const participantAttributes = () => ({ plan: 'test' })
-    const outputVolumeCalibration = () => ({ gain: 1.25 })
+    const outputVolumeCalibration = () => ({ amplitude: { speechReference: 0.25 } })
     const onOutputVolumeSample = vi.fn()
 
     createLiveKitAdapter({

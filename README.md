@@ -217,7 +217,16 @@ function App() {
   const [state, setState] = useState('idle')
   const [volume, setVolume] = useState(0)
 
-  return <Orb state={state} volume={volume} theme="circle" />
+  return (
+    <Orb
+      signal={{
+        state,
+        inputVolume: state === 'listening' ? volume : 0,
+        outputVolume: state === 'speaking' ? volume : 0,
+      }}
+      theme="circle"
+    />
+  )
 }
 ```
 
@@ -272,9 +281,8 @@ the orb with the typed style variable:
 | Prop          | Type                                                   | Default   | Description                                             |
 | ------------- | ------------------------------------------------------ | --------- | ------------------------------------------------------- |
 | `theme`       | `'debug' \| 'circle' \| 'bars' \| 'cloud' \| 'radial'` | `'debug'` | Visual theme                                            |
-| `signal`      | `OrbSignal`                                            | —         | Rich controlled signal with state/input/output volume   |
+| `signal`      | `OrbSignal`                                            | —         | Controlled signal with state and directional volumes    |
 | `state`       | `OrbState`                                             | `'idle'`  | Conversation state (controlled mode)                    |
-| `volume`      | `number`                                               | `0`       | Audio volume, 0–1. Overrides signal/adapter volume.     |
 | `adapter`     | `OrbAdapter`                                           | —         | Provider adapter (manages signal updates automatically) |
 | `size`        | `number`                                               | `200`     | Size in pixels                                          |
 | `className`   | `string`                                               | —         | Optional class name for the rendered theme              |
@@ -291,15 +299,15 @@ the orb with the typed style variable:
 
 ## Supported Providers
 
-| Provider                                                                  | Adapter                                                               |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [Vapi](https://vapi.ai)                                                   | `createVapiAdapter` from `orb-ui/adapters`                            |
-| [ElevenLabs](https://elevenlabs.io/conversational-ai)                     | `createElevenLabsAdapter` from `orb-ui/adapters`                      |
-| [LiveKit](https://livekit.io)                                             | `createLiveKitAdapter` from `orb-ui/adapters`                         |
-| [Pipecat](https://pipecat.ai)                                             | `createPipecatAdapter` from `orb-ui/adapters`                         |
-| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime) | `createOpenAIRealtimeAdapter` from `orb-ui/adapters`                  |
-| [Gemini Live](https://ai.google.dev/gemini-api/docs/live-api)             | `createGeminiLiveAdapter` from `orb-ui/adapters`                      |
-| Custom                                                                    | Use controlled mode — pass `signal`, or `state` and `volume` directly |
+| Provider                                                                  | Adapter                                                             |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Vapi](https://vapi.ai)                                                   | `createVapiAdapter` from `orb-ui/adapters`                          |
+| [ElevenLabs](https://elevenlabs.io/conversational-ai)                     | `createElevenLabsAdapter` from `orb-ui/adapters`                    |
+| [LiveKit](https://livekit.io)                                             | `createLiveKitAdapter` from `orb-ui/adapters`                       |
+| [Pipecat](https://pipecat.ai)                                             | `createPipecatAdapter` from `orb-ui/adapters`                       |
+| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime) | `createOpenAIRealtimeAdapter` from `orb-ui/adapters`                |
+| [Gemini Live](https://ai.google.dev/gemini-api/docs/live-api)             | `createGeminiLiveAdapter` from `orb-ui/adapters`                    |
+| Custom                                                                    | Use controlled mode with a directional `signal` or build an adapter |
 
 ## Development
 

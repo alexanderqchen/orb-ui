@@ -16,7 +16,7 @@ voice provider:
 import { Orb } from 'orb-ui'
 
 export function VoiceOrbExample() {
-  return <Orb state="listening" volume={0.45} theme="circle" size={260} />
+  return <Orb signal={{ state: 'listening', inputVolume: 0.45 }} theme="circle" size={260} />
 }
 ```
 
@@ -39,7 +39,11 @@ export function OrbStatePreview() {
 
   return (
     <section>
-      <Orb state={state} volume={state === 'idle' ? 0 : 0.45} theme="circle" interactive={false} />
+      <Orb
+        signal={{ state, inputVolume: state === 'listening' ? 0.45 : 0 }}
+        theme="circle"
+        interactive={false}
+      />
       <label>
         Voice state
         <select value={state} onChange={(event) => setState(event.target.value as OrbState)}>
@@ -123,9 +127,9 @@ the relevant value for the current state.
 />
 ```
 
-For a single legacy meter, `volume` remains available. Separate directions are preferable whenever
-the integration can measure both sides because they help a theme distinguish “the app heard you”
-from “the assistant is responding.”
+If an integration exposes only one meter, map it to `inputVolume` while listening and
+`outputVolume` while speaking. The public signal intentionally has no directionless `volume`
+field, so every theme can distinguish “the app heard you” from “the assistant is responding.”
 
 ## Add accessible status copy
 

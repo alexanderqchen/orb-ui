@@ -64,7 +64,7 @@ layout. Call `adapter.start()` and `adapter.stop()` from those controls.
 Use `circle` when the voice agent is a primary assistant surface. It reads as an orb, status indicator, and voice presence at the same time.
 
 ```tsx
-<Orb theme="circle" state="listening" volume={0.42} />
+<Orb theme="circle" signal={{ state: 'listening', inputVolume: 0.42 }} />
 ```
 
 ## Bars
@@ -72,7 +72,7 @@ Use `circle` when the voice agent is a primary assistant surface. It reads as an
 Use `bars` when you want a waveform-like audio visualization.
 
 ```tsx
-<Orb theme="bars" state="speaking" volume={0.72} />
+<Orb theme="bars" signal={{ state: 'speaking', outputVolume: 0.72 }} />
 ```
 
 ## Debug

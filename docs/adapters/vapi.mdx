@@ -79,9 +79,15 @@ The core mapping is:
 | `call-end`     | `idle`       |
 | `error`        | `error`      |
 
-The adapter smooths Vapi's assistant volume events before emitting `outputVolume`. It also
+The adapter maps Vapi's assistant volume events into the standard stable `outputVolume` envelope.
+It also
 debounces short speaking-to-listening changes so normal turn boundaries do not create distracting
 visual flicker.
+
+Most applications should use the shipped output profile. For a custom Vapi audio path, the adapter
+accepts `outputVolumeCalibration` and `onOutputVolumeSample`. See
+[volume calibration](/guides/volume-calibration) for the anchor semantics and guided profile
+generator.
 
 ## Accessibility
 

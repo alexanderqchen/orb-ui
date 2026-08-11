@@ -66,7 +66,10 @@ The ElevenLabs adapter is responsible for normalizing provider events into orb-u
 - speaking
 - error
 
-ElevenLabs input levels are emitted as `inputVolume` while listening, and output levels are emitted as `outputVolume` while speaking.
+ElevenLabs input levels are emitted as `inputVolume` while listening, and output levels are emitted
+as `outputVolume` while speaking. Separate shipped profiles map both into the same stable 0–1 speech
+envelope. The adapter accepts directional calibration overrides and diagnostic callbacks for custom
+audio paths; see [volume calibration](/guides/volume-calibration).
 
 The ElevenLabs mode surface does not expose a separate thinking event through this adapter, so the
 normal transition is listening to speaking. If your application has an authoritative processing
@@ -123,9 +126,10 @@ independent of provider-specific event names.
 browser can reach the agent. For private agents, mint a fresh credential and verify that its
 connection type matches the credential shape.
 
-**The orb moves for only one side.** Input volume is read while the normalized state is listening;
-output volume is read while it is speaking. Confirm that ElevenLabs mode-change callbacks are
-arriving and that the browser granted microphone access.
+**The orb moves for only one side.** Both directional envelopes stay current, but `Orb` renders
+input volume while the normalized state is listening and output volume while it is speaking.
+Confirm that ElevenLabs mode-change callbacks are arriving and that the browser granted microphone
+access.
 
 **A stopped session still updates the UI.** Keep one adapter instance per active configuration and
 let React remove its subscription on unmount. If a credential or agent changes, stop the old

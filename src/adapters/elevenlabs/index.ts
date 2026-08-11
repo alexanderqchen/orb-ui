@@ -1,4 +1,7 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
+import { createVolumeNormalizer } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 // ─── ElevenLabs type interfaces ───────────────────────────────────────────────
 // We define minimal interfaces rather than importing @elevenlabs/client directly
@@ -45,14 +48,25 @@ type ElevenLabsSessionAuth =
       connectionType?: 'webrtc'
     }
 
-export type ElevenLabsConfig = ElevenLabsSessionAuth & {
+type ElevenLabsSessionConfig = ElevenLabsSessionAuth & {
   /** orb-ui expects a voice conversation, so text-only sessions are intentionally unsupported. */
   textOnly?: false
   /** Allow @elevenlabs/client startSession options that orb-ui does not inspect. */
   [key: string]: unknown
 }
 
-export type ElevenLabsStartSessionOptions = ElevenLabsConfig & ElevenLabsCallbacks
+export type ElevenLabsConfig = ElevenLabsSessionConfig & {
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
+}
+
+export type ElevenLabsStartSessionOptions = ElevenLabsSessionConfig & ElevenLabsCallbacks
 
 // The Conversation namespace from @elevenlabs/client (minimal structural interface).
 export interface ElevenLabsConversationClass {
@@ -73,21 +87,12 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
 
 // ─── ElevenLabs signal normalization ─────────────────────────────────────────
 //
-// ElevenLabs provides two clean, continuous audio signals — no quantization
-// artifacts like Vapi. However both signals need gain + smoothing to match
-// Vapi's normalized output range.
-//
-// Empirical measurements (2026-03-02, live call):
-//   Raw PEAK = 0.64, AVG = 0.49 with OUTPUT_GAIN=1.8 → target PEAK ~0.95
-//   → New OUTPUT_GAIN = 1.8 × (0.95 / 0.64) = 2.7
+// ElevenLabs provides two clean, continuous audio signals. Directional
+// calibration maps both sources into the same semantic 0–1 envelope.
 //
 // Volume sources:
 //   • getInputVolume()          — Web Audio RMS of user input, polled ~30fps.
 //   • getOutputVolume()         — Web Audio RMS of AI output, polled ~30fps.
-//     Apply gain to make visual movement readable across providers.
-//
-// EMA config: lighter than Vapi (EL signal is already clean, less smoothing needed)
-//   attack=0.5 (fast rise), release=0.15 (moderate decay)
 
 /**
  * Creates an OrbAdapter for ElevenLabs Conversational AI.
@@ -117,13 +122,28 @@ export function createElevenLabsAdapter(
   ConversationClass: ElevenLabsConversationClass,
   config: ElevenLabsConfig,
 ): ElevenLabsOrbAdapter {
+  const {
+    inputVolumeCalibration,
+    outputVolumeCalibration,
+    onInputVolumeSample,
+    onOutputVolumeSample,
+    ...sessionConfig
+  } = config
   // Active conversation instance + cleanup reference
   let conversation: ElevenLabsConversation | null = null
   let activeSessionId = 0
   let startPromise: Promise<void> | null = null
   let volumeInterval: ReturnType<typeof setInterval> | null = null
-  let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+  let signal: OrbSignal = { state: 'idle', inputVolume: 0, outputVolume: 0 }
   let currentState: OrbState = 'idle'
+  const inputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.elevenlabs.input,
+    inputVolumeCalibration,
+  )
+  const outputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.elevenlabs.output,
+    outputVolumeCalibration,
+  )
 
   // Subscriber registry — supports multiple simultaneous subscribers
   // (e.g. Orb + signal monitor both subscribing at the same time)
@@ -141,6 +161,16 @@ export function createElevenLabsAdapter(
 
   function setState(state: OrbState) {
     currentState = state
+    if (state === 'idle' || state === 'connecting' || state === 'error') {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+      emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+      return
+    }
+
+    // Listening/speaking are views over two continuous directional envelopes.
+    // Preserve both across mode changes so the newly active direction does not
+    // spend a frame at an artificial zero.
     emitPatch({ state })
   }
 
@@ -148,13 +178,15 @@ export function createElevenLabsAdapter(
     if (volumeInterval) return
     volumeInterval = setInterval(() => {
       if (!conversation) return
-      if (currentState === 'listening') {
-        const inputVolume = Math.min(conversation.getInputVolume() * 2.0, 1.0)
-        emitPatch({ volume: inputVolume, inputVolume })
-      } else if (currentState === 'speaking') {
-        const outputVolume = Math.min(conversation.getOutputVolume() * 2.0, 1.0)
-        emitPatch({ volume: outputVolume, outputVolume })
-      }
+      const inputSample = inputNormalizer.sample(conversation.getInputVolume())
+      const outputSample = outputNormalizer.sample(conversation.getOutputVolume())
+      onInputVolumeSample?.(inputSample)
+      onOutputVolumeSample?.(outputSample)
+
+      emitPatch({
+        inputVolume: inputSample.normalized,
+        outputVolume: outputSample.normalized,
+      })
     }, 33) // ~30 fps
   }
 
@@ -167,12 +199,16 @@ export function createElevenLabsAdapter(
 
   function stopVolumePolling() {
     clearVolumePolling()
-    emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
+    inputNormalizer.reset()
+    outputNormalizer.reset()
+    emitPatch({ inputVolume: 0, outputVolume: 0 })
   }
 
   function emitIdleSignal() {
     currentState = 'idle'
-    emitPatch({ state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 })
+    inputNormalizer.reset()
+    outputNormalizer.reset()
+    emitPatch({ state: 'idle', inputVolume: 0, outputVolume: 0 })
   }
 
   function isActiveSession(sessionId: number) {
@@ -215,7 +251,7 @@ export function createElevenLabsAdapter(
         console.error('[orb-ui/elevenlabs] Error:', message)
         clearVolumePolling()
         currentState = 'error'
-        emitPatch({ state: 'error', volume: 0, inputVolume: 0, outputVolume: 0, error: message })
+        emitPatch({ state: 'error', inputVolume: 0, outputVolume: 0, error: message })
         conversation = null
       },
     }
@@ -243,7 +279,7 @@ export function createElevenLabsAdapter(
       startPromise = (async () => {
         try {
           const nextConversation = await ConversationClass.startSession({
-            ...config,
+            ...sessionConfig,
             ...createElevenLabsCallbacks(sessionId),
           })
           if (!isActiveSession(sessionId)) {
@@ -257,7 +293,7 @@ export function createElevenLabsAdapter(
           if (!isActiveSession(sessionId)) return
           console.error('[orb-ui/elevenlabs] startSession failed:', err)
           setState('error')
-          emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0, error: err })
+          emitPatch({ inputVolume: 0, outputVolume: 0, error: err })
         } finally {
           startPromise = null
         }

@@ -22,21 +22,19 @@ npm install orb-ui
 Start in controlled mode when your application already owns the voice session state:
 
 ```tsx
-import { Orb, type OrbState } from 'orb-ui'
+import { Orb, type OrbSignal } from 'orb-ui'
 
 type VoiceAgentUIProps = {
-  state: OrbState
-  volume: number
+  signal: OrbSignal
 }
 
-export function VoiceAgentUI({ state, volume }: VoiceAgentUIProps) {
+export function VoiceAgentUI({ signal }: VoiceAgentUIProps) {
   return (
     <Orb
-      state={state}
-      volume={volume}
+      signal={signal}
       theme="circle"
       size={240}
-      aria-label={`Voice assistant is ${state}`}
+      aria-label={`Voice assistant is ${signal.state}`}
     />
   )
 }
