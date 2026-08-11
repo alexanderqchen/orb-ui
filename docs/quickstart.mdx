@@ -25,13 +25,14 @@ comparison of what each provider setup requires.
 
 ## Controlled mode
 
-Controlled mode is the universal fallback. Use it when your app already owns the voice session and can provide a conversation state plus normalized volume.
+Controlled mode is the universal fallback. Use it when your app already owns the voice session and
+can provide a conversation state plus normalized input and output speech envelopes.
 
 ```tsx
 import { Orb } from 'orb-ui'
 
-export function VoiceAgentStatus({ state, volume }) {
-  return <Orb signal={{ state, inputVolume: volume }} theme="circle" size={240} />
+export function VoiceAgentStatus({ state, inputVolume, outputVolume }) {
+  return <Orb signal={{ state, inputVolume, outputVolume }} theme="circle" size={240} />
 }
 ```
 
@@ -44,7 +45,7 @@ The state can be one of:
 - `speaking`
 - `error`
 
-Volume should be a number from `0` to `1`.
+Both volume directions should be numbers from `0` to `1`.
 
 Use `signal` when your app has separate user input and assistant output levels:
 

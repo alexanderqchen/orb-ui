@@ -1,9 +1,16 @@
 ---
 title: Voice Orb UI Example for React
-description: Build a React voice orb UI with animated states, audio-reactive motion, adapters, and controlled mode.
+description: Build an animated React voice orb UI with lifecycle states, audio-reactive motion, provider adapters, accessible controls, and custom signals.
 ---
 
-The orb is the visible state layer for a voice agent. It should communicate activity quickly and stay out of the way while a user is talking.
+A React voice orb is the visible state layer for a voice agent. It should make listening, thinking,
+speaking, and error states understandable at a glance while staying out of the way of the
+conversation.
+
+## Build an animated voice orb in React
+
+Start with a controlled `Orb` when you want to preview the component before connecting a live
+voice provider:
 
 ```tsx
 import { Orb } from 'orb-ui'
@@ -13,9 +20,9 @@ export function VoiceOrbExample() {
 }
 ```
 
-For a production voice experience, drive the state and volume from a real session. A fixed value is
-useful for previews and visual tests, but it should not be used to imply that the microphone or
-assistant is active.
+This renders an animated voice orb in its listening state. For a production voice experience,
+drive the state and volume from a real session. A fixed value is useful for previews and visual
+tests, but it should not be used to imply that the microphone or assistant is active.
 
 ## Simulate the full lifecycle
 
@@ -120,9 +127,9 @@ the relevant value for the current state.
 />
 ```
 
-For a single legacy meter, `volume` remains available. Separate directions are preferable whenever
-the integration can measure both sides because they help a theme distinguish “the app heard you”
-from “the assistant is responding.”
+If an integration exposes only one meter, map it to `inputVolume` while listening and
+`outputVolume` while speaking. The public signal intentionally has no directionless `volume`
+field, so every theme can distinguish “the app heard you” from “the assistant is responding.”
 
 ## Add accessible status copy
 
@@ -169,6 +176,7 @@ set `interactive={false}` and label those controls instead.
 - Keep error states obvious but not alarming.
 - Pair the orb with a transcript or status label when users need more precision.
 
-Continue with the [themes and voice states reference](/themes/voice-states), choose a provider in the
-[adapter overview](/adapters/overview), or connect an app-owned runtime with the
-[custom integration guide](/adapters/custom).
+Use the [complete voice agent UI guide](/guides/voice-agent-ui) to plan the production lifecycle.
+Then continue with the [themes and voice states reference](/themes/voice-states), choose a provider
+in the [adapter overview](/adapters/overview), or connect an app-owned runtime with the [custom
+integration guide](/adapters/custom).
