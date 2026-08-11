@@ -1,5 +1,16 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import type { OrbHtmlAttributes, OrbState, OrbStyle } from '../../components/Orb/Orb.types'
+import type { ReactNode } from 'react'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+  OrbThemeComponent,
+  OrbThemeComponentContext,
+  OrbThemeComponents,
+} from '../../components/Orb/Orb.types'
+import type { RadialAppearance, ResolvedRadialTheme } from '../config'
+import { resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -7,11 +18,16 @@ interface RadialThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
   style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
+  components?: OrbThemeComponents
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
+  config: ResolvedRadialTheme
 }
 
 interface RadialRenderer {
@@ -117,15 +133,42 @@ const KEYFRAMES = `
 }
 `
 
-const ARTWORK_DIAMETER = 0.66
-const CONTROL_RATIO = 0.2
-
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
 }
 
-function damp(current: number, target: number, rate: number, deltaSeconds: number) {
-  return current + (target - current) * (1 - Math.exp(-rate * deltaSeconds))
+function followDuration(
+  current: number,
+  target: number,
+  riseTimeMs: number,
+  fallTimeMs: number,
+  deltaSeconds: number,
+) {
+  const durationMs = target > current ? riseTimeMs : fallTimeMs
+  if (durationMs <= 0) return target
+  const rate = 1 - Math.pow(0.1, (deltaSeconds * 1000) / durationMs)
+  return current + (target - current) * rate
+}
+
+function hexToGlsl(hex: string) {
+  const normalized = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#000000'
+  const channels = [1, 3, 5].map((offset) =>
+    (parseInt(normalized.slice(offset, offset + 2), 16) / 255).toFixed(6),
+  )
+  return `vec3(${channels.join(', ')})`
+}
+
+function radialFragmentShader(appearance: RadialAppearance) {
+  return FRAGMENT_SHADER.replace('vec3(0.004, 0.105, 0.37)', hexToGlsl(appearance.deepColor))
+    .replace('vec3(0.015, 0.34, 0.76)', hexToGlsl(appearance.cobaltColor))
+    .split('vec3(0.24, 0.76, 0.79)')
+    .join(hexToGlsl(appearance.aquaColor))
+    .replace('vec3(0.77, 0.96, 0.95)', hexToGlsl(appearance.paleColor))
+    .replace('vec3(0.04, 0.42, 0.64)', hexToGlsl(appearance.cobaltColor))
+    .replace('vec3(0.26, 0.76, 0.8)', hexToGlsl(appearance.aquaColor))
+    .replace('vec3(0.47, 0.84, 0.84)', hexToGlsl(appearance.membraneColor))
+    .replace('vec3(0.76, 0.93, 0.92)', hexToGlsl(appearance.paleColor))
+    .replace('vec3(0.985, 0.995, 0.995)', hexToGlsl(appearance.seamColor))
 }
 
 function compileShader(
@@ -150,6 +193,7 @@ function compileShader(
 function createRadialRenderer(
   canvas: HTMLCanvasElement,
   diameter: number,
+  appearance: RadialAppearance,
 ): RadialRenderer | undefined {
   const gl = canvas.getContext('webgl', {
     alpha: true,
@@ -159,7 +203,7 @@ function createRadialRenderer(
   if (!gl) return undefined
 
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER)
-  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER)
+  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, radialFragmentShader(appearance))
   if (!vertexShader || !fragmentShader) {
     if (vertexShader) gl.deleteShader(vertexShader)
     if (fragmentShader) gl.deleteShader(fragmentShader)
@@ -271,15 +315,29 @@ function PhoneIcon({ active }: { active: boolean }) {
   )
 }
 
+function renderThemeComponent(
+  component: OrbThemeComponent | undefined,
+  context: OrbThemeComponentContext,
+  fallback: ReactNode,
+) {
+  if (component === undefined) return fallback
+  return typeof component === 'function' ? component(context) : component
+}
+
 export function RadialTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
+  components,
   disabled = false,
   interactive = false,
   onClick,
+  config,
   ...controlProps
 }: RadialThemeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -292,8 +350,8 @@ export function RadialTheme({
     volumeRef.current = volume
   }, [state, volume])
 
-  const diameter = size * ARTWORK_DIAMETER
-  const controlSize = diameter * CONTROL_RATIO
+  const diameter = size * config.geometry.diameterRatio
+  const controlSize = diameter * config.geometry.controlRatio
 
   useEffect(() => {
     const id = 'orb-radial-keyframes'
@@ -316,11 +374,11 @@ export function RadialTheme({
     updateReducedMotion()
     motionQuery.addEventListener('change', updateReducedMotion)
 
-    const renderer = createRadialRenderer(canvas, diameter)
+    const renderer = createRadialRenderer(canvas, diameter, config.appearance)
     let frame = 0
     let previousTime = performance.now()
     let motionTime = 0
-    let currentMotionSpeed = 0.36
+    let currentMotionSpeed = config.motion.idleSpeed
     let currentCalmTempo = 0.62
     let currentCalmAmplitude = 0.15
     let rotation = 0
@@ -338,46 +396,78 @@ export function RadialTheme({
 
       const nextState = stateRef.current
       const reducedMotion = reducedMotionRef.current
-      const rawVolume = clamp(volumeRef.current)
-      const volumeRate = rawVolume > currentVolume ? 15 : 7
-      currentVolume = reducedMotion ? 0 : damp(currentVolume, rawVolume, volumeRate, deltaSeconds)
+      const rawVolume = Math.pow(clamp(volumeRef.current), config.motion.responseExponent)
+      currentVolume = reducedMotion ? 0 : rawVolume
 
       const listenTarget = nextState === 'listening' ? currentVolume : 0
       const speakTarget = nextState === 'speaking' ? currentVolume : 0
       listenEnergy = reducedMotion
         ? 0
-        : damp(listenEnergy, listenTarget, listenTarget > listenEnergy ? 17 : 7, deltaSeconds)
+        : followDuration(
+            listenEnergy,
+            listenTarget,
+            config.motion.activityRiseMs,
+            config.motion.activityFallMs,
+            deltaSeconds,
+          )
       speakEnergy = reducedMotion
         ? 0
-        : damp(speakEnergy, speakTarget, speakTarget > speakEnergy ? 12 : 5, deltaSeconds)
+        : followDuration(
+            speakEnergy,
+            speakTarget,
+            config.motion.activityRiseMs,
+            config.motion.activityFallMs,
+            deltaSeconds,
+          )
 
-      let motionSpeed = 0.36
+      let motionSpeed = config.motion.idleSpeed
       let calmTempo = 0.62
       let calmAmplitude = 0.15
       if (nextState === 'connecting') {
-        motionSpeed = 0.42
+        motionSpeed = config.motion.idleSpeed * 1.17
         calmTempo = 0.68
         calmAmplitude = 0.13
       } else if (nextState === 'listening') {
-        motionSpeed = 0.54 + listenEnergy * 0.26
+        motionSpeed =
+          config.motion.listeningBaseSpeed + listenEnergy * config.motion.listeningSpeedRange
         calmTempo = 0.78 + listenEnergy * 0.18
         calmAmplitude = 0.18 + listenEnergy * 0.04
       } else if (nextState === 'thinking') {
-        motionSpeed = 0.46
+        motionSpeed = config.motion.idleSpeed * 1.28
         calmTempo = 0.72
         calmAmplitude = 0.16
       } else if (nextState === 'speaking') {
-        motionSpeed = 1.05 + speakEnergy * 1.15
+        motionSpeed =
+          config.motion.speakingBaseSpeed + speakEnergy * config.motion.speakingSpeedRange
       }
 
       if (!reducedMotion) {
-        currentMotionSpeed = damp(currentMotionSpeed, motionSpeed, 3.6, deltaSeconds)
-        currentCalmTempo = damp(currentCalmTempo, calmTempo, 3.6, deltaSeconds)
-        currentCalmAmplitude = damp(currentCalmAmplitude, calmAmplitude, 3.6, deltaSeconds)
-        speakingBlend = damp(
+        currentMotionSpeed = followDuration(
+          currentMotionSpeed,
+          motionSpeed,
+          config.motion.stateTransitionMs,
+          config.motion.stateTransitionMs,
+          deltaSeconds,
+        )
+        currentCalmTempo = followDuration(
+          currentCalmTempo,
+          calmTempo,
+          config.motion.stateTransitionMs,
+          config.motion.stateTransitionMs,
+          deltaSeconds,
+        )
+        currentCalmAmplitude = followDuration(
+          currentCalmAmplitude,
+          calmAmplitude,
+          config.motion.stateTransitionMs,
+          config.motion.stateTransitionMs,
+          deltaSeconds,
+        )
+        speakingBlend = followDuration(
           speakingBlend,
           nextState === 'speaking' ? 1 : 0,
-          nextState === 'speaking' ? 3.8 : 3,
+          config.motion.stateTransitionMs,
+          config.motion.stateTransitionMs,
           deltaSeconds,
         )
 
@@ -401,7 +491,9 @@ export function RadialTheme({
           primarySwing * swingAmplitude +
           secondarySwing * (0.035 + speakEnergy * 0.035) +
           slowDrift * 0.055
-        const rotationTarget = calmTarget + (speakingTarget - calmTarget) * speakingBlend
+        const rotationTarget =
+          (calmTarget + (speakingTarget - calmTarget) * speakingBlend) *
+          config.motion.rotationAmount
 
         // Keep one position and velocity across states so mode changes alter the
         // trajectory without replacing it or snapping to another oscillator.
@@ -424,27 +516,50 @@ export function RadialTheme({
       motionQuery.removeEventListener('change', updateReducedMotion)
       renderer?.destroy()
     }
-  }, [diameter])
+  }, [config, diameter])
 
   const active = isActiveState(state)
   const connecting = state === 'connecting'
   const stackHeight = diameter + (interactive ? controlSize * 0.5 : 0)
+  const componentContext: OrbThemeComponentContext = {
+    state,
+    active,
+    connecting,
+    disabled,
+    size: controlSize,
+  }
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--radial', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const spinnerSlot = resolveOrbSlot(slotProps, 'spinner')
+  const iconSlot = resolveOrbSlot(slotProps, 'icon')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
+  const { className: spinnerClassName, style: spinnerStyle, ...spinnerAttributes } = spinnerSlot
+  const { className: iconClassName, style: iconStyle, ...iconAttributes } = iconSlot
   const rootStyle: OrbStyle = {
     '--orb-ui-radial-control-surround': '#fff',
-    width: size,
-    height: size,
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
 
   const artwork = (
     <canvas
+      {...surfaceAttributes}
       ref={canvasRef}
+      className={surfaceClassName}
       aria-hidden="true"
       data-radial-surface=""
+      data-orb-ui-slot="surface"
       style={{
         position: 'absolute',
         left: 0,
@@ -453,28 +568,35 @@ export function RadialTheme({
         width: diameter,
         height: diameter,
         borderRadius: '50%',
-        background:
-          'conic-gradient(from 12deg, #06358d 0deg, #0b65b5 72deg, #c7f1ef 92deg, #45c2c8 172deg, #06358d 196deg, #0b65b5 254deg, #c7f1ef 278deg, #45c2c8 360deg)',
+        background: `conic-gradient(from 12deg, ${config.appearance.deepColor} 0deg, ${config.appearance.cobaltColor} 72deg, ${config.appearance.paleColor} 92deg, ${config.appearance.aquaColor} 172deg, ${config.appearance.deepColor} 196deg, ${config.appearance.cobaltColor} 254deg, ${config.appearance.paleColor} 278deg, ${config.appearance.aquaColor} 360deg)`,
+        ...surfaceStyle,
       }}
     />
   )
 
   const content = (
     <span
+      {...contentAttributes}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       style={{
         position: 'relative',
         display: 'block',
         width: diameter,
         height: stackHeight,
         lineHeight: 0,
+        ...contentStyle,
       }}
     >
       {artwork}
       {interactive ? (
         <button
+          {...controlAttributes}
           {...controlProps}
           type="button"
+          className={controlClassName}
           data-radial-control=""
+          data-orb-ui-slot="control"
           disabled={disabled}
           onClick={disabled ? undefined : onClick}
           style={{
@@ -493,7 +615,11 @@ export function RadialTheme({
             margin: 0,
             border: 0,
             borderRadius: '50%',
-            background: connecting ? '#9da1aa' : active ? '#ef4146' : '#080808',
+            background: connecting
+              ? config.appearance.connectingControlColor
+              : active
+                ? config.appearance.activeControlColor
+                : config.appearance.idleControlColor,
             color: '#fff',
             boxShadow: `0 0 0 ${Math.max(3, controlSize * 0.085)}px var(--orb-ui-radial-control-surround), 0 2px 5px rgba(0, 0, 0, 0.18)`,
             cursor: disabled ? 'not-allowed' : 'pointer',
@@ -501,25 +627,54 @@ export function RadialTheme({
             transform: 'translateX(-50%)',
             transition: 'background 160ms ease, opacity 160ms ease, transform 160ms ease',
             font: 'inherit',
+            ...controlStyle,
           }}
         >
           {connecting ? (
-            <span
-              aria-hidden="true"
-              data-radial-spinner=""
-              style={{
-                width: '42%',
-                height: '42%',
-                boxSizing: 'border-box',
-                border: `${Math.max(1.5, controlSize * 0.055)}px solid rgba(255, 255, 255, 0.38)`,
-                borderTopColor: '#fff',
-                borderRightColor: '#fff',
-                borderRadius: '50%',
-                animation: 'orb-radial-spinner 760ms linear infinite',
-              }}
-            />
+            components?.connectingIndicator === undefined ? (
+              <span
+                {...spinnerAttributes}
+                aria-hidden="true"
+                className={spinnerClassName}
+                data-radial-spinner=""
+                data-orb-ui-slot="spinner"
+                style={{
+                  width: '42%',
+                  height: '42%',
+                  boxSizing: 'border-box',
+                  border: `${Math.max(1.5, controlSize * 0.055)}px solid rgba(255, 255, 255, 0.38)`,
+                  borderTopColor: '#fff',
+                  borderRightColor: '#fff',
+                  borderRadius: '50%',
+                  animation: 'orb-radial-spinner 760ms linear infinite',
+                  ...spinnerStyle,
+                }}
+              />
+            ) : (
+              <span
+                {...spinnerAttributes}
+                aria-hidden="true"
+                className={spinnerClassName}
+                data-orb-ui-slot="spinner"
+                style={spinnerStyle}
+              >
+                {renderThemeComponent(components.connectingIndicator, componentContext, null)}
+              </span>
+            )
           ) : (
-            <PhoneIcon active={active} />
+            <span
+              {...iconAttributes}
+              aria-hidden="true"
+              className={iconClassName}
+              data-orb-ui-slot="icon"
+              style={{ display: 'contents', ...iconStyle }}
+            >
+              {renderThemeComponent(
+                components?.controlIcon,
+                componentContext,
+                <PhoneIcon active={active} />,
+              )}
+            </span>
           )}
         </button>
       ) : null}
@@ -528,14 +683,30 @@ export function RadialTheme({
 
   if (interactive) {
     return (
-      <div className={className} style={rootStyle}>
+      <div
+        {...rootAttributes}
+        ref={rootRef}
+        className={rootClassName}
+        data-orb-ui-theme={config.name}
+        data-orb-ui-preset={config.preset}
+        data-orb-ui-state={state}
+        data-orb-ui-slot="root"
+        style={rootStyle}
+      >
         {content}
       </div>
     )
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

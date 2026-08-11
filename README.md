@@ -240,6 +240,44 @@ function App() {
 }
 ```
 
+### Theme presets and overrides
+
+Theme strings keep the current balanced behavior. Choose `calm` or `expressive`, then override only
+the theme-specific values your product needs:
+
+```jsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: { colors: { listening: '#8b9cff', speaking: '#f4f7ff' } },
+    motion: { responseExponent: 0.9, activityRiseMs: 80, activityFallMs: 180 },
+  }}
+/>
+```
+
+See the [theme customization guide](https://orb-ui.com/docs/themes/customization) for every
+theme-specific appearance, geometry, and motion field.
+
+For application-wide defaults, stable internal slots, responsive CSS variables, or completely
+custom artwork, use the advanced customization layer:
+
+```tsx
+import { Orb, OrbThemeProvider } from 'orb-ui'
+;<OrbThemeProvider theme={{ name: 'circle', preset: 'calm' }}>
+  <Orb
+    adapter={adapter}
+    style={{ '--orb-ui-size': 'clamp(180px, 32vw, 320px)' }}
+    slotProps={{ surface: { className: 'brand-orb__surface' } }}
+  />
+</OrbThemeProvider>
+```
+
+Pass `renderTheme` when your product needs entirely custom DOM, SVG, canvas, or WebGL artwork. Its
+renderer receives normalized input/output activity plus accessible root/control props, while Orb
+continues to manage provider subscription and session start/stop behavior.
+
 ### External session controls
 
 Keep the orb as a passive visual when start and stop controls belong elsewhere in your layout.

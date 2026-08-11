@@ -1,6 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+} from '../../components/Orb/Orb.types'
+import type { CloudAppearance, ResolvedCloudTheme } from '../config'
+import { joinClassNames, resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -8,11 +15,15 @@ interface CloudThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
+  config: ResolvedCloudTheme
 }
 
 interface CloudRenderer {
@@ -123,27 +134,38 @@ void main() {
   gl_FragColor = vec4(color, edge);
 }
 `
-
-const NEUTRAL_DIAMETER = 0.55
-const LISTEN_SHRINK = 0.204
-const SPEAK_GROW = 0.2145
-const DOT_SCALE = 0.063
-const LAUNCH_DOT_COLOR = '#5659dc'
 const ENTRANCE_OVERSHOOT = 1.178
-const DOT_HOLD_MS = 180
-const GROW_MS = 300
-const SETTLE_MS = 1350
-const SURFACE_FADE_START_MS = DOT_HOLD_MS + GROW_MS * 0.22
-const SURFACE_FADE_END_MS = DOT_HOLD_MS + GROW_MS * 0.8
-const DOT_FADE_START_MS = DOT_HOLD_MS + GROW_MS * 0.58
-const DOT_FADE_END_MS = DOT_HOLD_MS + GROW_MS
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value))
 }
 
-function damp(current: number, target: number, rate: number, deltaSeconds: number) {
-  return current + (target - current) * (1 - Math.exp(-rate * deltaSeconds))
+function followDuration(
+  current: number,
+  target: number,
+  riseTimeMs: number,
+  fallTimeMs: number,
+  deltaSeconds: number,
+) {
+  const durationMs = target > current ? riseTimeMs : fallTimeMs
+  if (durationMs <= 0) return target
+  const rate = 1 - Math.pow(0.1, (deltaSeconds * 1000) / durationMs)
+  return current + (target - current) * rate
+}
+
+function hexToGlsl(hex: string) {
+  const normalized = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#000000'
+  const channels = [1, 3, 5].map((offset) =>
+    (parseInt(normalized.slice(offset, offset + 2), 16) / 255).toFixed(6),
+  )
+  return `vec3(${channels.join(', ')})`
+}
+
+function cloudFragmentShader(appearance: CloudAppearance) {
+  return FRAGMENT_SHADER.replace('vec3(0.36, 0.39, 0.985)', hexToGlsl(appearance.deepColor))
+    .replace('vec3(0.48, 0.56, 0.985)', hexToGlsl(appearance.upperColor))
+    .replace('vec3(0.72, 0.78, 0.975)', hexToGlsl(appearance.lowerColor))
+    .replace('vec3(0.89, 0.92, 0.995)', hexToGlsl(appearance.highlightColor))
 }
 
 function easeOutCubic(value: number) {
@@ -185,6 +207,7 @@ function compileShader(
 function createCloudRenderer(
   canvas: HTMLCanvasElement,
   diameter: number,
+  appearance: CloudAppearance,
 ): CloudRenderer | undefined {
   const gl = canvas.getContext('webgl', {
     alpha: true,
@@ -194,7 +217,7 @@ function createCloudRenderer(
   if (!gl) return undefined
 
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER)
-  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER)
+  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, cloudFragmentShader(appearance))
   if (!vertexShader || !fragmentShader) {
     if (vertexShader) gl.deleteShader(vertexShader)
     if (fragmentShader) gl.deleteShader(fragmentShader)
@@ -267,18 +290,21 @@ function createCloudRenderer(
   }
 }
 
-function entranceScale(elapsed: number) {
-  if (elapsed <= DOT_HOLD_MS) return DOT_SCALE
+function entranceScale(elapsed: number, config: ResolvedCloudTheme) {
+  const { idleDotScale } = config.geometry
+  const { entranceHoldMs, entranceGrowMs, entranceSettleMs } = config.motion
+  if (elapsed <= entranceHoldMs) return idleDotScale
 
-  if (elapsed <= DOT_HOLD_MS + GROW_MS) {
-    const progress = easeOutCubic((elapsed - DOT_HOLD_MS) / GROW_MS)
-    return mix(DOT_SCALE, ENTRANCE_OVERSHOOT, progress)
+  if (elapsed <= entranceHoldMs + entranceGrowMs) {
+    const progress =
+      entranceGrowMs <= 0 ? 1 : easeOutCubic((elapsed - entranceHoldMs) / entranceGrowMs)
+    return mix(idleDotScale, ENTRANCE_OVERSHOOT, progress)
   }
 
-  const settleElapsed = elapsed - DOT_HOLD_MS - GROW_MS
-  if (settleElapsed >= SETTLE_MS) return 1
+  const settleElapsed = elapsed - entranceHoldMs - entranceGrowMs
+  if (settleElapsed >= entranceSettleMs) return 1
 
-  const progress = clamp(settleElapsed / SETTLE_MS)
+  const progress = entranceSettleMs <= 0 ? 1 : clamp(settleElapsed / entranceSettleMs)
   return 1 + (ENTRANCE_OVERSHOOT - 1) * Math.pow(1 - progress, 2)
 }
 
@@ -286,11 +312,15 @@ export function CloudTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
   disabled = false,
   interactive = false,
   onClick,
+  config,
   ...controlProps
 }: CloudThemeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -307,7 +337,7 @@ export function CloudTheme({
     interactiveRef.current = interactive
   }, [interactive, state, volume])
 
-  const diameter = size * NEUTRAL_DIAMETER
+  const diameter = size * config.geometry.diameterRatio
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -322,10 +352,9 @@ export function CloudTheme({
     updateReducedMotion()
     motionQuery.addEventListener('change', updateReducedMotion)
 
-    const renderer = createCloudRenderer(canvas, diameter)
+    const renderer = createCloudRenderer(canvas, diameter, config.appearance)
     if (!renderer) {
-      canvas.style.background =
-        'linear-gradient(180deg, #626afb 2%, #8f9dfb 32%, #dde6fd 52%, #c9d3fb 84%)'
+      canvas.style.background = `linear-gradient(180deg, ${config.appearance.deepColor} 2%, ${config.appearance.upperColor} 32%, ${config.appearance.highlightColor} 52%, ${config.appearance.lowerColor} 84%)`
     }
 
     let frame = 0
@@ -352,52 +381,109 @@ export function CloudTheme({
         previousState = nextState
       }
 
-      const rawVolume = clamp(volumeRef.current)
-      const volumeRate = rawVolume > currentVolume ? 11 : 6
-      currentVolume = reducedMotion ? 0 : damp(currentVolume, rawVolume, volumeRate, deltaSeconds)
+      const rawVolume = Math.pow(clamp(volumeRef.current), config.motion.responseExponent)
+      currentVolume = reducedMotion
+        ? 0
+        : followDuration(
+            currentVolume,
+            rawVolume,
+            config.motion.activityRiseMs,
+            config.motion.activityFallMs,
+            deltaSeconds,
+          )
 
       let audioScaleTarget = 1
-      if (nextState === 'listening') audioScaleTarget = 1 - currentVolume * LISTEN_SHRINK
-      if (nextState === 'speaking') audioScaleTarget = 1 + currentVolume * SPEAK_GROW
+      if (nextState === 'listening') {
+        audioScaleTarget = 1 - currentVolume * (1 - config.geometry.listeningMinScale)
+      }
+      if (nextState === 'speaking') {
+        audioScaleTarget = 1 + currentVolume * (config.geometry.speakingMaxScale - 1)
+      }
 
-      const scaleRate = Math.abs(audioScaleTarget - 1) > Math.abs(currentAudioScale - 1) ? 12 : 6
       currentAudioScale = reducedMotion
         ? 1
-        : damp(currentAudioScale, audioScaleTarget, scaleRate, deltaSeconds)
+        : followDuration(
+            currentAudioScale,
+            audioScaleTarget,
+            config.motion.stateTransitionMs,
+            config.motion.stateTransitionMs,
+            deltaSeconds,
+          )
 
       const visible = isVisibleState(nextState)
       const idleDot = nextState === 'idle' && interactiveRef.current
       const canvasOpacityTarget = visible || idleDot ? 1 : 0
       currentOpacity = reducedMotion
         ? canvasOpacityTarget
-        : damp(currentOpacity, canvasOpacityTarget, 14, deltaSeconds)
+        : followDuration(
+            currentOpacity,
+            canvasOpacityTarget,
+            config.motion.stateTransitionMs,
+            config.motion.stateTransitionMs,
+            deltaSeconds,
+          )
 
       const exitScaleTarget = visible || idleDot ? 1 : 0.92
       currentExitScale = reducedMotion
         ? exitScaleTarget
-        : damp(currentExitScale, exitScaleTarget, 12, deltaSeconds)
+        : followDuration(
+            currentExitScale,
+            exitScaleTarget,
+            config.motion.stateTransitionMs,
+            config.motion.stateTransitionMs,
+            deltaSeconds,
+          )
 
       let scale = currentAudioScale * currentExitScale
-      if (idleDot) scale = DOT_SCALE
+      if (idleDot) scale = config.geometry.idleDotScale
 
       let surfaceMix = idleDot ? 0 : 1
       let launchDotOpacity = idleDot ? currentOpacity : 0
 
       if (visible && entranceStarted !== undefined && !reducedMotion) {
         const elapsed = now - entranceStarted
-        const entrance = entranceScale(elapsed)
-        const audioInfluence = clamp((elapsed - DOT_HOLD_MS - GROW_MS) / SETTLE_MS)
+        const entrance = entranceScale(elapsed, config)
+        const audioInfluence =
+          config.motion.entranceSettleMs <= 0
+            ? 1
+            : clamp(
+                (elapsed - config.motion.entranceHoldMs - config.motion.entranceGrowMs) /
+                  config.motion.entranceSettleMs,
+              )
         scale = entrance * mix(1, currentAudioScale, audioInfluence)
-        surfaceMix = smoothstepRange(elapsed, SURFACE_FADE_START_MS, SURFACE_FADE_END_MS)
+        surfaceMix = smoothstepRange(
+          elapsed,
+          config.motion.entranceHoldMs + config.motion.entranceGrowMs * 0.22,
+          config.motion.entranceHoldMs + config.motion.entranceGrowMs * 0.8,
+        )
         launchDotOpacity =
-          currentOpacity * (1 - smoothstepRange(elapsed, DOT_FADE_START_MS, DOT_FADE_END_MS))
-        if (elapsed >= DOT_HOLD_MS + GROW_MS + SETTLE_MS) entranceStarted = undefined
+          currentOpacity *
+          (1 -
+            smoothstepRange(
+              elapsed,
+              config.motion.entranceHoldMs + config.motion.entranceGrowMs * 0.58,
+              config.motion.entranceHoldMs + config.motion.entranceGrowMs,
+            ))
+        if (
+          elapsed >=
+          config.motion.entranceHoldMs +
+            config.motion.entranceGrowMs +
+            config.motion.entranceSettleMs
+        ) {
+          entranceStarted = undefined
+        }
       }
 
       const spinnerTarget = nextState === 'connecting' ? 1 : 0
       currentSpinnerOpacity = reducedMotion
         ? spinnerTarget
-        : damp(currentSpinnerOpacity, spinnerTarget, 18, deltaSeconds)
+        : followDuration(
+            currentSpinnerOpacity,
+            spinnerTarget,
+            config.motion.stateTransitionMs,
+            config.motion.stateTransitionMs,
+            deltaSeconds,
+          )
 
       canvas.style.opacity = String(currentOpacity * surfaceMix)
       canvas.style.transform = `scale(${scale})`
@@ -406,13 +492,13 @@ export function CloudTheme({
       spinner.style.opacity = String(currentSpinnerOpacity)
       spinner.style.transform = `rotate(${reducedMotion ? 45 : now * 0.34}deg)`
 
-      let speed = 0.24
+      let speed = config.motion.idleSpeed
       let activity = 0.1
       if (nextState === 'listening') {
-        speed = 0.72 + currentVolume * 0.78
+        speed = config.motion.listeningBaseSpeed + currentVolume * config.motion.listeningSpeedRange
         activity = 0.28 + currentVolume * 0.32
       } else if (nextState === 'speaking') {
-        speed = 1.65 + currentVolume * 1.55
+        speed = config.motion.speakingBaseSpeed + currentVolume * config.motion.speakingSpeedRange
         activity = 0.66 + currentVolume * 0.34
       }
 
@@ -429,20 +515,36 @@ export function CloudTheme({
       motionQuery.removeEventListener('change', updateReducedMotion)
       renderer?.destroy()
     }
-  }, [diameter])
+  }, [config, diameter])
 
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--cloud', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const launchSlot = resolveOrbSlot(slotProps, 'launch')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const spinnerSlot = resolveOrbSlot(slotProps, 'spinner')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: launchClassName, style: launchStyle, ...launchAttributes } = launchSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: spinnerClassName, style: spinnerStyle, ...spinnerAttributes } = spinnerSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
   const rootStyle: CSSProperties = {
-    width: size,
-    height: size,
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
 
   const content = (
     <span
+      {...contentAttributes}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       style={{
         position: 'relative',
         display: 'block',
@@ -451,26 +553,34 @@ export function CloudTheme({
         borderRadius: '50%',
         lineHeight: 0,
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
+        ...contentStyle,
       }}
     >
       <span
+        {...launchAttributes}
         ref={launchDotRef}
+        className={launchClassName}
         data-cloud-launch-dot=""
+        data-orb-ui-slot="launch"
         aria-hidden="true"
         style={{
           position: 'absolute',
           inset: 0,
           display: 'block',
           borderRadius: '50%',
-          background: LAUNCH_DOT_COLOR,
+          background: config.appearance.launchColor,
           opacity: 0,
-          transform: `scale(${DOT_SCALE})`,
+          transform: `scale(${config.geometry.idleDotScale})`,
           transformOrigin: 'center',
           willChange: 'opacity, transform',
+          ...launchStyle,
         }}
       />
       <canvas
+        {...surfaceAttributes}
         ref={canvasRef}
+        className={surfaceClassName}
+        data-orb-ui-slot="surface"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -480,13 +590,17 @@ export function CloudTheme({
           height: diameter,
           borderRadius: '50%',
           opacity: 0,
-          transform: `scale(${DOT_SCALE})`,
+          transform: `scale(${config.geometry.idleDotScale})`,
           transformOrigin: 'center',
           willChange: 'opacity, transform',
+          ...surfaceStyle,
         }}
       />
       <span
+        {...spinnerAttributes}
         ref={spinnerRef}
+        className={spinnerClassName}
+        data-orb-ui-slot="spinner"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -496,8 +610,8 @@ export function CloudTheme({
           height: diameter * 0.105,
           boxSizing: 'border-box',
           border: `${Math.max(1.5, diameter * 0.012)}px solid rgba(113, 120, 245, 0.24)`,
-          borderTopColor: '#777ff6',
-          borderRightColor: '#777ff6',
+          borderTopColor: config.appearance.spinnerColor,
+          borderRightColor: config.appearance.spinnerColor,
           borderRadius: '50%',
           opacity: 0,
           transform: 'rotate(0deg)',
@@ -505,6 +619,7 @@ export function CloudTheme({
           marginLeft: diameter * -0.0525,
           marginTop: diameter * -0.0525,
           willChange: 'opacity, transform',
+          ...spinnerStyle,
         }}
       />
     </span>
@@ -513,9 +628,13 @@ export function CloudTheme({
   if (interactive) {
     return (
       <button
+        {...rootAttributes}
+        {...controlAttributes}
         {...controlProps}
+        ref={rootRef}
         type="button"
-        className={className}
+        className={joinClassNames(rootClassName, controlClassName)}
+        data-orb-ui-slot="root"
         disabled={disabled}
         onClick={disabled ? undefined : onClick}
         style={{
@@ -529,6 +648,7 @@ export function CloudTheme({
           font: 'inherit',
           cursor: disabled ? 'not-allowed' : 'pointer',
           ...rootStyle,
+          ...controlStyle,
         }}
       >
         {content}
@@ -537,7 +657,14 @@ export function CloudTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

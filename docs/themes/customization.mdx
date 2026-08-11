@@ -1,0 +1,344 @@
+---
+title: Customize Orb Themes
+description: Choose orb-ui motion presets and override theme-specific colors, geometry, response, timing, and autonomous motion with a typed theme object.
+---
+
+orb-ui has three customization levels:
+
+1. Choose a built-in preset.
+2. Customize a built-in theme through typed tokens, CSS variables, and stable slots.
+3. Supply a custom renderer while Orb continues to own provider signals and session lifecycle.
+
+A theme name is shorthand for its balanced preset:
+
+```tsx
+<Orb theme="circle" signal={signal} />
+```
+
+Use a theme object when you want a preset or low-level control:
+
+```tsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: {
+      colors: {
+        listening: '#8b9cff',
+        speaking: '#f4f7ff',
+      },
+      speakingGlow: 32,
+    },
+    geometry: {
+      listeningMinScale: 0.86,
+      listeningMaxScale: 1.02,
+    },
+    motion: {
+      responseExponent: 0.9,
+      activityRiseMs: 80,
+      activityFallMs: 180,
+    },
+  }}
+/>
+```
+
+orb-ui resolves customization in this order:
+
+1. Load `balanced`, `calm`, or `expressive` for the selected theme.
+2. Apply `appearance`, `geometry`, and `motion` overrides.
+3. Render the resulting complete theme configuration.
+
+You can therefore start with a preset and override one field without copying every internal value.
+All properties are optional except `name`.
+
+Use `defineOrbTheme` to keep literal types when a reusable theme lives outside JSX:
+
+```tsx
+import { defineOrbTheme } from 'orb-ui'
+
+export const supportTheme = defineOrbTheme({
+  name: 'circle',
+  preset: 'calm',
+  appearance: { colors: { listening: '#60a5fa', speaking: '#f472b6' } },
+  geometry: { diameterRatio: 0.68 },
+})
+```
+
+## Presets
+
+- `balanced` preserves the existing theme's intended visual behavior and is the default.
+- `calm` uses less visual range, slower response, and more restrained autonomous motion.
+- `expressive` uses more visual range, faster response, and stronger autonomous motion.
+
+Presets are theme-specific. `calm` does not force every theme into one universal set of numbers; it
+chooses values appropriate for that theme's geometry.
+
+```tsx
+<Orb theme={{ name: 'cloud', preset: 'expressive' }} signal={signal} />
+```
+
+## Visual response versus volume normalization
+
+Provider calibration and theme motion solve different problems:
+
+- Adapter `riseTimeMs` and `fallTimeMs` produce a stable provider-independent speech envelope.
+- Theme `activityRiseMs` and `activityFallMs` control how quickly artwork follows that envelope.
+- `stateTransitionMs` controls blending between conversation states.
+- Autonomous speed or tempo fields control motion that continues even when volume is unchanged.
+
+Theme timing values are the milliseconds required to move 90% toward a visual target. This makes
+them stable across display refresh rates. `responseExponent` maps the normalized envelope before
+animation: values below `1` lift quiet activity, `1` is linear, and values above `1` reserve more
+motion for loud activity.
+
+Do not change provider calibration to make one theme more dramatic. Choose a theme preset or adjust
+its motion and geometry instead. See [volume calibration](/guides/volume-calibration) for the signal
+layer.
+
+## Circle parameters
+
+`appearance`:
+
+- `colors`: partial state-to-hex-color map
+- `listeningGlow`, `speakingGlow`: maximum glow radius in pixels
+
+`geometry`:
+
+- `diameterRatio`: artwork diameter relative to the `size` prop
+- `listeningMinScale`, `listeningMaxScale`: scale at silence and peak input activity
+- `speakingMinScale`, `speakingMaxScale`: scale at silence and peak output activity
+
+`motion`:
+
+- `responseExponent`, `activityRiseMs`, `activityFallMs`, `stateTransitionMs`
+- `idlePulseMs`, `processingPulseMs`: CSS pulse durations
+
+## Bars parameters
+
+`appearance.colors` is a partial state-to-hex-color map.
+
+`geometry` controls `barWidthRatio`, `gapRatio`, `minHeightRatio`, `maxHeightRatio`, and
+`borderRadiusRatio`, all relative to `size`.
+
+`motion` controls the shared response fields plus `waveFrequency`, `listeningTempo`,
+`speakingTempo`, and `loadingTempo`.
+
+## Cloud parameters
+
+`appearance` exposes `deepColor`, `upperColor`, `lowerColor`, `highlightColor`, `launchColor`, and
+`spinnerColor`. Use six-digit hex colors; shader colors are compiled from these values.
+
+`geometry` controls `diameterRatio`, `listeningMinScale`, `speakingMaxScale`, and `idleDotScale`.
+
+`motion` provides the shared response fields plus `idleSpeed`, `listeningBaseSpeed`,
+`listeningSpeedRange`, `speakingBaseSpeed`, `speakingSpeedRange`, `entranceHoldMs`,
+`entranceGrowMs`, and `entranceSettleMs`.
+
+## Radial parameters
+
+`appearance` exposes the shader palette (`deepColor`, `cobaltColor`, `aquaColor`, `paleColor`,
+`membraneColor`, and `seamColor`) and the three phone-control colors (`idleControlColor`,
+`activeControlColor`, and `connectingControlColor`). Use six-digit hex colors.
+
+`geometry` controls `diameterRatio` and `controlRatio`.
+
+`motion` provides the shared response fields plus `idleSpeed`, `listeningBaseSpeed`,
+`listeningSpeedRange`, `speakingBaseSpeed`, `speakingSpeedRange`, and `rotationAmount`.
+
+The radial control cutout still uses the typed
+`--orb-ui-radial-control-surround` root style variable because that value belongs to the surrounding
+page surface rather than the theme palette.
+
+## Debug parameters
+
+The debug theme supports state `colors`, `backgroundColor`, `textColor`, and `borderColor` under
+`appearance`; `borderRadius` and `padding` under `geometry`; and `responseExponent` under `motion`.
+
+## Application-wide defaults
+
+`OrbThemeProvider` supplies reusable theme, size, style, slots, component replacements, or a custom
+renderer. A local theme object for the same built-in theme deep-merges over the provider default;
+choosing another theme name replaces it.
+
+```tsx
+import { Orb, OrbThemeProvider } from 'orb-ui'
+
+export function VoiceSurface() {
+  return (
+    <OrbThemeProvider
+      size={260}
+      theme={supportTheme}
+      slotProps={{ surface: { className: 'support-orb__surface' } }}
+    >
+      <Orb adapter={primaryAgent} />
+      <Orb adapter={secondaryAgent} theme={{ name: 'circle', appearance: { speakingGlow: 48 } }} />
+    </OrbThemeProvider>
+  )
+}
+```
+
+The provider only supplies visual defaults. Each `Orb` still owns its own adapter, signal,
+accessibility label, disabled state, and lifecycle handlers.
+
+## Responsive sizing and CSS variables
+
+Use `--orb-ui-size` when layout should respond to its container or viewport. Orb measures the
+rendered root and keeps canvas resolution and numeric theme geometry aligned with its actual width.
+
+```tsx
+<Orb
+  className="responsive-orb"
+  signal={signal}
+  theme="cloud"
+  style={{ '--orb-ui-size': 'clamp(180px, 34vw, 360px)' }}
+/>
+```
+
+Every typed built-in token has a matching stable CSS variable:
+
+```text
+--orb-ui-{theme}-{section}-{property}
+--orb-ui-{theme}-{section}-{nested-property}-{key}
+```
+
+For example:
+
+```css
+.support-orb {
+  --orb-ui-size: min(68vw, 320px);
+  --orb-ui-circle-appearance-colors-listening: #60a5fa;
+  --orb-ui-circle-appearance-colors-speaking: #f472b6;
+  --orb-ui-circle-appearance-speaking-glow: 42;
+  --orb-ui-circle-geometry-diameter-ratio: 0.68;
+  --orb-ui-circle-motion-activity-rise-ms: 70;
+  --orb-ui-circle-motion-activity-fall-ms: 180;
+}
+```
+
+The variable section is `appearance`, `geometry`, or `motion`; property names are the documented
+camel-case token names converted to kebab case. Nested state colors use `colors-{state}`. Numeric
+variables may be unitless or include a descriptive unit such as `ms`; orb-ui reads their numeric
+value. Built-in and shader palette colors should use six-digit hex values.
+
+`orbThemeCssVariable(theme, section, property, nestedProperty?)` is exported when a library or
+design-system integration needs to generate a variable name safely.
+
+## Stable slots
+
+`className` and `style` apply to the rendered theme root. Every root also includes
+`data-orb-ui-theme`, `data-orb-ui-preset`, `data-orb-ui-state`, and `data-orb-ui-slot="root"`.
+Internal semantic pieces use stable `orb-ui__*` classes and `data-orb-ui-slot` attributes.
+
+`slotProps` is the typed way to attach a class, inline style, ARIA attribute, title, role, or data
+attribute to those pieces:
+
+```tsx
+<Orb
+  signal={signal}
+  theme="bars"
+  slotProps={{
+    root: { className: 'brand-orb' },
+    content: { style: { filter: 'drop-shadow(0 16px 32px rgb(59 130 246 / 30%))' } },
+    bar: { className: 'brand-orb__bar', style: { opacity: 0.9 } },
+  }}
+/>
+```
+
+Available built-in slots:
+
+| Theme  | Slots                                                                      |
+| ------ | -------------------------------------------------------------------------- |
+| circle | `root`, `control`, `content`, `glow`, `surface`                            |
+| bars   | `root`, `control`, `content`, `bar`                                        |
+| cloud  | `root`, `control`, `content`, `launch`, `surface`, `spinner`               |
+| radial | `root`, `content`, `surface`, `control`, `icon`, `spinner`                 |
+| debug  | `root`, `header`, `label`, `meterTrack`, `meterFill`, `control`, `actions` |
+
+Repeated bars include `data-orb-ui-index`. Unsupported slots are ignored, so one provider-level
+slot object can be shared across themes.
+
+Stable selectors also work for contextual CSS:
+
+```css
+.voice-panel [data-orb-ui-theme='circle'] {
+  margin-inline: auto;
+}
+
+.voice-panel .orb-ui__content {
+  filter: saturate(1.15);
+}
+```
+
+Animation loops own some surface properties such as transform and color. Use the typed theme object
+or matching CSS variables for those semantic values; use slots for surrounding layout, filters,
+opacity, shadows, and other presentational details. For unrestricted artwork, use a custom renderer.
+
+## Replacing built-in control chrome
+
+The radial theme's phone icon and connecting indicator can be replaced without rebuilding its
+WebGL artwork:
+
+```tsx
+<Orb
+  adapter={adapter}
+  theme="radial"
+  components={{
+    controlIcon: ({ active }) => <MyCallIcon active={active} />,
+    connectingIndicator: <MySpinner />,
+  }}
+/>
+```
+
+Component callbacks receive `state`, `active`, `connecting`, `disabled`, and the control `size`.
+They can also be supplied once through `OrbThemeProvider`.
+
+## Completely custom renderers
+
+Use `renderTheme` when the built-in artwork and semantic tokens are not the right abstraction. The
+renderer receives both directional volumes, the direction-selected `activity`, actual pixel size,
+state, and lifecycle actions.
+
+```tsx
+import type { OrbThemeRenderer } from 'orb-ui'
+
+const renderBrandOrb: OrbThemeRenderer = ({
+  activity,
+  controlProps,
+  rootProps,
+  state,
+}) => (
+  <div
+    {...rootProps}
+    style={{
+      ...rootProps.style,
+      display: 'grid',
+      placeItems: 'center',
+    }}
+  >
+    <button
+      {...controlProps}
+      style={{
+        ...controlProps.style,
+        width: '70%',
+        height: '70%',
+        border: 0,
+        borderRadius: `${42 + activity * 20}%`,
+        background: state === 'speaking' ? '#f472b6' : '#60a5fa',
+        transform: `scale(${0.82 + activity * 0.18})`,
+      }}
+    />
+  </div>
+)
+
+<Orb adapter={adapter} renderTheme={renderBrandOrb} />
+```
+
+Spread `rootProps` on the outer element so responsive sizing, root classes, state diagnostics, and
+CSS variables continue to work. Spread `controlProps` on the lifecycle button so generated labels,
+disabled behavior, keyboard activation, and adapter start/stop behavior remain intact.
+
+The full renderer contract also includes `signal`, `inputVolume`, `outputVolume`, `isActive`,
+`interactive`, `disabled`, `start`, `stop`, and `toggle`. A custom renderer controls its own DOM and
+artwork; Orb continues to own adapter subscription, normalized signal selection, and lifecycle
+semantics.

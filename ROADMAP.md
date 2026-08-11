@@ -100,19 +100,22 @@ controls:
 - Clear provider and controlled-mode paths
 - An editorial documentation directory for deeper implementation guidance
 
-### Theme response and customization — next
+### Theme response and customization — complete
 
-Provider adapters now normalize both directions into a portable `OrbSignal`. The next layer is a
-theme configuration API that lets applications choose an intentional preset or override a theme's
-appearance, geometry, and motion without changing provider measurement semantics.
+The theme configuration API lets applications choose an intentional preset or override a theme's
+appearance, geometry, and motion without changing provider measurement semantics. A string theme
+name remains shorthand for its balanced preset.
 
-Next steps:
+Completed direction:
 
 - Add `balanced`, `calm`, and `expressive` presets while keeping today's behavior as `balanced`
 - Add theme-specific appearance, geometry, and motion overrides with semantic parameter names
 - Keep visual response timing and easing separate from provider rise/fall normalization
-- A playground matrix for comparing each provider, theme, and speaking direction
-- Keeping provider-specific measurement details out of theme implementations
+- Add responsive design tokens, stable semantic slots, and application-wide theme defaults
+- Allow custom renderers and replaceable control chrome without giving up Orb signal/lifecycle logic
+- Add preset selection to the provider playground for comparing every provider, theme, and speaking
+  direction against the same normalized signal
+- Keep provider-specific measurement details out of theme implementations
 
 ## Ongoing
 
