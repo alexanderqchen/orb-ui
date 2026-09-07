@@ -130,21 +130,23 @@ export function createOpenAIRealtimeAdapter(
 
   function emitState(state: OrbState, error?: unknown) {
     if (signal.state === state && error === undefined) return
-    inputNormalizer.reset()
-    outputNormalizer.reset()
+    const resetsEnvelope = state === 'idle' || state === 'connecting' || state === 'error'
+    if (resetsEnvelope) {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+    }
     emit({
+      ...signal,
       state,
-      inputVolume: 0,
-      outputVolume: 0,
+      ...(resetsEnvelope ? { inputVolume: 0, outputVolume: 0 } : {}),
       ...(error === undefined ? {} : { error }),
     })
   }
 
   function emitInputVolume(rawInputVolume: number) {
-    if (signal.state !== 'listening') return
     const sample = inputNormalizer.sample(rawInputVolume)
     config.onInputVolumeSample?.(sample)
-    emit({ ...signal, inputVolume: sample.normalized, outputVolume: 0 })
+    emit({ ...signal, inputVolume: sample.normalized })
   }
 
   function emitOutputVolume(rawOutputVolume: number) {
@@ -164,9 +166,7 @@ export function createOpenAIRealtimeAdapter(
       }
     }
 
-    if (signal.state === 'speaking') {
-      emit({ ...signal, inputVolume: 0, outputVolume })
-    }
+    emit({ ...signal, outputVolume })
   }
 
   function handleServerEvent(event: RealtimeServerEvent) {

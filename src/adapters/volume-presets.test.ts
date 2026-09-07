@@ -13,7 +13,7 @@ describe('provider volume calibrations', () => {
           mapVolumeAmplitude(profile.amplitude.speechReference, profile.amplitude),
         ).toBeCloseTo(0.5)
         expect(mapVolumeAmplitude(profile.amplitude.speechPeak, profile.amplitude)).toBe(1)
-        expect(profile.envelope).toEqual({ riseTimeMs: 100, fallTimeMs: 250 })
+        expect(profile.envelope).toEqual({ riseTimeMs: 100, fallTimeMs: 400 })
       }
     }
   })

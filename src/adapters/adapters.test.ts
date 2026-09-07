@@ -94,12 +94,18 @@ describe('Vapi adapter signals', () => {
     expect(lastSignal(signals).state).toBe('speaking')
     expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
 
+    const speakingVolume = lastSignal(signals).outputVolume ?? 0
     client.emit('speech-end')
-    expect(lastSignal(signals)).toMatchObject({
-      outputVolume: 0,
-    })
+    expect(lastSignal(signals)).toMatchObject({ state: 'speaking' })
+    expect(lastSignal(signals).outputVolume).toBe(speakingVolume)
 
-    vi.advanceTimersByTime(350)
+    vi.advanceTimersByTime(175)
+    animationFrame.flush()
+    expect(lastSignal(signals).state).toBe('speaking')
+    expect(lastSignal(signals).outputVolume).toBeLessThan(speakingVolume)
+    expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
+
+    vi.advanceTimersByTime(175)
     expect(lastSignal(signals)).toMatchObject({
       state: 'listening',
       outputVolume: 0,
@@ -191,17 +197,35 @@ describe('ElevenLabs adapter signals', () => {
     expect(lastSignal(signals)).toMatchObject({
       state: 'listening',
       inputVolume: expect.any(Number),
+      outputVolume: expect.any(Number),
     })
     expect(lastSignal(signals).inputVolume).toBeGreaterThan(0)
+    expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
 
+    const listeningSignal = lastSignal(signals)
     sessionOptions?.onModeChange?.({ mode: 'speaking' })
+    expect(lastSignal(signals)).toMatchObject({
+      state: 'speaking',
+      inputVolume: listeningSignal.inputVolume,
+      outputVolume: listeningSignal.outputVolume,
+    })
     vi.advanceTimersByTime(33)
 
     expect(lastSignal(signals)).toMatchObject({
       state: 'speaking',
+      inputVolume: expect.any(Number),
       outputVolume: expect.any(Number),
     })
+    expect(lastSignal(signals).inputVolume).toBeGreaterThan(0)
     expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
+
+    const speakingSignal = lastSignal(signals)
+    sessionOptions?.onModeChange?.({ mode: 'listening' })
+    expect(lastSignal(signals)).toMatchObject({
+      state: 'listening',
+      inputVolume: speakingSignal.inputVolume,
+      outputVolume: speakingSignal.outputVolume,
+    })
 
     await adapter.stop()
 

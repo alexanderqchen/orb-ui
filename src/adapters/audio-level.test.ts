@@ -64,7 +64,7 @@ describe('volume calibration', () => {
     expect(fit.metrics.silenceP99).toBe(0)
     expect(fit.metrics.normalMedian).toBeCloseTo(0.5)
     expect(fit.metrics.speechP99).toBeGreaterThan(0.9)
-    expect(fit.calibration.envelope).toEqual({ riseTimeMs: 100, fallTimeMs: 250 })
+    expect(fit.calibration.envelope).toEqual({ riseTimeMs: 100, fallTimeMs: 400 })
   })
 
   it('rejects incomplete guided captures instead of inventing missing anchors', () => {

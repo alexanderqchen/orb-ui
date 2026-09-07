@@ -30,6 +30,8 @@ Completed direction:
 - Replace provider-specific gain, curve, attack, and release constants with named amplitude anchors
   and elapsed-time envelope semantics
 - Ship directional defaults for every available provider signal
+- Keep available input and output envelopes warm across active conversation states so provider
+  mode events never inject an artificial zero
 - Add raw, mapped, and normalized diagnostics to all adapter volume callbacks
 - Generate profiles from guided silence, quiet, normal, and energetic captures in the provider
   playground instead of relying on manual sliders

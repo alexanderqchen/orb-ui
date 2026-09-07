@@ -161,9 +161,17 @@ export function createElevenLabsAdapter(
 
   function setState(state: OrbState) {
     currentState = state
-    inputNormalizer.reset()
-    outputNormalizer.reset()
-    emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+    if (state === 'idle' || state === 'connecting' || state === 'error') {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+      emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+      return
+    }
+
+    // Listening/speaking are views over two continuous directional envelopes.
+    // Preserve both across mode changes so the newly active direction does not
+    // spend a frame at an artificial zero.
+    emitPatch({ state })
   }
 
   function startVolumePolling() {
@@ -175,11 +183,10 @@ export function createElevenLabsAdapter(
       onInputVolumeSample?.(inputSample)
       onOutputVolumeSample?.(outputSample)
 
-      if (currentState === 'listening') {
-        emitPatch({ inputVolume: inputSample.normalized, outputVolume: 0 })
-      } else if (currentState === 'speaking') {
-        emitPatch({ inputVolume: 0, outputVolume: outputSample.normalized })
-      }
+      emitPatch({
+        inputVolume: inputSample.normalized,
+        outputVolume: outputSample.normalized,
+      })
     }, 33) // ~30 fps
   }
 

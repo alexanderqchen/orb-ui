@@ -95,12 +95,17 @@ describe('createPipecatAdapter', () => {
     client.emit('remoteAudioLevel', 0.7, { id: 'bot', local: false })
     expect(signals.at(-1)).toMatchObject({
       state: 'speaking',
-      inputVolume: 0,
+      inputVolume: expect.any(Number),
     })
+    expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
     expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
 
+    const speakingOutput = signals.at(-1)?.outputVolume ?? 0
     client.emit('botStoppedSpeaking')
-    expect(signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
+    expect(signals.at(-1)).toMatchObject({
+      state: 'listening',
+      outputVolume: speakingOutput,
+    })
 
     await adapter.stop()
     expect(client.disconnect).toHaveBeenCalledOnce()
@@ -139,12 +144,14 @@ describe('createPipecatAdapter', () => {
 
     client.emit('botReady')
     vi.advanceTimersByTime(33)
-    expect(signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
+    expect(signals.at(-1)).toMatchObject({ state: 'listening' })
     expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
+    expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
 
     client.emit('botStartedSpeaking')
     vi.advanceTimersByTime(33)
-    expect(signals.at(-1)).toMatchObject({ state: 'speaking', inputVolume: 0 })
+    expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
+    expect(signals.at(-1)?.inputVolume).toBeGreaterThan(0)
     expect(signals.at(-1)?.outputVolume).toBeGreaterThan(0)
     expect(onOutputVolumeSample).toHaveBeenCalledWith(
       expect.objectContaining({ raw: expect.closeTo(0.16) }),
@@ -197,7 +204,7 @@ describe('createPipecatAdapter', () => {
     client.emit('remoteAudioLevel', 0.05, { id: 'bot', local: false })
     const output = signals.at(-1)?.outputVolume ?? 0
     expect(output).toBeGreaterThan(0.15)
-    expect(signals.at(-1)?.inputVolume).toBe(0)
+    expect(signals.at(-1)?.inputVolume).toBe(releasedInput)
   })
 
   it('gates invalid and near-silent levels', () => {

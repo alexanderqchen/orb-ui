@@ -167,12 +167,15 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
 
   function emitState(state: OrbState, error?: unknown) {
     if (signal.state === state && error === undefined) return
-    inputNormalizer.reset()
-    outputNormalizer.reset()
+    const resetsEnvelope = state === 'idle' || state === 'connecting' || state === 'error'
+    if (resetsEnvelope) {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+    }
     emit({
+      ...signal,
       state,
-      inputVolume: 0,
-      outputVolume: 0,
+      ...(resetsEnvelope ? { inputVolume: 0, outputVolume: 0 } : {}),
       ...(error === undefined ? {} : { error }),
     })
   }
@@ -208,9 +211,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       }, config.speechEndDelayMs ?? 500)
     }
 
-    if (signal.state === 'listening') {
-      emit({ ...signal, inputVolume, outputVolume: 0 })
-    }
+    emit({ ...signal, inputVolume })
   }
 
   function stopScheduledAudio() {
@@ -293,9 +294,7 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       outputAnalyser.getFloatTimeDomainData(samples)
       const sample = outputNormalizer.sample(calculateRms(samples))
       config.onOutputVolumeSample?.(sample)
-      if (signal.state === 'speaking') {
-        emit({ ...signal, inputVolume: 0, outputVolume: sample.normalized })
-      }
+      emit({ ...signal, outputVolume: sample.normalized })
     }, 33)
   }
 
