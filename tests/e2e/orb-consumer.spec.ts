@@ -103,3 +103,56 @@ test('keeps adapter lifecycle and normalized activity in a custom renderer', asy
   await expect(control).toHaveText('idle:0.00')
   expect(browserErrors).toEqual([])
 })
+
+test('keeps Cloud visible through live customization and still enters on a new session', async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page)
+  await page.goto('/')
+  const cloud = page.getByTestId('continuous-cloud')
+  const surface = cloud.locator('canvas')
+  await expect(surface).toHaveCSS('opacity', '1')
+  // Wait for the real connection entrance to settle before changing visual configuration.
+  await expect
+    .poll(() =>
+      surface.evaluate((element) => Number(element.style.transform.match(/scale\(([^)]+)\)/)?.[1])),
+    )
+    .toBeGreaterThan(1.1)
+  await page.waitForTimeout(1800)
+
+  for (const control of ['cloud-preset', 'cloud-size', 'cloud-color']) {
+    const frames = await page.evaluate(async (testId) => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        '[data-testid="continuous-cloud"] canvas',
+      )!
+      const measurements: Array<{ scale: number; opacity: number }> = []
+      const started = performance.now()
+      document.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!.click()
+      await new Promise<void>((resolve) => {
+        const sample = () => {
+          measurements.push({
+            scale: Number(canvas.style.transform.match(/scale\(([^)]+)\)/)?.[1]),
+            opacity: Number(canvas.style.opacity),
+          })
+          if (performance.now() - started >= 650) resolve()
+          else requestAnimationFrame(sample)
+        }
+        requestAnimationFrame(sample)
+      })
+      return measurements
+    }, control)
+    expect(frames.length).toBeGreaterThan(3)
+    expect(Math.min(...frames.map((frame) => frame.scale)), control).toBeGreaterThan(1)
+    expect(Math.min(...frames.map((frame) => frame.opacity)), control).toBeGreaterThan(0.99)
+  }
+
+  await page.getByRole('button', { name: 'Stop cloud', exact: true }).click()
+  await expect
+    .poll(() => surface.evaluate((element) => Number(element.style.opacity)))
+    .toBeLessThan(0.01)
+  await page.getByRole('button', { name: 'Restart cloud', exact: true }).click()
+  await expect
+    .poll(() => surface.evaluate((element) => Number(element.style.opacity)))
+    .toBeGreaterThan(0.99)
+  expect(browserErrors).toEqual([])
+})

@@ -9,3 +9,6 @@ the balanced preset. Add application-wide defaults through `OrbThemeProvider`, r
 custom theme renderers that retain Orb's normalized signal and accessible lifecycle contract. Theme
 motion exposes semantic response exponent, activity rise/fall, and state transition timing
 separately from provider volume normalization.
+
+Keep Cloud animation continuous when changing presets, appearance, or responsive size during an
+active session; those visual updates no longer replay the connection entrance.

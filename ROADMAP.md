@@ -118,6 +118,8 @@ Completed direction:
 - Add preset selection to the provider playground for comparing every provider, theme, and speaking
   direction against the same normalized signal
 - Keep provider-specific measurement details out of theme implementations
+- Preserve Cloud session animation through live preset, appearance, and responsive size changes,
+  with browser regression coverage for frame continuity
 
 ## Ongoing
 

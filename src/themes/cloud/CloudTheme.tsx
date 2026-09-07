@@ -31,6 +31,17 @@ interface CloudRenderer {
   destroy(): void
 }
 
+interface CloudAnimationState {
+  previousState: OrbState
+  entranceStarted: number | undefined
+  currentVolume: number
+  currentAudioScale: number
+  currentOpacity: number
+  currentExitScale: number
+  currentSpinnerOpacity: number
+  flowTime: number
+}
+
 const VERTEX_SHADER = `
 attribute vec2 a_position;
 
@@ -330,6 +341,7 @@ export function CloudTheme({
   const volumeRef = useRef(volume)
   const interactiveRef = useRef(interactive)
   const reducedMotionRef = useRef(false)
+  const animationRef = useRef<CloudAnimationState>()
 
   useIsomorphicLayoutEffect(() => {
     stateRef.current = state
@@ -359,14 +371,22 @@ export function CloudTheme({
 
     let frame = 0
     let previousTime = performance.now()
-    let previousState = stateRef.current
-    let entranceStarted = isVisibleState(previousState) ? previousTime : undefined
-    let currentVolume = clamp(volumeRef.current)
-    let currentAudioScale = 1
-    let currentOpacity = isVisibleState(previousState) ? 1 : 0
-    let currentExitScale = 1
-    let currentSpinnerOpacity = previousState === 'connecting' ? 1 : 0
-    let flowTime = 0
+    // Recreating a shader or resizing its buffer must not restart a live session's
+    // entrance, audio envelope, or internal cloud motion.
+    const animation = animationRef.current
+    let previousState = animation?.previousState ?? stateRef.current
+    let entranceStarted = animation
+      ? animation.entranceStarted
+      : isVisibleState(previousState)
+        ? previousTime
+        : undefined
+    let currentVolume = animation?.currentVolume ?? clamp(volumeRef.current)
+    let currentAudioScale = animation?.currentAudioScale ?? 1
+    let currentOpacity = animation?.currentOpacity ?? (isVisibleState(previousState) ? 1 : 0)
+    let currentExitScale = animation?.currentExitScale ?? 1
+    let currentSpinnerOpacity =
+      animation?.currentSpinnerOpacity ?? (previousState === 'connecting' ? 1 : 0)
+    let flowTime = animation?.flowTime ?? 0
 
     const render = (now: number) => {
       const deltaSeconds = Math.min((now - previousTime) / 1000, 0.05)
@@ -512,6 +532,16 @@ export function CloudTheme({
 
     return () => {
       cancelAnimationFrame(frame)
+      animationRef.current = {
+        previousState,
+        entranceStarted,
+        currentVolume,
+        currentAudioScale,
+        currentOpacity,
+        currentExitScale,
+        currentSpinnerOpacity,
+        flowTime,
+      }
       motionQuery.removeEventListener('change', updateReducedMotion)
       renderer?.destroy()
     }
@@ -609,9 +639,9 @@ export function CloudTheme({
           width: diameter * 0.105,
           height: diameter * 0.105,
           boxSizing: 'border-box',
-          border: `${Math.max(1.5, diameter * 0.012)}px solid rgba(113, 120, 245, 0.24)`,
-          borderTopColor: config.appearance.spinnerColor,
-          borderRightColor: config.appearance.spinnerColor,
+          borderWidth: Math.max(1.5, diameter * 0.012),
+          borderStyle: 'solid',
+          borderColor: `${config.appearance.spinnerColor} ${config.appearance.spinnerColor} rgba(113, 120, 245, 0.24) rgba(113, 120, 245, 0.24)`,
           borderRadius: '50%',
           opacity: 0,
           transform: 'rotate(0deg)',

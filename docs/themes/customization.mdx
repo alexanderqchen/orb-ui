@@ -52,6 +52,10 @@ orb-ui resolves customization in this order:
 You can therefore start with a preset and override one field without copying every internal value.
 All properties are optional except `name`.
 
+Cloud preserves its current animation when you change presets, appearance, or responsive size
+during an active session. These updates do not replay the connection entrance; a new session still
+uses the normal entrance animation.
+
 Use `defineOrbTheme` to keep literal types when a reusable theme lives outside JSX:
 
 ```tsx
