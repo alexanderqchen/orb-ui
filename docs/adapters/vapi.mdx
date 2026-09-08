@@ -64,9 +64,11 @@ The adapter maps Vapi conversation lifecycle events into orb-ui state changes. T
 - errors
 
 Vapi assistant audio levels are emitted as `outputVolume` while the assistant is speaking.
-The Vapi web SDK does not currently expose local microphone input levels through the
-adapter event stream, so this adapter does not emit `inputVolume` while listening. If your
-app already meters the microphone separately, pass a controlled `signal` to `Orb`.
+Microphone `inputVolume` comes from the existing local audio track exposed by the SDK's public
+`getDailyCallObject()` method. The adapter does not request a second microphone stream or stop
+SDK-owned tracks. It follows track replacement and mute, and releases its meter when the call
+ends, errors, or the subscriber disconnects. Clients without this optional method retain assistant
+output metering and report zero input.
 
 The core mapping is:
 
@@ -84,8 +86,10 @@ It also
 debounces short speaking-to-listening changes so normal turn boundaries do not create distracting
 visual flicker.
 
-Most applications should use the shipped output profile. For a custom Vapi audio path, the adapter
-accepts `outputVolumeCalibration` and `onOutputVolumeSample`. See
+Most applications should use the shipped directional profiles. For a custom Vapi audio path, the
+adapter accepts `inputVolumeCalibration`, `outputVolumeCalibration`, `onInputVolumeSample`, and
+`onOutputVolumeSample`. Input diagnostics measure waveform RMS; output diagnostics report Vapi's
+remote audio levels. `createAudioContext` can customize or disable the microphone meter. See
 [volume calibration](/guides/volume-calibration) for the anchor semantics and guided profile
 generator.
 
@@ -98,7 +102,7 @@ When an adapter or `onStart`/`onStop` handler is provided, clickable `circle` an
 Use controlled mode if your app wraps Vapi in its own session layer or combines Vapi with custom state. The Orb component does not need to own the provider SDK if your app already knows the voice signal.
 
 ```tsx
-<Orb signal={{ state: voiceState, outputVolume }} theme="circle" />
+<Orb signal={{ state: voiceState, inputVolume, outputVolume }} theme="circle" />
 ```
 
 Controlled mode is the better fit when you combine Vapi with a separate microphone meter, tool
@@ -110,9 +114,9 @@ session layer and pass one normalized `OrbSignal` to the UI.
 **The orb never leaves idle.** Make sure the adapter and the code starting the call share the same
 Vapi client instance. The adapter listens for lifecycle events on that object.
 
-**Listening has little or no audio motion.** The current Vapi event stream used by this adapter
-provides assistant output levels, not the local microphone level. This is expected. Supply a custom
-`inputVolume` through controlled mode if microphone-reactive listening is important to the design.
+**Listening has little or no audio motion.** Confirm that the Vapi client exposes
+`getDailyCallObject()`, the microphone is enabled, and Web Audio is available. SDK wrappers that
+hide that method can expose it or supply `inputVolume` through controlled mode.
 
 **The interface starts multiple calls.** Use either the interactive orb or your own start control
 as the primary action. When the product owns the controls, set `interactive={false}`.
@@ -125,7 +129,7 @@ adjacent recovery copy rather than relying on the visual alone.
 
 - The Vapi public key and assistant configuration are appropriate for browser use.
 - One stable client and adapter instance owns the current call.
-- The missing local input meter is acceptable or supplied through controlled mode.
+- The SDK's local microphone track is available and produces input levels while listening.
 - Permission and provider errors have labeled retry actions.
 - Interactive behavior is disabled when separate call controls are present.
 - Start, stop, interruption, failure, and restart are tested in the real browser.

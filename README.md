@@ -27,6 +27,9 @@ export function VoiceOrb() {
 }
 ```
 
+Vapi uses its existing microphone track for listening motion and its assistant audio events for
+speaking motion. The adapter keeps microphone and output calibration separate.
+
 ## Install
 
 Install the component package:
