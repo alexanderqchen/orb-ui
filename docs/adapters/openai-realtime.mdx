@@ -73,14 +73,20 @@ key in browser code or a `VITE_*`/`NEXT_PUBLIC_*` variable.
 
 - WebRTC negotiation -> `connecting`
 - `input_audio_buffer.speech_started` -> `listening`
-- `input_audio_buffer.speech_stopped` and `response.created` -> `thinking`
-- output audio activity -> `speaking`
+- `input_audio_buffer.speech_stopped` and `response.created` -> `thinking` when no output is playing
+- `output_audio_buffer.started` -> `speaking`
 - completed/interrupted output -> `listening`
 - Realtime or WebRTC failure -> `error`
 - explicit stop or closed connection -> `idle`
 
-The adapter meters the local microphone into `inputVolume` while listening and the remote WebRTC
-track into `outputVolume` while speaking. It also attaches and plays the model audio automatically.
+The adapter meters the local microphone into `inputVolume` and the remote WebRTC track into
+`outputVolume`, keeping both envelopes warm during active conversation states. It also attaches
+and plays the model audio automatically.
+
+WebRTC playback start, stop, and clear events take priority over volume-based state inference.
+This prevents a listening flash before the first audio packet or a return to speaking while the
+output envelope fades after playback ends. Detected user speech keeps listening priority during
+interruption. Audio-level inference remains available when playback events are absent.
 
 ## Directional calibration
 
