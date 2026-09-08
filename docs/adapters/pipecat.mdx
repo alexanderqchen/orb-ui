@@ -88,11 +88,16 @@ export function PipecatVoiceUI() {
 
 - transport initialization/authentication/connection -> `connecting`
 - bot ready and user speaking -> `listening`
-- user stopped speaking, LLM started, or TTS started -> `thinking`
+- user stopped speaking, LLM started, or TTS started -> `thinking` (generation events do not
+  interrupt an active `speaking` state)
 - bot started speaking -> `speaking`
 - bot stopped speaking -> `listening`
 - client, message, or device error -> `error`
 - disconnected -> `idle`
+
+LLM and TTS generation can overlap playback of an earlier sentence. Bot playback events retain
+the `speaking` state during that work, so the animation continues to follow output volume. User
+speech can still interrupt the bot and return the UI to `listening`.
 
 RTVI `LocalAudioLevel` becomes `inputVolume`; bot `RemoteAudioLevel` becomes `outputVolume`. The
 adapter also meters the `PipecatClient` local and bot `MediaStreamTrack` values directly when they

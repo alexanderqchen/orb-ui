@@ -309,6 +309,12 @@ export function createPipecatAdapter(
     syncTrackMeters()
   }
 
+  function handleBotGenerationStarted() {
+    // Generation can overlap playback of an earlier sentence. Keep following
+    // audio until playback stops or the user interrupts the bot.
+    if (signal.state !== 'speaking') emitState('thinking')
+  }
+
   const eventHandlers: Array<[string, PipecatListener]> = [
     [PIPECAT_EVENTS.connected, () => emitState('connecting')],
     [PIPECAT_EVENTS.botReady, handleBotReady],
@@ -329,8 +335,8 @@ export function createPipecatAdapter(
         if (signal.state === 'listening') emitState('thinking')
       },
     ],
-    [PIPECAT_EVENTS.botLlmStarted, () => emitState('thinking')],
-    [PIPECAT_EVENTS.botTtsStarted, () => emitState('thinking')],
+    [PIPECAT_EVENTS.botLlmStarted, handleBotGenerationStarted],
+    [PIPECAT_EVENTS.botTtsStarted, handleBotGenerationStarted],
     [PIPECAT_EVENTS.botStartedSpeaking, () => emitState('speaking')],
     [PIPECAT_EVENTS.botStoppedSpeaking, () => emitState('listening')],
     [PIPECAT_EVENTS.localAudioLevel, (level) => !inputMeter && emitInputVolume(level)],

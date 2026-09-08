@@ -108,7 +108,7 @@ processing, and `normalized` is the stable envelope emitted as `outputVolume`.
 The provider QA playground generates amplitude anchors instead of asking you to tune sliders:
 
 1. Run `pnpm build` and `pnpm dev:demo`.
-2. Open `/provider-playground` and configure the provider.
+2. Open `/playground` and configure the provider.
 3. Start a real session and select input or output.
 4. Capture silence, quiet speech, normal speech, and energetic speech.
 5. Generate the profile and inspect its mapped distribution.
@@ -121,6 +121,26 @@ restores the shipped baseline for the selected direction.
 
 Use the runner when validating a provider default or a materially different audio pipeline. It is
 not intended as an installation step for every application.
+
+## Repeatable provider QA
+
+Compare normalized activity, not equal raw numbers. ElevenLabs client 1.9.0 averages voice-band
+frequency bins. LiveKit client 2.20.0 computes a different frequency-bin measure with the adapter's
+analyser settings. Pipecat's browser track meters, OpenAI Realtime, and Gemini Live use waveform
+RMS. A raw value of `0.2` therefore does not represent the same audio level in every adapter.
+
+For repeatable microphone tests, feed the same recorded speech at quiet, normal, and louder gains
+through the browser's microphone capture path, with silence between passages. Keep the SDK's
+normal echo cancellation, noise suppression, and automatic gain control settings, and measure the
+captured track alongside the SDK's raw level. Browser gain control can boost quiet speech and
+compress the difference between source levels. A digital recording tests that processing path;
+physical microphones, room noise, and speaking distance still vary.
+
+Record actual provider output as well as raw, mapped, and normalized samples and state changes.
+Check silence, ordinary speech, peaks, pauses, interruption, and restart. Replay the same traces
+through proposed profiles and themes so audio differences cannot hide a regression. Validate a
+candidate with another voice or phrase before changing a shipped default. Clear saved playground
+profiles when checking defaults, and keep credentials out of recordings and trace fixtures.
 
 ## Calibration API
 

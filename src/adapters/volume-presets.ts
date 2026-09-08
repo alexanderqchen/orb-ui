@@ -30,12 +30,12 @@ export const PROVIDER_VOLUME_CALIBRATIONS = {
     output: calibration(0.12, 0.667, 1),
   },
   elevenlabs: {
-    input: calibration(0, 0.25, 0.5),
-    output: calibration(0, 0.25, 0.5),
+    input: calibration(0, 0.36, 0.52),
+    output: calibration(0, 0.4, 0.55),
   },
   livekit: {
     input: calibration(0, 0.18, 0.4),
-    output: calibration(0.015, 0.133_981, 0.232_391),
+    output: calibration(0.015, 0.18, 0.3),
   },
   pipecat: {
     input: calibration(0.002, 0.107_112, 0.252),
