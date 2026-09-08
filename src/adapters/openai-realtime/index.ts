@@ -113,6 +113,11 @@ export function createOpenAIRealtimeAdapter(
   let inputMeter: VolumeMeter | undefined
   let outputMeter: VolumeMeter | undefined
   let outputSilenceTicks = 0
+  // WebRTC playback events are authoritative once available. A decaying
+  // volume envelope must not reopen speech after a stop or end a buffer that
+  // has started but whose first audio packet has not arrived yet.
+  let outputPlaybackState: 'unknown' | 'playing' | 'stopped' = 'unknown'
+  let userSpeaking = false
   let stopping = false
   const inputNormalizer = createVolumeNormalizer(
     PROVIDER_VOLUME_CALIBRATIONS.openai.input,
@@ -154,15 +159,22 @@ export function createOpenAIRealtimeAdapter(
     config.onOutputVolumeSample?.(sample)
     const outputVolume = sample.normalized
 
-    if (outputVolume > OUTPUT_SPEECH_THRESHOLD) {
-      outputSilenceTicks = 0
-      if (signal.state !== 'speaking') emitState('speaking')
-    } else if (signal.state === 'speaking') {
-      outputSilenceTicks += 1
-      if (outputSilenceTicks >= OUTPUT_SILENCE_TICKS) {
+    const canInferPlayback =
+      outputPlaybackState === 'unknown' &&
+      !userSpeaking &&
+      signal.state !== 'idle' &&
+      signal.state !== 'connecting' &&
+      signal.state !== 'error'
+    if (canInferPlayback) {
+      if (outputVolume > OUTPUT_SPEECH_THRESHOLD) {
         outputSilenceTicks = 0
-        emitState('listening')
-        return
+        if (signal.state !== 'speaking') emitState('speaking')
+      } else if (signal.state === 'speaking') {
+        outputSilenceTicks += 1
+        if (outputSilenceTicks >= OUTPUT_SILENCE_TICKS) {
+          outputSilenceTicks = 0
+          emitState('listening')
+        }
       }
     }
 
@@ -176,17 +188,28 @@ export function createOpenAIRealtimeAdapter(
         emitState('listening')
         break
       case 'input_audio_buffer.speech_started':
+        userSpeaking = true
         emitState('listening')
         break
       case 'input_audio_buffer.speech_stopped':
+        userSpeaking = false
+        emitState(outputPlaybackState === 'playing' ? 'speaking' : 'thinking')
+        break
       case 'response.created':
-        emitState('thinking')
+        if (!userSpeaking && outputPlaybackState !== 'playing') emitState('thinking')
         break
       case 'response.output_audio.delta':
+        if (!userSpeaking) emitState('speaking')
+        break
       case 'output_audio_buffer.started':
-        emitState('speaking')
+        outputPlaybackState = 'playing'
+        outputSilenceTicks = 0
+        if (!userSpeaking) emitState('speaking')
         break
       case 'output_audio_buffer.stopped':
+      case 'output_audio_buffer.cleared':
+        outputPlaybackState = 'stopped'
+        outputSilenceTicks = 0
         emitState('listening')
         break
       case 'response.done':
@@ -215,6 +238,8 @@ export function createOpenAIRealtimeAdapter(
     inputMeter = undefined
     outputMeter = undefined
     outputSilenceTicks = 0
+    outputPlaybackState = 'unknown'
+    userSpeaking = false
     inputNormalizer.reset()
     outputNormalizer.reset()
     if (emitIdle) emitState('idle')

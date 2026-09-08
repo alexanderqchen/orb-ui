@@ -44,7 +44,7 @@ export const PROVIDER_VOLUME_CALIBRATIONS = {
   },
   openai: {
     input: calibration(0, 0.105_112, 0.25),
-    output: calibration(0.003, 0.108_112, 0.253),
+    output: calibration(0.003, 0.07, 0.2),
   },
   gemini: {
     input: calibration(0, 0.105_112, 0.25),
