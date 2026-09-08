@@ -191,9 +191,34 @@ describe('createGeminiLiveAdapter', () => {
         },
       },
     })
+    context.processor.process(new Float32Array(4096).fill(0.2))
+    expect(signals.at(-1)).toMatchObject({ state: 'listening' })
+    const interruptedSignalCount = signals.length
+    callbacks?.onmessage({
+      serverContent: {
+        modelTurn: {
+          parts: [{ inlineData: { data: btoa(String.fromCharCode(0, 0)) } }],
+        },
+      },
+    })
+    expect(context.sources).toHaveLength(2)
+    expect(signals).toHaveLength(interruptedSignalCount)
+    expect(signals.at(-1)).toMatchObject({ state: 'listening' })
     callbacks?.onmessage({ serverContent: { interrupted: true } })
     expect(context.sources[0].stop).toHaveBeenCalled()
+    expect(context.sources[1].stop).toHaveBeenCalled()
     expect(signals.at(-1)).toMatchObject({ state: 'listening' })
+
+    context.processor.process(new Float32Array(4096))
+    vi.advanceTimersByTime(500)
+    callbacks?.onmessage({
+      serverContent: {
+        modelTurn: {
+          parts: [{ inlineData: { data: btoa(String.fromCharCode(0, 0)) } }],
+        },
+      },
+    })
+    expect(signals.at(-1)).toMatchObject({ state: 'speaking' })
 
     const error = new Error('socket failed')
     callbacks?.onerror?.(error)
