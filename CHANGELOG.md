@@ -1,5 +1,57 @@
 # orb-ui
 
+## 0.8.0
+
+### Minor Changes
+
+- 3d4d9ff: Standardize every built-in provider adapter on separate input and output calibration profiles that
+  map raw levels to a stable 0–1 speech envelope. Add semantic amplitude anchors, elapsed-time
+  rise/fall processing, diagnostic samples, shipped provider defaults, and a guided playground
+  calibration runner. Directional envelopes remain continuous across active-state transitions so
+  provider mode events cannot force the animation through an artificial zero.
+
+  Retune ElevenLabs input/output, LiveKit output, and Gemini output anchors from live SDK measurements so ordinary
+  speech stays closer to the middle of the range. Preserve LiveKit input and Pipecat profiles, which
+  already produced suitable levels in the same microphone test. Document repeatable audio QA and
+  the distinction between frequency-based SDK meters and waveform RMS.
+
+  Fix Pipecat generation events overriding the speaking animation while earlier audio is still
+  playing. Playback retains priority until the bot stops or the user interrupts it.
+
+  Keep Gemini listening when the user interrupts and buffered output chunks arrive before the
+  server stops playback. This prevents rapid listening/speaking animation switches during overlap.
+
+  This intentionally removes the ambiguous `volume` prop and `OrbSignal.volume`. Migrate controlled
+  or custom integrations to `signal.inputVolume` while listening and `signal.outputVolume` while
+  speaking.
+
+- 52ae8f5: Add typed theme configuration objects with `balanced`, `calm`, and `expressive` presets plus
+  theme-specific appearance, geometry, and motion overrides. String theme names remain shorthand for
+  the balanced preset. Add application-wide defaults through `OrbThemeProvider`, responsive
+  `--orb-ui-*` variables, stable semantic slots, replaceable built-in control chrome, and completely
+  custom theme renderers that retain Orb's normalized signal and accessible lifecycle contract. Theme
+  motion exposes semantic response exponent, activity rise/fall, and state transition timing
+  separately from provider volume normalization.
+
+  Keep Cloud animation continuous when changing presets, appearance, or responsive size during an
+  active session; those visual updates no longer replay the connection entrance.
+
+- 878b287: Measure Vapi microphone input from the existing SDK-owned audio track so listening responds to
+  speech. Follow microphone replacement and mute, and clean up the meter without stopping provider
+  tracks. Add input calibration and diagnostic callbacks while retaining compatibility with clients
+  that only expose Vapi events. Retune the output profile for continuous SDK levels so ordinary
+  assistant speech is no longer understated.
+
+  Update the demo and SDK compatibility checks to Vapi 2.7.0, replacing its deprecated Daily runtime.
+
+### Patch Changes
+
+- 04968a1: Keep OpenAI Realtime playback events authoritative over volume-based state inference. Avoid a
+  listening flash before the first playback packet and a false return to speaking as the output
+  envelope fades after playback stops. Preserve listening during user interruption and retain
+  meter-based fallback for integrations without playback events. Retune output amplitude anchors
+  from live measurements so ordinary assistant speech reaches the shared midrange response.
+
 ## 0.7.0
 
 ### Minor Changes
