@@ -17,7 +17,6 @@ type OrbState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 
 
 interface OrbSignal {
   state: OrbState
-  volume?: number
   inputVolume?: number
   outputVolume?: number
   error?: unknown
@@ -71,10 +70,9 @@ Normalize audio levels to `0`–`1`. `inputVolume` represents the user's microph
 represents assistant playback. Keeping them separate prevents microphone noise from animating the
 orb while the assistant is speaking.
 
-`Orb` selects `inputVolume` in `listening` and `outputVolume` in `speaking`. The legacy `volume`
-field is a fallback for integrations with only one meter. The explicit `volume` prop has the
-highest priority when supplied. Outside listening and speaking, volume falls back to `signal.volume`
-or zero.
+`Orb` selects `inputVolume` in `listening` and `outputVolume` in `speaking`. It uses zero outside
+those states. There is no directionless `volume` field: a stable signal contract lets every theme
+interpret the same input and output semantics.
 
 Clamp provider values before emitting them:
 
@@ -82,8 +80,10 @@ Clamp provider values before emitting them:
 const normalizeVolume = (value: number) => Math.max(0, Math.min(value, 1))
 ```
 
-Raw browser microphone measurements may need additional noise gating, smoothing, or calibration.
-Do that at the adapter boundary so themes receive stable normalized data.
+Raw provider measurements need amplitude mapping and envelope processing. Do that at the adapter
+boundary so themes receive a stable normalized speech envelope. Built-in adapters ship with
+directional defaults; [volume calibration](/guides/volume-calibration) documents the exact anchors,
+timing semantics, and guided calibration runner.
 
 ## Adapter mode versus controlled mode
 
@@ -105,9 +105,9 @@ export function VoiceStatus({ signal }: { signal: OrbSignal }) {
 }
 ```
 
-The `state` and `volume` props can override signal or adapter values, but prefer one ownership model
-per component. Controlled mode is the shortest route for a one-off integration. An adapter becomes
-valuable when the mapping and cleanup logic is reused.
+The `state` prop can override signal or adapter state, but prefer one ownership model per component.
+Controlled mode is the shortest route for a one-off integration. An adapter becomes valuable when
+the mapping, calibration, and cleanup logic is reused.
 
 ## Build a real custom adapter
 

@@ -8,9 +8,8 @@ export function deriveOrbState(
   return state ?? signal?.state ?? adapterSignal.state
 }
 
-export function deriveOrbVolume(volume: number | undefined, state: OrbState, signal: OrbSignal) {
-  if (volume !== undefined) return volume
-  if (state === 'listening') return signal.inputVolume ?? signal.volume ?? 0
-  if (state === 'speaking') return signal.outputVolume ?? signal.volume ?? 0
-  return signal.volume ?? 0
+export function selectOrbVolume(state: OrbState, signal: OrbSignal) {
+  if (state === 'listening') return signal.inputVolume ?? 0
+  if (state === 'speaking') return signal.outputVolume ?? 0
+  return 0
 }

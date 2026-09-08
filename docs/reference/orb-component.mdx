@@ -3,11 +3,12 @@ title: Orb component API
 description: Reference for the Orb component props, states, themes, and adapter interface.
 ---
 
-`Orb` is the main orb-ui component. It can run in controlled mode with explicit `state` and `volume` props, richer `signal` objects, or through a provider adapter.
+`Orb` is the main orb-ui component. It can run in controlled mode with a directional `signal`, or
+through a provider adapter.
 
 ```tsx
 import { Orb } from 'orb-ui'
-;<Orb state="listening" volume={0.4} theme="circle" size={240} />
+;<Orb signal={{ state: 'listening', inputVolume: 0.4 }} theme="circle" size={240} />
 ```
 
 ## Props
@@ -16,7 +17,6 @@ import { Orb } from 'orb-ui'
 | ------------- | ------------------ | ---------------------- | ------------------------------------------------------------------ |
 | `signal`      | `OrbSignal`        | adapter signal         | Current voice signal with state, input volume, and output volume.  |
 | `state`       | `OrbState`         | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
-| `volume`      | `number`           | signal volume or `0`   | Audio volume from `0` to `1`. Overrides signal and adapter volume. |
 | `adapter`     | `OrbAdapter`       | none                   | Provider adapter that subscribes to normalized signal updates.     |
 | `theme`       | `OrbTheme`         | `debug`                | Visual theme: `debug`, `circle`, `bars`, `cloud`, or `radial`.     |
 | `size`        | `number`           | `200`                  | Component size in pixels.                                          |
@@ -74,7 +74,6 @@ session controller, so external buttons can call its existing lifecycle methods.
 ```ts
 interface OrbSignal {
   state: OrbState
-  volume?: number
   inputVolume?: number
   outputVolume?: number
   error?: unknown
@@ -93,6 +92,26 @@ Adapters normalize provider SDK events into orb-ui signals. If a provider is not
 <Orb signal={{ state: 'listening', inputVolume: 0.35 }} />
 <Orb signal={{ state: 'speaking', outputVolume: 0.72 }} />
 ```
+
+`inputVolume` and `outputVolume` are stable normalized speech envelopes from `0` to `1`. `Orb`
+reads input while `state` is `listening`, output while `state` is `speaking`, and zero in other
+states. See [volume calibration](/guides/volume-calibration) for the provider mapping contract.
+
+## Migrating from `volume`
+
+The ambiguous `volume` prop and `OrbSignal.volume` field have been removed. Put the value on the
+direction that owns it:
+
+```tsx
+// Before
+<Orb state="speaking" volume={level} />
+
+// After
+<Orb signal={{ state: 'speaking', outputVolume: level }} />
+```
+
+For a custom adapter, emit `inputVolume` for microphone activity and `outputVolume` for assistant
+playback. Provider adapters already do this and ship with directional calibration defaults.
 
 ## Migrating callback-object adapters
 

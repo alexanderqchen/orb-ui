@@ -1,10 +1,7 @@
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
-import { calibrateOutputVolume } from '../audio-level'
-import type {
-  OutputVolumeCalibration,
-  OutputVolumeCalibrationSource,
-  OutputVolumeSample,
-} from '../audio-level'
+import { createVolumeNormalizer } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 export interface OpenAIRealtimeClientSecret {
   value: string
@@ -27,10 +24,14 @@ export interface OpenAIRealtimeAdapterConfig {
   createAudioElement?: () => HTMLAudioElement
   /** Return undefined to disable browser-side volume metering. */
   createAudioContext?: () => AudioContext | undefined
-  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
-  outputVolumeCalibration?: OutputVolumeCalibrationSource
-  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
-  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 export interface OpenAIRealtimeOrbAdapter extends OrbAdapter {
@@ -50,21 +51,9 @@ interface VolumeMeter {
 const DEFAULT_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
 const OUTPUT_SPEECH_THRESHOLD = 0.015
 const OUTPUT_SILENCE_TICKS = 8
-const DEFAULT_OPENAI_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
-  noiseFloor: 0.003,
-  gain: 4,
-  exponent: 0.8,
-  attack: 0.55,
-  release: 0.1,
-}
-
 function defaultCreateAudioContext() {
   const AudioContextClass = window.AudioContext
   return AudioContextClass ? new AudioContextClass() : undefined
-}
-
-function normalizeInputRms(rms: number) {
-  return Math.min(1, Math.max(0, Math.pow(rms * 4, 0.8)))
 }
 
 function createStreamVolumeMeter(
@@ -116,7 +105,7 @@ export function createOpenAIRealtimeAdapter(
   config: OpenAIRealtimeAdapterConfig,
 ): OpenAIRealtimeOrbAdapter {
   const listeners = new Set<OrbSignalListener>()
-  let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+  let signal: OrbSignal = { state: 'idle', inputVolume: 0, outputVolume: 0 }
   let peerConnection: RTCPeerConnection | null = null
   let dataChannel: RTCDataChannel | null = null
   let localStream: MediaStream | null = null
@@ -124,16 +113,20 @@ export function createOpenAIRealtimeAdapter(
   let inputMeter: VolumeMeter | undefined
   let outputMeter: VolumeMeter | undefined
   let outputSilenceTicks = 0
-  let outputVolumeLevel = 0
+  // WebRTC playback events are authoritative once available. A decaying
+  // volume envelope must not reopen speech after a stop or end a buffer that
+  // has started but whose first audio packet has not arrived yet.
+  let outputPlaybackState: 'unknown' | 'playing' | 'stopped' = 'unknown'
+  let userSpeaking = false
   let stopping = false
-
-  function getOutputVolumeCalibration() {
-    const overrides =
-      typeof config.outputVolumeCalibration === 'function'
-        ? config.outputVolumeCalibration()
-        : config.outputVolumeCalibration
-    return { ...DEFAULT_OPENAI_OUTPUT_CALIBRATION, ...overrides }
-  }
+  const inputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.openai.input,
+    config.inputVolumeCalibration,
+  )
+  const outputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.openai.output,
+    config.outputVolumeCalibration,
+  )
 
   function emit(next: OrbSignal) {
     signal = next
@@ -142,47 +135,50 @@ export function createOpenAIRealtimeAdapter(
 
   function emitState(state: OrbState, error?: unknown) {
     if (signal.state === state && error === undefined) return
-    if (state !== 'speaking') outputVolumeLevel = 0
+    const resetsEnvelope = state === 'idle' || state === 'connecting' || state === 'error'
+    if (resetsEnvelope) {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+    }
     emit({
+      ...signal,
       state,
-      volume: 0,
-      inputVolume: 0,
-      outputVolume: 0,
+      ...(resetsEnvelope ? { inputVolume: 0, outputVolume: 0 } : {}),
       ...(error === undefined ? {} : { error }),
     })
   }
 
   function emitInputVolume(rawInputVolume: number) {
-    if (signal.state !== 'listening') return
-    const inputVolume = normalizeInputRms(rawInputVolume)
-    emit({ ...signal, volume: inputVolume, inputVolume, outputVolume: 0 })
+    const sample = inputNormalizer.sample(rawInputVolume)
+    config.onInputVolumeSample?.(sample)
+    emit({ ...signal, inputVolume: sample.normalized })
   }
 
   function emitOutputVolume(rawOutputVolume: number) {
-    const sample = calibrateOutputVolume(
-      rawOutputVolume,
-      outputVolumeLevel,
-      getOutputVolumeCalibration,
-    )
-    outputVolumeLevel = sample.normalized
+    const sample = outputNormalizer.sample(rawOutputVolume)
     config.onOutputVolumeSample?.(sample)
     const outputVolume = sample.normalized
 
-    if (outputVolume > OUTPUT_SPEECH_THRESHOLD) {
-      outputSilenceTicks = 0
-      if (signal.state !== 'speaking') emitState('speaking')
-    } else if (signal.state === 'speaking') {
-      outputSilenceTicks += 1
-      if (outputSilenceTicks >= OUTPUT_SILENCE_TICKS) {
+    const canInferPlayback =
+      outputPlaybackState === 'unknown' &&
+      !userSpeaking &&
+      signal.state !== 'idle' &&
+      signal.state !== 'connecting' &&
+      signal.state !== 'error'
+    if (canInferPlayback) {
+      if (outputVolume > OUTPUT_SPEECH_THRESHOLD) {
         outputSilenceTicks = 0
-        emitState('listening')
-        return
+        if (signal.state !== 'speaking') emitState('speaking')
+      } else if (signal.state === 'speaking') {
+        outputSilenceTicks += 1
+        if (outputSilenceTicks >= OUTPUT_SILENCE_TICKS) {
+          outputSilenceTicks = 0
+          emitState('listening')
+        }
       }
     }
 
-    if (signal.state === 'speaking') {
-      emit({ ...signal, volume: outputVolume, inputVolume: 0, outputVolume })
-    }
+    emit({ ...signal, outputVolume })
   }
 
   function handleServerEvent(event: RealtimeServerEvent) {
@@ -192,17 +188,28 @@ export function createOpenAIRealtimeAdapter(
         emitState('listening')
         break
       case 'input_audio_buffer.speech_started':
+        userSpeaking = true
         emitState('listening')
         break
       case 'input_audio_buffer.speech_stopped':
+        userSpeaking = false
+        emitState(outputPlaybackState === 'playing' ? 'speaking' : 'thinking')
+        break
       case 'response.created':
-        emitState('thinking')
+        if (!userSpeaking && outputPlaybackState !== 'playing') emitState('thinking')
         break
       case 'response.output_audio.delta':
+        if (!userSpeaking) emitState('speaking')
+        break
       case 'output_audio_buffer.started':
-        emitState('speaking')
+        outputPlaybackState = 'playing'
+        outputSilenceTicks = 0
+        if (!userSpeaking) emitState('speaking')
         break
       case 'output_audio_buffer.stopped':
+      case 'output_audio_buffer.cleared':
+        outputPlaybackState = 'stopped'
+        outputSilenceTicks = 0
         emitState('listening')
         break
       case 'response.done':
@@ -231,7 +238,10 @@ export function createOpenAIRealtimeAdapter(
     inputMeter = undefined
     outputMeter = undefined
     outputSilenceTicks = 0
-    outputVolumeLevel = 0
+    outputPlaybackState = 'unknown'
+    userSpeaking = false
+    inputNormalizer.reset()
+    outputNormalizer.reset()
     if (emitIdle) emitState('idle')
     stopping = false
   }

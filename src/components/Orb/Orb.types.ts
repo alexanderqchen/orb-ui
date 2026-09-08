@@ -11,7 +11,6 @@ export type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
 
 export interface OrbSignal {
   state: OrbState
-  volume?: number
   inputVolume?: number
   outputVolume?: number
   error?: unknown
@@ -60,12 +59,6 @@ export interface OrbProps extends OrbHtmlAttributes {
    * Overrides signal and adapter state if provided.
    */
   state?: OrbState
-
-  /**
-   * Current audio volume, normalized 0–1.
-   * Overrides signal and adapter volume if provided.
-   */
-  volume?: number
 
   /**
    * Provider adapter (Vapi, ElevenLabs, etc.).

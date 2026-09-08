@@ -208,13 +208,45 @@ input {
   margin: 10px 0 0;
 }
 
-.provider-calibration-sliders {
-  padding: 4px 0;
+.provider-calibration-phases {
+  display: grid;
+  gap: 8px;
 }
 
-.provider-calibration-sliders .provider-slider-row {
-  grid-template-columns: 76px minmax(0, 1fr) 42px;
-  font-size: 12px;
+.provider-calibration-phase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #151515;
+  color: #bdbdbd;
+  cursor: pointer;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.provider-calibration-phase:hover {
+  border-color: #5b5b5b;
+}
+
+.provider-calibration-phase.is-recording {
+  border-color: #c8ff9f;
+  box-shadow: 0 0 0 1px #c8ff9f inset;
+}
+
+.provider-calibration-phase strong {
+  color: #d7f7bf;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.provider-calibration-phase small {
+  grid-column: 1 / -1;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .provider-preset-label {

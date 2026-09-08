@@ -196,7 +196,7 @@ function getSimulationFrame(startedAt: number, now: number) {
 function signalFromStateVolume(state: OrbState, volume: number): OrbSignal {
   if (state === 'listening') return { state, inputVolume: volume }
   if (state === 'speaking') return { state, outputVolume: volume }
-  return { state, volume }
+  return { state }
 }
 
 function useConversationSimulation(startedAt: number) {

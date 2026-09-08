@@ -35,8 +35,8 @@ importers:
         specifier: ^18.3.7
         version: 18.3.7(@types/react@18.3.29)
       '@vapi-ai/web':
-        specifier: 2.5.2
-        version: 2.5.2
+        specifier: 2.7.0
+        version: 2.7.0
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.14(@types/node@26.1.1))
@@ -92,8 +92,8 @@ importers:
         specifier: 1.10.5
         version: 1.10.5(@pipecat-ai/client-js@1.12.0)
       '@vapi-ai/web':
-        specifier: 2.5.2
-        version: 2.5.2
+        specifier: 2.7.0
+        version: 2.7.0
       livekit-client:
         specifier: 2.20.0
         version: 2.20.0(@types/dom-mediacapture-record@1.0.22)
@@ -246,10 +246,10 @@ packages:
         integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==,
       }
 
-  '@daily-co/daily-js@0.85.0':
+  '@daily-co/daily-js@0.87.0':
     resolution:
       {
-        integrity: sha512-lpl111ZWNTUWDnwYcPuNi9PGJPbLCeCw6LzmEY40nG0hv1jg5JLVW8Rq3Cj/+lOCP6W6h4PXm211ss0FFnxITQ==,
+        integrity: sha512-hWHdBDvJwDeg8unz+XG9hD7xamuFi5Jmsk89ASATKL4fdTDHplpxi4PG9aaPXzBZYYLTjuxUje1K7B5uUR+gzw==,
       }
     engines: { node: '>=10.0.0' }
 
@@ -1193,10 +1193,10 @@ packages:
       }
     engines: { node: ^18.18.0 || ^20.9.0 || >=21.1.0 }
 
-  '@vapi-ai/web@2.5.2':
+  '@vapi-ai/web@2.7.0':
     resolution:
       {
-        integrity: sha512-mT4DjApi0/0+EK77h2xOLq3qVBa7rv3JNQ+gFWuhFE4YdGYxI51+fn8bQI9N535+zU/Z4jFKXotdBHQJ3filHA==,
+        integrity: sha512-eDrEzZwRety39pCA2DyY8kvAAXnWtVXoshbX/FFf0WGDnWGvrqlX3fkK7jJrls3IpXatEf60FtZZYDhxNNEpNQ==,
       }
     engines: { node: '>=18.0.0' }
 
@@ -3209,7 +3209,7 @@ snapshots:
       human-id: 4.1.3
       prettier: 2.8.8
 
-  '@daily-co/daily-js@0.85.0':
+  '@daily-co/daily-js@0.87.0':
     dependencies:
       '@babel/runtime': 7.29.2
       '@sentry/browser': 8.55.2
@@ -3728,9 +3728,9 @@ snapshots:
       '@typescript-eslint/types': 8.59.4
       eslint-visitor-keys: 5.0.1
 
-  '@vapi-ai/web@2.5.2':
+  '@vapi-ai/web@2.7.0':
     dependencies:
-      '@daily-co/daily-js': 0.85.0
+      '@daily-co/daily-js': 0.87.0
       events: 3.3.0
 
   '@vitejs/plugin-react@6.0.2(vite@8.0.14(@types/node@26.1.1))':

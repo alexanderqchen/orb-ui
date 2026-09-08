@@ -69,6 +69,89 @@ afterEach(() => {
 })
 
 describe('Vapi adapter signals', () => {
+  it('meters delayed and replaced SDK microphone tracks without owning their lifecycle', async () => {
+    vi.useFakeTimers()
+    const client = new FakeVapiClient()
+    const makeTrack = () => ({ enabled: true, muted: false, readyState: 'live', stop: vi.fn() })
+    const first = makeTrack()
+    const second = makeTrack()
+    let localAudio: { state?: string; persistentTrack?: ReturnType<typeof makeTrack> } | undefined
+    const call = { participants: () => ({ local: { tracks: { audio: localAudio } } }) }
+    Object.assign(client, { getDailyCallObject: () => call })
+    vi.stubGlobal(
+      'MediaStream',
+      class {
+        constructor(public tracks: unknown[]) {}
+      },
+    )
+    const contexts: {
+      close: ReturnType<typeof vi.fn>
+      source: { disconnect: ReturnType<typeof vi.fn> }
+    }[] = []
+    const createAudioContext = vi.fn(() => {
+      const source = { connect: vi.fn(), disconnect: vi.fn() }
+      const context = {
+        state: 'running',
+        close: vi.fn(async () => undefined),
+        source,
+        createMediaStreamSource: () => source,
+        createAnalyser: () => ({
+          fftSize: 512,
+          smoothingTimeConstant: 0,
+          getFloatTimeDomainData: (samples: Float32Array) => samples.fill(0.1),
+          disconnect: vi.fn(),
+        }),
+      }
+      contexts.push(context)
+      return context as unknown as AudioContext
+    })
+    const samples = vi.fn()
+    const adapter = createVapiAdapter(client as unknown as VapiClientLike, {
+      createAudioContext,
+      onInputVolumeSample: samples,
+    })
+    const signals: OrbSignal[] = []
+    const unsubscribe = adapter.subscribe((signal) => signals.push(signal))
+    client.emit('call-start')
+    vi.advanceTimersByTime(200)
+    expect(createAudioContext).not.toHaveBeenCalled()
+
+    localAudio = { state: 'playable', persistentTrack: first }
+    vi.advanceTimersByTime(300)
+    expect(lastSignal(signals).inputVolume).toBeGreaterThan(0.4)
+    expect(samples.mock.lastCall?.[0].raw).toBeCloseTo(0.1)
+    expect(createAudioContext).toHaveBeenCalledTimes(1)
+
+    localAudio = { state: 'playable', persistentTrack: second }
+    vi.advanceTimersByTime(200)
+    expect(contexts[0].close).toHaveBeenCalledOnce()
+    expect(contexts[0].source.disconnect).toHaveBeenCalledOnce()
+    expect(createAudioContext).toHaveBeenCalledTimes(2)
+    second.enabled = false
+    vi.advanceTimersByTime(100)
+    expect(lastSignal(signals).inputVolume).toBe(0)
+    expect(contexts[1].close).toHaveBeenCalledOnce()
+
+    second.enabled = true
+    vi.advanceTimersByTime(200)
+    expect(lastSignal(signals).inputVolume).toBeGreaterThan(0)
+    await adapter.stop?.()
+    expect(lastSignal(signals)).toMatchObject({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    const stoppedCount = signals.length
+    vi.advanceTimersByTime(500)
+    expect(signals).toHaveLength(stoppedCount)
+
+    client.emit('call-start')
+    vi.advanceTimersByTime(200)
+    const count = signals.length
+    unsubscribe()
+    vi.advanceTimersByTime(500)
+    expect(signals).toHaveLength(count)
+    expect(contexts.every((context) => context.close.mock.calls.length === 1)).toBe(true)
+    expect(first.stop).not.toHaveBeenCalled()
+    expect(second.stop).not.toHaveBeenCalled()
+  })
+
   it('emits output volume while speaking and cancels interpolation on unsubscribe', async () => {
     vi.useFakeTimers()
     const animationFrame = installAnimationFrameStub()
@@ -94,16 +177,20 @@ describe('Vapi adapter signals', () => {
     expect(lastSignal(signals).state).toBe('speaking')
     expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
 
+    const speakingVolume = lastSignal(signals).outputVolume ?? 0
     client.emit('speech-end')
-    expect(lastSignal(signals)).toMatchObject({
-      volume: 0,
-      outputVolume: 0,
-    })
+    expect(lastSignal(signals)).toMatchObject({ state: 'speaking' })
+    expect(lastSignal(signals).outputVolume).toBe(speakingVolume)
 
-    vi.advanceTimersByTime(350)
+    vi.advanceTimersByTime(175)
+    animationFrame.flush()
+    expect(lastSignal(signals).state).toBe('speaking')
+    expect(lastSignal(signals).outputVolume).toBeLessThan(speakingVolume)
+    expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
+
+    vi.advanceTimersByTime(175)
     expect(lastSignal(signals)).toMatchObject({
       state: 'listening',
-      volume: 0,
       outputVolume: 0,
     })
 
@@ -192,17 +279,35 @@ describe('ElevenLabs adapter signals', () => {
 
     expect(lastSignal(signals)).toMatchObject({
       state: 'listening',
-      volume: 0.4,
-      inputVolume: 0.4,
+      inputVolume: expect.any(Number),
+      outputVolume: expect.any(Number),
     })
+    expect(lastSignal(signals).inputVolume).toBeGreaterThan(0)
+    expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
 
+    const listeningSignal = lastSignal(signals)
     sessionOptions?.onModeChange?.({ mode: 'speaking' })
+    expect(lastSignal(signals)).toMatchObject({
+      state: 'speaking',
+      inputVolume: listeningSignal.inputVolume,
+      outputVolume: listeningSignal.outputVolume,
+    })
     vi.advanceTimersByTime(33)
 
     expect(lastSignal(signals)).toMatchObject({
       state: 'speaking',
-      volume: 0.8,
-      outputVolume: 0.8,
+      inputVolume: expect.any(Number),
+      outputVolume: expect.any(Number),
+    })
+    expect(lastSignal(signals).inputVolume).toBeGreaterThan(0)
+    expect(lastSignal(signals).outputVolume).toBeGreaterThan(0)
+
+    const speakingSignal = lastSignal(signals)
+    sessionOptions?.onModeChange?.({ mode: 'listening' })
+    expect(lastSignal(signals)).toMatchObject({
+      state: 'listening',
+      inputVolume: speakingSignal.inputVolume,
+      outputVolume: speakingSignal.outputVolume,
     })
 
     await adapter.stop()
@@ -210,7 +315,6 @@ describe('ElevenLabs adapter signals', () => {
     expect(conversation.endSession).toHaveBeenCalledOnce()
     expect(lastSignal(signals)).toMatchObject({
       state: 'idle',
-      volume: 0,
       inputVolume: 0,
       outputVolume: 0,
     })
@@ -346,8 +450,9 @@ describe('ElevenLabs adapter signals', () => {
 
     expect(lastSignal(firstSignals)).toMatchObject({
       state: 'listening',
-      inputVolume: 0.4,
+      inputVolume: expect.any(Number),
     })
+    expect(lastSignal(firstSignals).inputVolume).toBeGreaterThan(0)
 
     unsubscribe()
     inputVolume = 0.3
@@ -364,7 +469,8 @@ describe('ElevenLabs adapter signals', () => {
 
     expect(lastSignal(secondSignals)).toMatchObject({
       state: 'listening',
-      inputVolume: 0.6,
+      inputVolume: expect.any(Number),
     })
+    expect(lastSignal(secondSignals).inputVolume).toBeGreaterThan(0)
   })
 })

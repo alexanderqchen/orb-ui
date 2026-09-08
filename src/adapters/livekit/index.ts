@@ -1,11 +1,7 @@
-import { normalizeMicVolume } from '../types'
 import type { OrbAdapter, OrbSignal, OrbSignalListener, OrbState } from '../types'
-import { calibrateOutputVolume } from '../audio-level'
-import type {
-  OutputVolumeCalibration,
-  OutputVolumeCalibrationSource,
-  OutputVolumeSample,
-} from '../audio-level'
+import { createVolumeNormalizer } from '../audio-level'
+import type { VolumeCalibrationSource, VolumeSample } from '../audio-level'
+import { PROVIDER_VOLUME_CALIBRATIONS } from '../volume-presets'
 
 // Minimal LiveKit interfaces. orb-ui does not import livekit-client directly so
 // the SDK remains an app-owned dependency.
@@ -101,14 +97,6 @@ const LIVEKIT_ANALYSER_OPTIONS = {
   maxDecibels: -20,
 }
 
-const DEFAULT_LIVEKIT_OUTPUT_CALIBRATION: OutputVolumeCalibration = {
-  noiseFloor: 0.015,
-  gain: 4.6,
-  exponent: 1.15,
-  attack: 0.1,
-  release: 0.48,
-}
-
 function mapAgentState(lkState: string): OrbState {
   switch (lkState) {
     case 'speaking':
@@ -132,10 +120,14 @@ function mapAgentState(lkState: string): OrbState {
 }
 
 interface LiveKitVolumeConfig {
-  /** Optional live-tunable output shaping. A getter is read for every meter sample. */
-  outputVolumeCalibration?: OutputVolumeCalibrationSource
-  /** Receives raw, shaped, and smoothed output levels for diagnostics. */
-  onOutputVolumeSample?: (sample: OutputVolumeSample) => void
+  /** Optional live-tunable input calibration overrides. */
+  inputVolumeCalibration?: VolumeCalibrationSource
+  /** Optional live-tunable output calibration overrides. */
+  outputVolumeCalibration?: VolumeCalibrationSource
+  /** Receives raw, mapped, and normalized input levels for diagnostics. */
+  onInputVolumeSample?: (sample: VolumeSample) => void
+  /** Receives raw, mapped, and normalized output levels for diagnostics. */
+  onOutputVolumeSample?: (sample: VolumeSample) => void
 }
 
 interface LiveKitManagedBaseConfig<TTrack = unknown> extends LiveKitVolumeConfig {
@@ -327,7 +319,7 @@ export function createLiveKitAdapter<TTrack = unknown>(
   }
   const listeners = new Set<OrbSignalListener>()
 
-  let signal: OrbSignal = { state: 'idle', volume: 0, inputVolume: 0, outputVolume: 0 }
+  let signal: OrbSignal = { state: 'idle', inputVolume: 0, outputVolume: 0 }
   let currentState: OrbState = 'idle'
   let localMicrophoneTrack: LKAudioTrack | null = null
   let agentTrack: LKRemoteAudioTrack | null = null
@@ -336,8 +328,15 @@ export function createLiveKitAdapter<TTrack = unknown>(
   let inputVolumeInterval: ReturnType<typeof setInterval> | null = null
   let outputAnalyserResult: LKAnalyserResult | null = null
   let outputVolumeInterval: ReturnType<typeof setInterval> | null = null
-  let outputEmaVolume = 0
   let unsubscribeRoom: (() => void) | null = null
+  const inputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.livekit.input,
+    config.inputVolumeCalibration,
+  )
+  const outputNormalizer = createVolumeNormalizer(
+    PROVIDER_VOLUME_CALIBRATIONS.livekit.output,
+    config.outputVolumeCalibration,
+  )
 
   function emitSignal(nextSignal: OrbSignal) {
     signal = nextSignal
@@ -348,24 +347,9 @@ export function createLiveKitAdapter<TTrack = unknown>(
     emitSignal({ ...signal, ...patch, state: patch.state ?? signal.state })
   }
 
-  function getOutputVolumeCalibration() {
-    const overrides =
-      typeof config.outputVolumeCalibration === 'function'
-        ? config.outputVolumeCalibration()
-        : config.outputVolumeCalibration
-    return { ...DEFAULT_LIVEKIT_OUTPUT_CALIBRATION, ...overrides }
-  }
-
-  function normalizeVolume(raw: number): number {
-    const sample = calibrateOutputVolume(raw, outputEmaVolume, getOutputVolumeCalibration)
-    outputEmaVolume = sample.normalized
-    config.onOutputVolumeSample?.(sample)
-    return sample.normalized
-  }
-
   function resetOutputVolume() {
-    outputEmaVolume = 0
-    emitPatch({ volume: 0, outputVolume: 0 })
+    outputNormalizer.reset()
+    emitPatch({ outputVolume: 0 })
   }
 
   function stopInputVolumeTracking({ emitZero = true }: { emitZero?: boolean } = {}) {
@@ -379,7 +363,8 @@ export function createLiveKitAdapter<TTrack = unknown>(
       inputAnalyserResult = null
     }
 
-    if (emitZero) emitPatch({ volume: 0, inputVolume: 0 })
+    inputNormalizer.reset()
+    if (emitZero) emitPatch({ inputVolume: 0 })
   }
 
   function startInputVolumeTracking(track: LKAudioTrack) {
@@ -395,9 +380,10 @@ export function createLiveKitAdapter<TTrack = unknown>(
     }
 
     inputVolumeInterval = setInterval(() => {
-      if (!inputAnalyserResult || currentState !== 'listening') return
-      const inputVolume = normalizeMicVolume(inputAnalyserResult.calculateVolume())
-      emitPatch({ volume: inputVolume, inputVolume, outputVolume: 0 })
+      if (!inputAnalyserResult) return
+      const sample = inputNormalizer.sample(inputAnalyserResult.calculateVolume())
+      config.onInputVolumeSample?.(sample)
+      emitPatch({ inputVolume: sample.normalized })
     }, 33)
   }
 
@@ -412,8 +398,8 @@ export function createLiveKitAdapter<TTrack = unknown>(
       outputAnalyserResult = null
     }
 
-    outputEmaVolume = 0
-    if (emitZero) emitPatch({ volume: 0, outputVolume: 0 })
+    outputNormalizer.reset()
+    if (emitZero) emitPatch({ outputVolume: 0 })
   }
 
   function startOutputVolumeTracking(track: LKRemoteAudioTrack) {
@@ -427,20 +413,27 @@ export function createLiveKitAdapter<TTrack = unknown>(
     }
 
     outputVolumeInterval = setInterval(() => {
-      if (!outputAnalyserResult || currentState !== 'speaking') return
-      const outputVolume = normalizeVolume(outputAnalyserResult.calculateVolume())
-      emitPatch({ volume: outputVolume, inputVolume: 0, outputVolume })
+      if (!outputAnalyserResult) return
+      const sample = outputNormalizer.sample(outputAnalyserResult.calculateVolume())
+      config.onOutputVolumeSample?.(sample)
+      emitPatch({ outputVolume: sample.normalized })
     }, 33)
   }
 
   function setState(state: OrbState) {
     currentState = state
-    emitPatch({ state, volume: 0, inputVolume: 0, outputVolume: 0 })
+    if (state === 'idle' || state === 'connecting' || state === 'error') {
+      inputNormalizer.reset()
+      outputNormalizer.reset()
+      emitPatch({ state, inputVolume: 0, outputVolume: 0 })
+    } else {
+      // State selects which directional envelope the orb renders; it should not
+      // destroy either envelope. Both meters keep running across turn changes.
+      emitPatch({ state })
+    }
 
-    if (state === 'speaking' && agentTrack) {
+    if (agentTrack && !outputAnalyserResult) {
       startOutputVolumeTracking(agentTrack)
-    } else if (state !== 'speaking') {
-      stopOutputVolumeTracking({ emitZero: false })
     }
   }
 
@@ -460,7 +453,7 @@ export function createLiveKitAdapter<TTrack = unknown>(
   function useAgentTrack(track: LKRemoteAudioTrack) {
     agentTrack = track
     attachAudio(track)
-    if (currentState === 'speaking') startOutputVolumeTracking(track)
+    startOutputVolumeTracking(track)
   }
 
   function useLocalMicrophoneTrack(track: LKAudioTrack) {
@@ -605,7 +598,9 @@ export function createLiveKitAdapter<TTrack = unknown>(
     detachAudio()
     stopInputVolumeTracking({ emitZero: false })
     stopOutputVolumeTracking({ emitZero: false })
-    emitPatch({ volume: 0, inputVolume: 0, outputVolume: 0 })
+    inputNormalizer.reset()
+    outputNormalizer.reset()
+    emitPatch({ inputVolume: 0, outputVolume: 0 })
   }
 
   const subscribe: OrbAdapter['subscribe'] = (listener) => {
