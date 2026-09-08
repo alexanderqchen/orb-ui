@@ -22,8 +22,8 @@ export interface ElevenLabsCallbacks {
 
 export interface ElevenLabsConversation {
   endSession(): Promise<void>
-  getInputVolume(): number // normalized RMS of mic input (0–1)
-  getOutputVolume(): number // normalized RMS of AI audio output (0–1)
+  getInputVolume(): number // SDK voice-band frequency level of mic input (0–1)
+  getOutputVolume(): number // SDK voice-band frequency level of AI output (0–1)
   getInputByteFrequencyData(): Uint8Array
   getOutputByteFrequencyData(): Uint8Array
 }
@@ -91,8 +91,9 @@ export interface ElevenLabsOrbAdapter extends OrbAdapter {
 // calibration maps both sources into the same semantic 0–1 envelope.
 //
 // Volume sources:
-//   • getInputVolume()          — Web Audio RMS of user input, polled ~30fps.
-//   • getOutputVolume()         — Web Audio RMS of AI output, polled ~30fps.
+//   • getInputVolume()          — SDK frequency-based input level, polled ~30fps.
+//   • getOutputVolume()         — SDK frequency-based output level, polled ~30fps.
+// These are not waveform RMS values; calibrate the SDK measurement directly.
 
 /**
  * Creates an OrbAdapter for ElevenLabs Conversational AI.

@@ -69,6 +69,32 @@ afterEach(() => {
 })
 
 describe('createPipecatAdapter', () => {
+  it.each(['botLlmStarted', 'botTtsStarted'])(
+    'keeps playback reactive when %s arrives during speech',
+    (event) => {
+      const client = new FakePipecatClient()
+      const adapter = createPipecatAdapter(client)
+      let current: OrbSignal = { state: 'idle' }
+      const unsubscribe = adapter.subscribe((signal) => (current = signal))
+
+      client.emit('botReady')
+      client.emit(event)
+      expect(current.state).toBe('thinking')
+      client.emit('botStartedSpeaking')
+      client.emit('remoteAudioLevel', 0.08)
+      const output = current.outputVolume
+      client.emit(event)
+      expect(current).toMatchObject({ state: 'speaking', outputVolume: output })
+
+      client.emit('userStartedSpeaking')
+      expect(current.state).toBe('listening')
+      client.emit('botStoppedSpeaking')
+      client.emit(event)
+      expect(current.state).toBe('thinking')
+      unsubscribe()
+    },
+  )
+
   it('normalizes RTVI lifecycle, speaking, and audio-level events', async () => {
     const client = new FakePipecatClient()
     const connect = vi.fn(async () => undefined)

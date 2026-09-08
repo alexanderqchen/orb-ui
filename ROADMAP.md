@@ -18,9 +18,9 @@ Target direction:
 - Remove callback-object adapter compatibility in 0.5.0 — complete
 - Remove surprising global audio behavior from `Orb`
 
-### Directional signal calibration — complete
+### Directional signal calibration — release QA
 
-Every built-in adapter now emits a stable normalized speech envelope with the same semantic
+Every built-in adapter now targets a stable normalized speech envelope with the same semantic
 distribution: silence at `0`, ordinary speech around `0.5`, and strong uncommon peaks near `1`.
 Input and output use separate provider profiles because microphone and playback measurements have
 different raw distributions.
@@ -30,6 +30,9 @@ Completed direction:
 - Replace provider-specific gain, curve, attack, and release constants with named amplitude anchors
   and elapsed-time envelope semantics
 - Ship directional defaults for every available provider signal
+- Validate ElevenLabs, LiveKit, and Pipecat with live input/output recordings and controlled speech
+  through browser microphone processing; retune the profiles that overstate ordinary speech
+- Keep Pipecat playback reactive when overlapping LLM/TTS generation events arrive during speech
 - Keep available input and output envelopes warm across active conversation states so provider
   mode events never inject an artificial zero
 - Add raw, mapped, and normalized diagnostics to all adapter volume callbacks
@@ -37,6 +40,9 @@ Completed direction:
   playground instead of relying on manual sliders
 - Remove the ambiguous `volume` prop and `OrbSignal.volume` in favor of `inputVolume` and
   `outputVolume`
+
+Before release: finish live provider validation for Vapi, OpenAI Realtime, and Gemini Live, then
+review recorded traces across the built-in themes.
 
 ### LiveKit adapter — complete
 
