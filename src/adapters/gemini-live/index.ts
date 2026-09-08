@@ -255,7 +255,9 @@ export function createGeminiLiveAdapter(config: GeminiLiveAdapterConfig): Gemini
       finishTurnIfReady()
     }
     source.start(startAt)
-    if (signal.state !== 'speaking') emitState('speaking')
+    // Buffered chunks may arrive while the user interrupts. Keep microphone
+    // activity in control until that user turn ends; the server stops playback.
+    if (!userSpeaking && signal.state !== 'speaking') emitState('speaking')
   }
 
   function handleMessage(message: GeminiLiveServerMessage) {

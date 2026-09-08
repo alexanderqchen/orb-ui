@@ -30,9 +30,10 @@ Completed direction:
 - Replace provider-specific gain, curve, attack, and release constants with named amplitude anchors
   and elapsed-time envelope semantics
 - Ship directional defaults for every available provider signal
-- Validate ElevenLabs, LiveKit, and Pipecat with live input/output recordings and controlled speech
+- Validate ElevenLabs, LiveKit, Pipecat, and Gemini with live input/output recordings and controlled speech
   through browser microphone processing; retune the profiles that overstate ordinary speech
 - Keep Pipecat playback reactive when overlapping LLM/TTS generation events arrive during speech
+- Keep Gemini listening during user interruption when buffered output chunks are still arriving
 - Keep available input and output envelopes warm across active conversation states so provider
   mode events never inject an artificial zero
 - Add raw, mapped, and normalized diagnostics to all adapter volume callbacks
@@ -41,7 +42,7 @@ Completed direction:
 - Remove the ambiguous `volume` prop and `OrbSignal.volume` in favor of `inputVolume` and
   `outputVolume`
 
-Before release: finish live provider validation for Vapi, OpenAI Realtime, and Gemini Live, then
+Before release: finish live provider validation for Vapi and OpenAI Realtime, then
 review recorded traces across the built-in themes.
 
 ### LiveKit adapter — complete
