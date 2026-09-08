@@ -18,7 +18,7 @@ Target direction:
 - Remove callback-object adapter compatibility in 0.5.0 — complete
 - Remove surprising global audio behavior from `Orb`
 
-### Directional signal calibration — release QA
+### Directional signal calibration — complete in 0.8.0
 
 Every built-in adapter now targets a stable normalized speech envelope with the same semantic
 distribution: silence at `0`, ordinary speech around `0.5`, and strong uncommon peaks near `1`.
@@ -46,10 +46,9 @@ Completed direction:
 - Remove the ambiguous `volume` prop and `OrbSignal.volume` in favor of `inputVolume` and
   `outputVolume`
 
-Live provider validation and recorded trace review now cover all six providers across the four
-built-in themes. Before release: finish the visual review and merge the calibration/customization
-stack. Physical microphone and room-acoustic coverage remains outside the controlled digital
-microphone checks.
+Live provider validation and visual review are complete across all six providers and the four
+built-in themes. Calibration and theme customization ship together in 0.8.0. Physical microphone
+and room-acoustic coverage remains outside the controlled digital microphone checks.
 
 ### LiveKit adapter — complete
 

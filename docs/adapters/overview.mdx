@@ -123,6 +123,38 @@ audio calibration hooks. Those options are escape hatches. Start with the first 
 guide and add advanced configuration only when your application already owns that part of the
 provider lifecycle.
 
+## Migrating calibration overrides in 0.8.0
+
+The `outputVolumeCalibration` option remains, but its fields have changed. Replace the old
+`noiseFloor`, `gain`, `exponent`, `attack`, and `release` object with optional `amplitude` and
+`envelope` overrides:
+
+- `amplitude.silenceFloor`: raw activity treated as silence
+- `amplitude.speechReference`: raw ordinary speech mapped to `0.5`
+- `amplitude.speechPeak`: raw strong speech mapped to `1`
+- `envelope.riseTimeMs` and `envelope.fallTimeMs`: milliseconds to move 90% toward a new target
+
+Remove old overrides to use the measured provider defaults. If your audio path needs a custom
+profile, use the playground's guided calibration capture to measure new anchors. The old gain and
+curve values are not amplitude anchors, and per-sample attack/release rates do not directly convert
+to elapsed milliseconds. `inputVolumeCalibration` accepts the same new shape independently.
+
+Update any public type or constant imports:
+
+| Before 0.8.0                        | Replacement                  |
+| ----------------------------------- | ---------------------------- |
+| `OutputVolumeCalibration`           | `VolumeCalibration`          |
+| `OutputVolumeCalibrationSource`     | `VolumeCalibrationSource`    |
+| `OutputVolumeSample`                | `VolumeSample`               |
+| `DEFAULT_OUTPUT_VOLUME_CALIBRATION` | `DEFAULT_VOLUME_CALIBRATION` |
+
+Use `VolumeCalibrationOverrides` for a partial configuration and `PROVIDER_VOLUME_CALIBRATIONS`
+for the shipped provider-specific defaults. Diagnostic samples now expose `mapped` instead of
+`shaped`, along with `raw`, `normalized`, and `elapsedMs`.
+
+Controlled integrations must also [replace the removed `volume` field](/reference/orb-component#migrating-from-volume)
+with `inputVolume` and `outputVolume`.
+
 Before choosing a provider, use the [React voice agent UI guide](/guides/voice-agent-ui) to plan
 the listening, thinking, speaking, error, accessibility, and recovery behavior shared by every
 integration.
