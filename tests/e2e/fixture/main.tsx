@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Orb } from 'orb-ui'
-import type { OrbAdapter, OrbSignal } from 'orb-ui'
+import { Orb, OrbThemeProvider } from 'orb-ui'
+import type { OrbAdapter, OrbSignal, OrbState, OrbThemePreset } from 'orb-ui'
 import { createElevenLabsAdapter, createLiveKitAdapter, createVapiAdapter } from 'orb-ui/adapters'
 import { createLiveKitAdapter as createManagedLiveKitAdapter } from 'orb-ui/adapters/livekit'
 
@@ -13,6 +13,10 @@ const IDLE_SIGNAL: OrbSignal = {
 
 function App() {
   const [adapterSignal, setAdapterSignal] = useState<OrbSignal>(IDLE_SIGNAL)
+  const [cloudPreset, setCloudPreset] = useState<OrbThemePreset>('balanced')
+  const [cloudSize, setCloudSize] = useState(180)
+  const [cloudColor, setCloudColor] = useState('#5c63fb')
+  const [cloudState, setCloudState] = useState<OrbState>('speaking')
   const adapter = useMemo<OrbAdapter>(() => {
     let signal = IDLE_SIGNAL
     const listeners = new Set<(nextSignal: OrbSignal) => void>()
@@ -97,6 +101,67 @@ function App() {
         </button>
         <button onClick={() => void adapter.stop?.()} type="button">
           Stop externally
+        </button>
+      </section>
+
+      <section aria-label="Application theme defaults">
+        <OrbThemeProvider
+          className="fixture-brand-orb"
+          slotProps={{ surface: { className: 'fixture-brand-surface' } }}
+          theme={{ name: 'circle', preset: 'calm' }}
+        >
+          <Orb
+            data-testid="css-variable-orb"
+            signal={{ state: 'speaking', outputVolume: 0.65 }}
+            style={{
+              '--orb-ui-size': '180px',
+              '--orb-ui-circle-appearance-colors-speaking': '#ff00aa',
+              '--orb-ui-circle-geometry-diameter-ratio': 0.7,
+            }}
+          />
+        </OrbThemeProvider>
+      </section>
+
+      <section aria-label="Custom renderer">
+        <Orb
+          adapter={adapter}
+          aria-label="Toggle custom renderer"
+          data-testid="custom-renderer-control"
+          renderTheme={({ activity, controlProps, rootProps, state }) => (
+            <div {...rootProps}>
+              <button {...controlProps}>
+                {state}:{activity.toFixed(2)}
+              </button>
+            </div>
+          )}
+          size={180}
+        />
+      </section>
+
+      <section aria-label="Cloud animation continuity">
+        <Orb
+          data-testid="continuous-cloud"
+          signal={{ state: cloudState, outputVolume: 0.65 }}
+          style={{
+            '--orb-ui-size': `${cloudSize}px`,
+            '--orb-ui-cloud-appearance-deep-color': cloudColor,
+          }}
+          theme={{ name: 'cloud', preset: cloudPreset }}
+        />
+        <button data-testid="cloud-preset" onClick={() => setCloudPreset('calm')} type="button">
+          Change cloud preset
+        </button>
+        <button data-testid="cloud-size" onClick={() => setCloudSize(240)} type="button">
+          Resize cloud
+        </button>
+        <button data-testid="cloud-color" onClick={() => setCloudColor('#ee5588')} type="button">
+          Recolor cloud
+        </button>
+        <button onClick={() => setCloudState('idle')} type="button">
+          Stop cloud
+        </button>
+        <button onClick={() => setCloudState('speaking')} type="button">
+          Restart cloud
         </button>
       </section>
     </main>

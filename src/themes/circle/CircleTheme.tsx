@@ -1,6 +1,12 @@
 import { useRef, useEffect, useLayoutEffect } from 'react'
-import type { CSSProperties } from 'react'
-import type { OrbHtmlAttributes, OrbState } from '../../components/Orb/Orb.types'
+import type {
+  OrbHtmlAttributes,
+  OrbSlotProps,
+  OrbState,
+  OrbStyle,
+} from '../../components/Orb/Orb.types'
+import type { ResolvedCircleTheme } from '../config'
+import { joinClassNames, resolveOrbSlot } from '../slots'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -8,11 +14,15 @@ interface CircleThemeProps extends OrbHtmlAttributes {
   state: OrbState
   volume: number
   size: number
+  declaredSize: number
   className?: string
-  style?: CSSProperties
+  style?: OrbStyle
+  slotProps?: OrbSlotProps
+  rootRef?: (element: HTMLElement | null) => void
   disabled?: boolean
   interactive?: boolean
   onClick?: () => void
+  config: ResolvedCircleTheme
 }
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
@@ -25,15 +35,6 @@ function hexToRgb(hex: string): RGB {
     parseInt(hex.slice(3, 5), 16),
     parseInt(hex.slice(5, 7), 16),
   ]
-}
-
-const STATE_COLORS: Record<OrbState, string> = {
-  idle: '#cccccc',
-  connecting: '#cccccc',
-  listening: '#999999',
-  thinking: '#d8d8d8',
-  speaking: '#e8e8e8',
-  error: '#f87171',
 }
 
 // ─── Keyframes ────────────────────────────────────────────────────────────────
@@ -50,34 +51,26 @@ const KEYFRAMES = `
 }
 `
 
-// ─── Visual constants ─────────────────────────────────────────────────────────
-// Volume arrives pre-normalized from the adapter (noise gate + EMA already
-// applied). These constants only control the visual mapping vol → scale/glow.
-
-// Scale: subtle breathing feel. At vol=0 → SPEAK_BASE; at vol=1 → SPEAK_BASE + SPEAK_RANGE.
-const SPEAK_BASE = 0.95
-const SPEAK_RANGE = 0.08 // 0.95 → 1.03 — subtle size change
-const LISTEN_BASE = 0.82
-const LISTEN_RANGE = 0.18 // 0.82 → 1.00 (expands toward voice, stays under speaking)
-
-const SPEAK_GLOW = 24 // px at vol=1 (sigmoid caps effective max ~14px)
-const LISTEN_GLOW = 0 // no glow during listening — clean edge
-
-// Output lerp rate — interpolates the adapter's ~10 Hz signal up to 60 fps
-// so the circle animates smoothly rather than snapping every 100 ms.
-const LERP = 0.55
-const SETTLE_RATE = 0.12
 const SETTLE_SCALE_EPSILON = 0.002
+
+function followRate(durationMs: number, elapsedMs: number) {
+  if (durationMs <= 0) return 1
+  return 1 - Math.pow(0.1, elapsedMs / durationMs)
+}
 
 export function CircleTheme({
   state,
   volume,
   size,
+  declaredSize,
   className,
   style,
+  slotProps,
+  rootRef,
   disabled = false,
   interactive = false,
   onClick,
+  config,
   ...controlProps
 }: CircleThemeProps) {
   const circleRef = useRef<HTMLSpanElement>(null)
@@ -96,13 +89,14 @@ export function CircleTheme({
   // (the adapter debounces these, but refs make the theme resilient regardless).
   const currentScaleRef = useRef(1)
   const currentGlowRef = useRef(0)
-  const currentColorRef = useRef<RGB>(hexToRgb(STATE_COLORS.idle))
+  const currentColorRef = useRef<RGB>(hexToRgb(config.appearance.colors.idle))
 
   // State transition blending — lerps base/range toward new state's targets
   // so size changes smoothly between states without affecting volume reactivity
-  const TRANSITION_RATE = 0.06 // ~400ms to settle
-  const currentBaseRef = useRef(LISTEN_BASE)
-  const currentRangeRef = useRef(LISTEN_RANGE)
+  const currentBaseRef = useRef(config.geometry.listeningMinScale)
+  const currentRangeRef = useRef(
+    config.geometry.listeningMaxScale - config.geometry.listeningMinScale,
+  )
 
   // Inject keyframes once
   useEffect(() => {
@@ -123,38 +117,45 @@ export function CircleTheme({
     if (!el) return
 
     if (state === 'listening' || state === 'speaking') {
-      const base = state === 'speaking' ? SPEAK_BASE : LISTEN_BASE
-      const range = state === 'speaking' ? SPEAK_RANGE : LISTEN_RANGE
-      const glow = state === 'speaking' ? SPEAK_GLOW : LISTEN_GLOW
+      const base =
+        state === 'speaking' ? config.geometry.speakingMinScale : config.geometry.listeningMinScale
+      const peak =
+        state === 'speaking' ? config.geometry.speakingMaxScale : config.geometry.listeningMaxScale
+      const range = peak - base
+      const glow =
+        state === 'speaking' ? config.appearance.speakingGlow : config.appearance.listeningGlow
+      let previousTime = performance.now()
 
-      const animate = () => {
-        const vol = volumeRef.current
+      const animate = (now: number) => {
+        const elapsedMs = Math.min(now - previousTime, 100)
+        previousTime = now
+        const vol = Math.pow(Math.max(0, volumeRef.current), config.motion.responseExponent)
+        const transitionRate = followRate(config.motion.stateTransitionMs, elapsedMs)
 
         // Blend base/range toward current state's targets (smooth state transitions)
-        currentBaseRef.current += (base - currentBaseRef.current) * TRANSITION_RATE
-        currentRangeRef.current += (range - currentRangeRef.current) * TRANSITION_RATE
+        currentBaseRef.current += (base - currentBaseRef.current) * transitionRate
+        currentRangeRef.current += (range - currentRangeRef.current) * transitionRate
 
         // Volume curves are now applied in the adapters — theme just animates
         const tScale = currentBaseRef.current + vol * currentRangeRef.current
         const tGlow = vol * glow
 
-        // Lerp for listening only — speaking lerp handled by adapters
-        if (state === 'listening') {
-          currentScaleRef.current += (tScale - currentScaleRef.current) * LERP
-          currentGlowRef.current += (tGlow - currentGlowRef.current) * LERP
-        } else {
-          currentScaleRef.current = tScale
-          currentGlowRef.current = tGlow
-        }
+        const activityDuration =
+          tScale > currentScaleRef.current
+            ? config.motion.activityRiseMs
+            : config.motion.activityFallMs
+        const activityRate = followRate(activityDuration, elapsedMs)
+        currentScaleRef.current += (tScale - currentScaleRef.current) * activityRate
+        currentGlowRef.current += (tGlow - currentGlowRef.current) * activityRate
 
         // Color: lerp toward state color (handles state transition fades;
         // avoids CSS transition flicker on rapid speaking↔listening changes)
-        const tRgb = hexToRgb(STATE_COLORS[state])
+        const tRgb = hexToRgb(config.appearance.colors[state])
         const [cr, cg, cb] = currentColorRef.current
         currentColorRef.current = [
-          cr + (tRgb[0] - cr) * 0.05,
-          cg + (tRgb[1] - cg) * 0.05,
-          cb + (tRgb[2] - cb) * 0.05,
+          cr + (tRgb[0] - cr) * transitionRate,
+          cg + (tRgb[1] - cg) * transitionRate,
+          cb + (tRgb[2] - cb) * transitionRate,
         ]
         const [r, g, b] = currentColorRef.current.map(Math.round)
 
@@ -186,18 +187,22 @@ export function CircleTheme({
       // off to CSS animations. This avoids a visible snap from listening's
       // compact base scale back to idle.
       cancelAnimationFrame(rafRef.current)
-      const c = STATE_COLORS[state] ?? STATE_COLORS.idle
+      const c = config.appearance.colors[state] ?? config.appearance.colors.idle
       const tRgb = hexToRgb(c)
+      let previousTime = performance.now()
 
-      const settle = () => {
-        currentScaleRef.current += (1 - currentScaleRef.current) * SETTLE_RATE
-        currentGlowRef.current += (0 - currentGlowRef.current) * SETTLE_RATE
+      const settle = (now: number) => {
+        const elapsedMs = Math.min(now - previousTime, 100)
+        previousTime = now
+        const settleRate = followRate(config.motion.stateTransitionMs, elapsedMs)
+        currentScaleRef.current += (1 - currentScaleRef.current) * settleRate
+        currentGlowRef.current += (0 - currentGlowRef.current) * settleRate
 
         const [cr, cg, cb] = currentColorRef.current
         currentColorRef.current = [
-          cr + (tRgb[0] - cr) * SETTLE_RATE,
-          cg + (tRgb[1] - cg) * SETTLE_RATE,
-          cb + (tRgb[2] - cb) * SETTLE_RATE,
+          cr + (tRgb[0] - cr) * settleRate,
+          cg + (tRgb[1] - cg) * settleRate,
+          cb + (tRgb[2] - cb) * settleRate,
         ]
         const [r, g, b] = currentColorRef.current.map(Math.round)
 
@@ -231,9 +236,9 @@ export function CircleTheme({
           }
 
           if (state === 'idle') {
-            el.style.animation = 'orb-circle-idle-pulse 3s ease-in-out infinite alternate'
+            el.style.animation = `orb-circle-idle-pulse ${config.motion.idlePulseMs}ms ease-in-out infinite alternate`
           } else if (state === 'connecting' || state === 'thinking') {
-            el.style.animation = 'orb-circle-connecting-pulse 1.5s ease-in-out infinite'
+            el.style.animation = `orb-circle-connecting-pulse ${config.motion.processingPulseMs}ms ease-in-out infinite`
           } else {
             el.style.animation = 'none'
           }
@@ -247,21 +252,35 @@ export function CircleTheme({
 
       return () => cancelAnimationFrame(rafRef.current)
     }
-  }, [state])
+  }, [config, state])
 
-  const d = size * 0.55
-  const rootStyle: CSSProperties = {
-    width: size,
-    height: size,
+  const d = size * config.geometry.diameterRatio
+  const rootSlot = resolveOrbSlot(slotProps, 'root', 'orb-ui', 'orb-ui--circle', className)
+  const contentSlot = resolveOrbSlot(slotProps, 'content')
+  const glowSlot = resolveOrbSlot(slotProps, 'glow')
+  const surfaceSlot = resolveOrbSlot(slotProps, 'surface')
+  const controlSlot = resolveOrbSlot(slotProps, 'control')
+  const { className: rootClassName, style: rootSlotStyle, ...rootAttributes } = rootSlot
+  const { className: contentClassName, style: contentStyle, ...contentAttributes } = contentSlot
+  const { className: glowClassName, style: glowStyle, ...glowAttributes } = glowSlot
+  const { className: surfaceClassName, style: surfaceStyle, ...surfaceAttributes } = surfaceSlot
+  const { className: controlClassName, style: controlStyle, ...controlAttributes } = controlSlot
+  const rootStyle: OrbStyle = {
+    width: `var(--orb-ui-size, ${declaredSize}px)`,
+    height: `var(--orb-ui-size, ${declaredSize}px)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     ...style,
+    ...rootSlotStyle,
   }
   const content = (
     <span
+      {...contentAttributes}
       ref={hoverRef}
+      className={contentClassName}
+      data-orb-ui-slot="content"
       onMouseEnter={() => {
         if (hoverRef.current && interactive && !disabled) {
           hoverRef.current.style.transform = 'scale(1.06)'
@@ -290,11 +309,16 @@ export function CircleTheme({
         cursor: interactive ? (disabled ? 'not-allowed' : 'pointer') : 'default',
         borderRadius: '50%',
         lineHeight: 0,
+        ...contentStyle,
       }}
     >
       {/* Glow element — behind the circle */}
       <span
+        {...glowAttributes}
         ref={glowRef}
+        className={glowClassName}
+        data-orb-ui-slot="glow"
+        aria-hidden="true"
         style={{
           position: 'absolute',
           display: 'block',
@@ -302,18 +326,24 @@ export function CircleTheme({
           height: d,
           borderRadius: '50%',
           pointerEvents: 'none',
+          ...glowStyle,
         }}
       />
       {/* Circle — on top */}
       <span
+        {...surfaceAttributes}
         ref={circleRef}
+        className={surfaceClassName}
+        data-orb-ui-slot="surface"
+        aria-hidden="true"
         style={{
           position: 'relative',
           display: 'block',
           width: d,
           height: d,
           borderRadius: '50%',
-          background: STATE_COLORS[state],
+          background: config.appearance.colors[state],
+          ...surfaceStyle,
         }}
       />
     </span>
@@ -322,9 +352,13 @@ export function CircleTheme({
   if (interactive) {
     return (
       <button
+        {...rootAttributes}
+        {...controlAttributes}
         {...controlProps}
+        ref={rootRef}
         type="button"
-        className={className}
+        className={joinClassNames(rootClassName, controlClassName)}
+        data-orb-ui-slot="root"
         disabled={disabled}
         onClick={disabled ? undefined : onClick}
         style={{
@@ -338,6 +372,7 @@ export function CircleTheme({
           font: 'inherit',
           cursor: disabled ? 'not-allowed' : 'pointer',
           ...rootStyle,
+          ...controlStyle,
         }}
       >
         {content}
@@ -346,7 +381,14 @@ export function CircleTheme({
   }
 
   return (
-    <div {...controlProps} className={className} style={rootStyle}>
+    <div
+      {...rootAttributes}
+      {...controlProps}
+      ref={rootRef}
+      className={rootClassName}
+      data-orb-ui-slot="root"
+      style={rootStyle}
+    >
       {content}
     </div>
   )

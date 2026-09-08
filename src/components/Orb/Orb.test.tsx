@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { Orb } from './Orb'
+import { OrbThemeProvider } from './OrbThemeProvider'
 import { deriveOrbState, selectOrbVolume } from './signals'
 import type { OrbAdapter, OrbSignal } from './Orb.types'
 
@@ -79,6 +80,8 @@ describe('Orb accessibility', () => {
     expect(html).toContain('<canvas')
     expect(html).toContain('data-radial-surface=""')
     expect(html).toContain('data-radial-control=""')
+    expect(html).toContain('data-orb-ui-theme="radial"')
+    expect(html).toContain('data-orb-ui-preset="balanced"')
     expect(html).toContain('id="radial-control"')
     expect(html).toContain('aria-label="Start radial voice assistant"')
     expect(html).toContain('background:#080808')
@@ -134,6 +137,105 @@ describe('Orb accessibility', () => {
 
     expect(html).toContain('speaking')
     expect(html).toContain('0.72')
+  })
+
+  it('applies a preset before theme-specific low-level overrides', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        signal={{ state: 'speaking', outputVolume: 0.25 }}
+        theme={{
+          name: 'debug',
+          preset: 'expressive',
+          appearance: { colors: { speaking: '#12ab34' } },
+          motion: { responseExponent: 0.5 },
+        }}
+      />,
+    )
+
+    expect(html).toContain('#12ab34')
+    expect(html).toContain('0.50')
+  })
+
+  it('applies provider defaults and local theme overrides together', () => {
+    const html = renderToStaticMarkup(
+      <OrbThemeProvider
+        className="brand-orb"
+        size={260}
+        slotProps={{ surface: { className: 'brand-surface' } }}
+        theme={{
+          name: 'circle',
+          preset: 'calm',
+          appearance: { colors: { listening: '#123456' } },
+        }}
+      >
+        <Orb
+          signal={{ state: 'speaking', outputVolume: 0.5 }}
+          theme={{ name: 'circle', appearance: { colors: { speaking: '#abcdef' } } }}
+        />
+      </OrbThemeProvider>,
+    )
+
+    expect(html).toContain('orb-ui--circle')
+    expect(html).toContain('brand-orb')
+    expect(html).toContain('brand-surface')
+    expect(html).toContain('width:var(--orb-ui-size, 260px)')
+    expect(html).toContain('background:#abcdef')
+    expect(html).toContain('data-orb-ui-preset="calm"')
+  })
+
+  it('exposes stable slots and responsive CSS variables', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        signal={{ state: 'speaking', outputVolume: 0.5 }}
+        style={{ '--orb-ui-size': 'min(70vw, 320px)' }}
+        slotProps={{
+          root: { className: 'voice-root' },
+          bar: { className: 'voice-bar', style: { opacity: 0.8 } },
+        }}
+        theme="bars"
+      />,
+    )
+
+    expect(html).toContain('voice-root')
+    expect(html).toContain('orb-ui__bar voice-bar')
+    expect(html).toContain('data-orb-ui-index="4"')
+    expect(html).toContain('--orb-ui-size:min(70vw, 320px)')
+    expect(html).toContain('opacity:0.8')
+  })
+
+  it('supports replaceable built-in control chrome', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        adapter={createAdapter()}
+        components={{ controlIcon: <span data-testid="custom-control-icon">Talk</span> }}
+        theme="radial"
+      />,
+    )
+
+    expect(html).toContain('data-testid="custom-control-icon"')
+    expect(html).toContain('data-orb-ui-slot="icon"')
+  })
+
+  it('provides signal, sizing, and accessible lifecycle props to custom renderers', () => {
+    const html = renderToStaticMarkup(
+      <Orb
+        aria-label="Toggle custom voice artwork"
+        onStart={() => undefined}
+        renderTheme={({ activity, controlProps, rootProps, state }) => (
+          <div {...rootProps}>
+            <button {...controlProps}>
+              {state}:{activity.toFixed(2)}
+            </button>
+          </div>
+        )}
+        signal={{ state: 'idle', inputVolume: 0.4 }}
+      />,
+    )
+
+    expect(html).toContain('data-orb-ui-theme="custom"')
+    expect(html).toContain('aria-label="Toggle custom voice artwork"')
+    expect(html).toContain('idle:0.00')
+    expect(html).toContain('orb-ui--custom')
   })
 
   it('selects the volume channel for an overridden controlled state', () => {

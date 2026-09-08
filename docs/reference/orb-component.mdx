@@ -13,22 +13,25 @@ import { Orb } from 'orb-ui'
 
 ## Props
 
-| Prop          | Type               | Default                | Description                                                        |
-| ------------- | ------------------ | ---------------------- | ------------------------------------------------------------------ |
-| `signal`      | `OrbSignal`        | adapter signal         | Current voice signal with state, input volume, and output volume.  |
-| `state`       | `OrbState`         | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
-| `adapter`     | `OrbAdapter`       | none                   | Provider adapter that subscribes to normalized signal updates.     |
-| `theme`       | `OrbTheme`         | `debug`                | Visual theme: `debug`, `circle`, `bars`, `cloud`, or `radial`.     |
-| `size`        | `number`           | `200`                  | Component size in pixels.                                          |
-| `className`   | `string`           | none                   | Optional class name for the rendered theme.                        |
-| `style`       | `OrbStyle`         | none                   | Inline styles, including the radial control surround variable.     |
-| `disabled`    | `boolean`          | `false`                | Disables clickable themes and debug start/stop controls.           |
-| `interactive` | `boolean`          | `true`                 | Allows the theme control to start and stop the session.            |
-| `id`          | `string`           | none                   | Forwarded to the rendered orb control/container.                   |
-| `data-*`      | `string`/primitive | none                   | Forwarded to the rendered orb control/container, useful for tests. |
-| `aria-label`  | `string`           | generated when needed  | Accessible label for clickable visual themes.                      |
-| `onStart`     | `() => void`       | adapter start          | Start handler used by the debug theme and clickable themes.        |
-| `onStop`      | `() => void`       | adapter stop           | Stop handler used by the debug theme and clickable themes.         |
+| Prop          | Type                 | Default                | Description                                                        |
+| ------------- | -------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `signal`      | `OrbSignal`          | adapter signal         | Current voice signal with state, input volume, and output volume.  |
+| `state`       | `OrbState`           | signal state or `idle` | Current voice agent state. Overrides signal and adapter state.     |
+| `adapter`     | `OrbAdapter`         | none                   | Provider adapter that subscribes to normalized signal updates.     |
+| `theme`       | `OrbTheme`           | `debug`                | Theme name or typed preset/override object.                        |
+| `size`        | `number`             | `200`                  | Component size in pixels.                                          |
+| `className`   | `string`             | none                   | Optional class name for the rendered theme.                        |
+| `style`       | `OrbStyle`           | none                   | Root styles and typed `--orb-ui-*` design variables.               |
+| `slotProps`   | `OrbSlotProps`       | none                   | Classes, styles, and attributes for stable built-in theme slots.   |
+| `components`  | `OrbThemeComponents` | none                   | Replacement radial control icon and connecting indicator.          |
+| `renderTheme` | `OrbThemeRenderer`   | none                   | Fully custom artwork with normalized signal and lifecycle props.   |
+| `disabled`    | `boolean`            | `false`                | Disables clickable themes and debug start/stop controls.           |
+| `interactive` | `boolean`            | `true`                 | Allows the theme control to start and stop the session.            |
+| `id`          | `string`             | none                   | Forwarded to the rendered orb control/container.                   |
+| `data-*`      | `string`/primitive   | none                   | Forwarded to the rendered orb control/container, useful for tests. |
+| `aria-label`  | `string`             | generated when needed  | Accessible label for clickable visual themes.                      |
+| `onStart`     | `() => void`         | adapter start          | Start handler used by the debug theme and clickable themes.        |
+| `onStop`      | `() => void`         | adapter stop           | Stop handler used by the debug theme and clickable themes.         |
 
 ## States
 
@@ -41,7 +44,9 @@ Use these states consistently across providers so your product has one voice UI 
 ## Themes
 
 ```ts
-type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
+type OrbThemeName = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
+type OrbThemePreset = 'balanced' | 'calm' | 'expressive'
+type OrbTheme = OrbThemeName | OrbThemeConfig
 ```
 
 - `debug`: visible state and start/stop controls while integrating.
@@ -49,6 +54,47 @@ type OrbTheme = 'debug' | 'circle' | 'bars' | 'cloud' | 'radial'
 - `bars`: waveform-like audio activity.
 - `cloud`: a soft atmospheric sphere with opposing input/output scale response.
 - `radial`: a four-lobe field with an input-reactive membrane and output-reactive twist.
+
+A string uses the theme's `balanced` preset. To select another preset or change low-level values,
+pass `{ name, preset, appearance, geometry, motion }`. Override fields are specific to the selected
+theme and fully typed.
+
+```tsx
+<Orb
+  signal={signal}
+  theme={{
+    name: 'circle',
+    preset: 'calm',
+    appearance: { colors: { speaking: '#f8f0ff' } },
+    motion: { activityRiseMs: 90, activityFallMs: 220 },
+  }}
+/>
+```
+
+See [theme customization](/themes/customization) for preset semantics and every low-level field.
+
+Application-wide visual defaults can be supplied without changing adapter ownership:
+
+```tsx
+import { OrbThemeProvider, defineOrbTheme } from 'orb-ui'
+
+const theme = defineOrbTheme({
+  name: 'circle',
+  preset: 'calm',
+  appearance: { colors: { speaking: '#f472b6' } },
+})
+
+;<OrbThemeProvider theme={theme} size={260}>
+  <Orb adapter={primaryAdapter} />
+  <Orb adapter={secondaryAdapter} />
+</OrbThemeProvider>
+```
+
+For responsive layout, set `--orb-ui-size`; for stable internal styling, use `slotProps`; for
+complete artwork ownership, use `renderTheme`. All three retain Orb's normalized signal contract.
+See [theme customization](/themes/customization#responsive-sizing-and-css-variables),
+[stable slots](/themes/customization#stable-slots), and
+[custom renderers](/themes/customization#completely-custom-renderers).
 
 When an adapter or `onStart`/`onStop` handler is provided, visual themes include a `<button type="button">` control with native keyboard activation. `radial` uses a separate phone button while the other clickable visuals use the artwork itself. If there is no visible label, pass `aria-label`.
 
@@ -139,6 +185,7 @@ Custom adapters should implement `OrbAdapter`; the removed `AdapterCallbacks` an
 ## Related
 
 - [Themes and states](/themes/voice-states)
+- [Theme customization](/themes/customization)
 - [Custom integrations](/adapters/custom)
 - [Signal-based adapter architecture](/guides/signal-based-voice-agent-ui)
 - [Vapi adapter](/adapters/vapi)
