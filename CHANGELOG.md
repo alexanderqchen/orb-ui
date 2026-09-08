@@ -16,7 +16,7 @@
   `PROVIDER_VOLUME_CALIBRATIONS` for provider-specific defaults. Diagnostic `shaped` is now `mapped`.
 
 See the [component migration guide](https://orb-ui.com/docs/reference/orb-component#migrating-from-volume)
-and [adapter migration guide](https://orb-ui.com/docs/adapters/overview#migrating-calibration-overrides-in-080).
+and [adapter migration guide](https://orb-ui.com/docs/adapters/overview#migrating-calibration-overrides-in-0-8-0).
 
 ### Minor Changes
 
