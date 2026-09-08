@@ -2,6 +2,22 @@
 
 ## 0.8.0
 
+### Breaking changes and migration
+
+- Replace the removed `volume` prop and `OrbSignal.volume` with `inputVolume` for microphone
+  activity and `outputVolume` for assistant playback.
+- Custom calibration overrides now use `amplitude: { silenceFloor, speechReference, speechPeak }`
+  and `envelope: { riseTimeMs, fallTimeMs }` instead of `noiseFloor`, `gain`, `exponent`, `attack`,
+  and `release`. Remove old overrides to use the new provider defaults, or capture new anchors
+  in the playground. The old per-sample smoothing rates do not directly convert to milliseconds.
+- Update imported calibration types from `OutputVolumeCalibration`, `OutputVolumeCalibrationSource`,
+  and `OutputVolumeSample` to `VolumeCalibration`, `VolumeCalibrationSource`, and `VolumeSample`.
+  `DEFAULT_OUTPUT_VOLUME_CALIBRATION` is replaced by `DEFAULT_VOLUME_CALIBRATION`; use
+  `PROVIDER_VOLUME_CALIBRATIONS` for provider-specific defaults. Diagnostic `shaped` is now `mapped`.
+
+See the [component migration guide](https://orb-ui.com/docs/reference/orb-component#migrating-from-volume)
+and [adapter migration guide](https://orb-ui.com/docs/adapters/overview#migrating-calibration-overrides-in-080).
+
 ### Minor Changes
 
 - 3d4d9ff: Standardize every built-in provider adapter on separate input and output calibration profiles that
