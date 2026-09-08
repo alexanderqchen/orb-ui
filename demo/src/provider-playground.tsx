@@ -259,7 +259,7 @@ function isCalibratableProvider(provider: ProviderId): provider is CalibratableP
 }
 
 function supportsDirection(provider: CalibratableProviderId, direction: VolumeDirection) {
-  return direction === 'output' || provider !== 'vapi'
+  return Boolean(PROVIDER_VOLUME_CALIBRATIONS[provider][direction])
 }
 
 function copyCalibration(calibration: VolumeCalibration): VolumeCalibration {
@@ -738,7 +738,9 @@ function createProviderAdapter(
       const vapiModule = await import('@vapi-ai/web')
       return createVapiAdapter(new (getVapiConstructor(vapiModule.default))(config.vapiPublicKey), {
         assistantId: config.vapiAssistantId,
+        inputVolumeCalibration: volumeCalibration?.getInput,
         outputVolumeCalibration: volumeCalibration?.getOutput,
+        onInputVolumeSample: volumeCalibration?.onInputSample,
         onOutputVolumeSample: volumeCalibration?.onOutputSample,
       })
     })
@@ -1648,7 +1650,7 @@ function ProviderPlayground() {
   useEffect(() => {
     setLatestSignal(EMPTY_SIGNAL)
     setEvents([])
-    setCalibrationDirection(provider === 'vapi' ? 'output' : 'input')
+    setCalibrationDirection('input')
     setCaptures({
       input: copyCapture(EMPTY_CAPTURE),
       output: copyCapture(EMPTY_CAPTURE),

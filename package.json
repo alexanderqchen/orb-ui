@@ -67,7 +67,7 @@
     "@playwright/test": "1.61.1",
     "@types/react": "^18.3.29",
     "@types/react-dom": "^18.3.7",
-    "@vapi-ai/web": "2.5.2",
+    "@vapi-ai/web": "2.7.0",
     "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^10.4.0",
     "globals": "^17.6.0",

@@ -27,7 +27,8 @@ function calibration(
  */
 export const PROVIDER_VOLUME_CALIBRATIONS = {
   vapi: {
-    output: calibration(0.12, 0.667, 1),
+    input: calibration(0, 0.105_112, 0.25),
+    output: calibration(0.005, 0.4, 1),
   },
   elevenlabs: {
     input: calibration(0, 0.36, 0.52),
