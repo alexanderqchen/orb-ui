@@ -1,13 +1,15 @@
 ---
 title: 'OpenAI Realtime API Tutorial: React and WebRTC'
 description: Build a React voice agent with the OpenAI Realtime API, WebRTC, a server-side token endpoint, interruptions, function calling, and explicit cleanup.
+date: '2026-09-28'
+category: Tutorial
 ---
 
 The OpenAI Realtime API lets a voice agent receive microphone audio and speak back over one persistent connection. This tutorial builds a React application with native WebRTC, a small Node.js server, and a harmless function the agent can call to read the browser's local time.
 
 You do not need orb-ui to follow the tutorial. At the end, you can choose an orb-ui adapter if you want an audio-reactive interface without maintaining the connection code yourself.
 
-API and pricing sources checked **September 28, 2026**. This guide uses **`gpt-realtime-2.1` and the GA Realtime API**. GPT-Live has a different protocol; see the [GPT-Live adapter guide](/adapters/openai-live) if that is the API you intend to use.
+API and pricing sources checked **September 28, 2026**. This guide uses **`gpt-realtime-2.1` and the GA Realtime API**. GPT-Live has a different protocol; see the [GPT-Live adapter guide](/docs/adapters/openai-live) if that is the API you intend to use.
 
 ## What you will build
 
@@ -351,14 +353,14 @@ Realtime does not have one universal per-minute cost: speaking time, conversatio
 
 ## Add an orb-ui interface
 
-For a voice interface with normalized listening, thinking, speaking, and audio levels, the [OpenAI Realtime adapter](/adapters/openai-realtime) can own the browser connection. Its `getClientSecret` callback can use the endpoint above **after removing the demo tool configuration**, because this adapter does not implement the tutorial's custom function handler.
+For a voice interface with normalized listening, thinking, speaking, and audio levels, the [OpenAI Realtime adapter](/docs/adapters/openai-realtime) can own the browser connection. Its `getClientSecret` callback can use the endpoint above **after removing the demo tool configuration**, because this adapter does not implement the tutorial's custom function handler.
 
-Choose one connection owner. Replace the raw WebRTC client when adopting the adapter; running both would open two sessions. If you need to keep custom function handling, retain your own connection and render orb-ui in [controlled mode](/adapters/custom) instead.
+Choose one connection owner. Replace the raw WebRTC client when adopting the adapter; running both would open two sessions. If you need to keep custom function handling, retain your own connection and render orb-ui in [controlled mode](/docs/adapters/custom) instead.
 
 ## Related guides and sources
 
 - [OpenAI WebRTC connection guide](https://developers.openai.com/api/docs/guides/voice-webrtc?api=realtime)
 - [OpenAI Realtime conversations and function calling](https://developers.openai.com/api/docs/guides/realtime-conversations)
 - [GPT-Realtime-2.1 model](https://developers.openai.com/api/docs/models/gpt-realtime-2.1)
-- [Voice agent UI architecture](/guides/voice-agent-ui)
-- [Vapi vs Retell comparison](/guides/vapi-vs-retell)
+- [Voice agent UI architecture](/docs/guides/voice-agent-ui)
+- [Vapi vs Retell comparison](/blog/vapi-vs-retell)

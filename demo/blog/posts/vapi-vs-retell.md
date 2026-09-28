@@ -1,6 +1,8 @@
 ---
 title: 'Vapi vs Retell: Pricing, Features, and Developer Tradeoffs'
 description: Compare Vapi and Retell AI pricing, browser SDKs, custom LLMs, call routing, concurrency, and hosting, with sourced costs and practical selection criteria.
+date: '2026-09-28'
+category: Comparison
 ---
 
 **Start with Vapi if choosing and integrating individual speech and model providers is central to your application. Start with Retell if your team wants to configure a structured call flow and operate it through an integrated platform.** Both support browser voice applications, phone calls, APIs, and custom backends. Neither choice removes the need to test your real conversations.
@@ -71,11 +73,11 @@ At 10,000 minutes, a \$0.01/minute difference is \$100/month. Fixed fees and pea
 
 Both platforms can power a voice agent in a website without making a telephone call.
 
-Vapi's web SDK starts a configured assistant with a public key and emits events such as `call-start`, `call-end`, and transcript messages. Register listeners before starting calls, release them when your component unmounts, and keep private API keys on your server. The [Vapi adapter guide](/adapters/vapi) shows how orb-ui can manage that lifecycle and display listening and speaking activity.
+Vapi's web SDK starts a configured assistant with a public key and emits events such as `call-start`, `call-end`, and transcript messages. Register listeners before starting calls, release them when your component unmounts, and keep private API keys on your server. The [Vapi adapter guide](/docs/adapters/vapi) shows how orb-ui can manage that lifecycle and display listening and speaking activity.
 
 Retell's current browser guide uses `RetellClient` and `createWebCall()`, with public keys restricted to allowed domains. It exposes status, end, error, and optional audio/transcript hooks. Live transcripts use a separate monitoring connection and must be enabled explicitly. Follow the [current SDK guide](https://docs.retellai.com/deploy/web-call) rather than copying older `RetellWebClient` examples: Retell's [browser SDK migration notice](https://docs.retellai.com/deprecation-notice/2026/09-30_create_web_call_v2) currently gives October 18, 2026 as the deprecation date for the legacy client.
 
-orb-ui currently has no built-in Retell adapter. Use [controlled mode or a custom adapter](/adapters/custom) if you choose Retell. That is an integration-effort difference for orb-ui users, not a reason to assume one platform has better voice quality.
+orb-ui currently has no built-in Retell adapter. Use [controlled mode or a custom adapter](/docs/adapters/custom) if you choose Retell. That is an integration-effort difference for orb-ui users, not a reason to assume one platform has better voice quality.
 
 For either SDK, browser-provided metadata and agent overrides are untrusted input. Authorize access to private records and tools in your backend, and test microphone denial, interrupted responses, connection failure, and repeated start/stop behavior.
 
@@ -93,7 +95,7 @@ Both document SIP integration and human transfers. Vapi has [SIP trunking](https
 
 For a receptionist, test a successful transfer, a busy destination, an unanswered destination, and the fallback back to the agent. For outbound calling, include voicemail and failed connections in the evaluation. Confirm caller ID and post-transfer billing with the carrier you intend to use.
 
-Running a custom LLM on your server does not self-host the whole Vapi or Retell platform. If control over the entire media and agent stack is a requirement, evaluate frameworks such as [LiveKit](/adapters/livekit) or [Pipecat](/adapters/pipecat) separately. Expect to own more deployment and reliability work.
+Running a custom LLM on your server does not self-host the whole Vapi or Retell platform. If control over the entire media and agent stack is a requirement, evaluate frameworks such as [LiveKit](/docs/adapters/livekit) or [Pipecat](/docs/adapters/pipecat) separately. Expect to own more deployment and reliability work.
 
 For regulated workloads, compare the actual contract, BAA availability, retention controls, and enabled services. For example, Vapi currently lists HIPAA handling as a \$2,000/month add-on, while Retell separates enterprise terms and features on its pricing page. A logo or a competitor's checklist is not enough to establish that your particular deployment meets its requirements.
 
@@ -128,7 +130,7 @@ This guide does not establish a winner. Measure the same workload over the same 
 
 ## Continue building
 
-- [Voice agent platforms and architecture choices](/guides/voice-agent-platforms)
-- [Build directly with the OpenAI Realtime API](/guides/openai-realtime-api-tutorial)
-- [Vapi and orb-ui integration](/adapters/vapi)
-- [Custom voice UI integrations](/adapters/custom)
+- [Voice agent platforms and architecture choices](/docs/guides/voice-agent-platforms)
+- [Build directly with the OpenAI Realtime API](/blog/openai-realtime-api-tutorial)
+- [Vapi and orb-ui integration](/docs/adapters/vapi)
+- [Custom voice UI integrations](/docs/adapters/custom)

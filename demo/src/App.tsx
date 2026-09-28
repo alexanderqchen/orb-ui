@@ -228,6 +228,7 @@ function useConversationSimulation(startedAt: number) {
 const NAV_LINKS = [
   { href: '#quick-start', label: 'Quick start' },
   { href: '/docs', label: 'Docs' },
+  { href: '/blog', label: 'Blog' },
   { href: '/playground', label: 'Playground' },
 ] as const
 
