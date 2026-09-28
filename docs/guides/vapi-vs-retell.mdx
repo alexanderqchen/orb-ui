@@ -1,0 +1,134 @@
+---
+title: 'Vapi vs Retell: Pricing, Features, and Developer Tradeoffs'
+description: Compare Vapi and Retell AI pricing, browser SDKs, custom LLMs, call routing, concurrency, and hosting, with sourced costs and practical selection criteria.
+---
+
+**Start with Vapi if choosing and integrating individual speech and model providers is central to your application. Start with Retell if your team wants to configure a structured call flow and operate it through an integrated platform.** Both support browser voice applications, phone calls, APIs, and custom backends. Neither choice removes the need to test your real conversations.
+
+The useful pricing comparison is the cost of the same workload with the same requirements. Vapi's \$0.05/minute hosting fee and Retell's advertised \$0.07–\$0.31/minute range do not describe identical bundles.
+
+Sources checked **September 28, 2026**. This is a documentation-based comparison by the maintainers of orb-ui, a React voice UI library with a built-in Vapi adapter and custom integration support. We have not run a controlled Vapi-versus-Retell latency or voice-quality benchmark. Recommendations below are judgments based on the documented capabilities, not measured performance rankings.
+
+## Vapi vs Retell at a glance
+
+| Decision                   | Vapi                                                                                    | Retell AI                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Configuration approach     | Configure assistants, speech/model providers, tools, and assistant handoffs.            | Choose single-prompt agents or conversation flows with explicit nodes and transitions.     |
+| Browser calls              | `@vapi-ai/web`, a public key, an assistant ID, and call events.                         | `retell-client-js-sdk`, public-key authentication, and call sessions with lifecycle hooks. |
+| Custom response generation | Connect an OpenAI-compatible custom LLM endpoint.                                       | Connect a custom LLM WebSocket server that streams replies.                                |
+| Phone infrastructure       | Managed calling plus bring-your-own telephony and SIP integration.                      | Managed numbers plus imported numbers and custom SIP telephony.                            |
+| Human handoff              | Documented blind and warm transfer modes; validate the selected mode with your carrier. | Documented cold, warm, and agentic warm transfers; validate your number and carrier setup. |
+| Included concurrency       | 4 calls on usage-only; 10 on Core; 30 on Pro.                                           | 20 calls on pay-as-you-go.                                                                 |
+| Higher concurrency         | \$10 per additional line/month on the public pricing page.                              | \$8 per additional concurrent call/month on the public pricing page.                       |
+| Hosting                    | Managed platform; your custom services can run on your infrastructure.                  | Managed platform; your custom LLM and application services can run on your infrastructure. |
+
+Capability sources: [Vapi web calls](https://docs.vapi.ai/quickstart/web), [Vapi custom LLMs](https://docs.vapi.ai/customization/custom-llm/using-your-server), [Retell web calls](https://docs.retellai.com/deploy/web-call), [Retell conversation flows](https://docs.retellai.com/build/conversation-flow/overview), and [Retell custom LLMs](https://docs.retellai.com/integrate-llm/overview). Prices and plan limits come from the two pricing pages linked below.
+
+## Pricing: what goes into the bill?
+
+### Vapi pricing
+
+[Vapi's public pricing page](https://vapi.ai/pricing) separates its **\$0.05/minute hosting fee** from model-provider costs, transport, and optional Success Packages. Usage-only has no monthly package fee. Core is \$29/month; Pro is 10% of Vapi hosting fees with a \$999/month minimum. Provider costs are passed through without markup according to the page.
+
+The pricing calculator currently shows this example for **1,000 minutes**, with no Success Package and Vapi Telephony/SIP selected:
+
+| Component                 | Published calculator rate | Cost for 1,000 minutes |
+| ------------------------- | ------------------------- | ---------------------- |
+| Vapi hosting              | \$0.05/min                | \$50.00                |
+| Deepgram transcription    | \$0.0095–\$0.0099/min     | \$9.50–\$9.90          |
+| OpenAI intelligence model | \$0.0077–\$0.0452/min     | \$7.70–\$45.20         |
+| ElevenLabs voice          | \$0.0146–\$0.0238/min     | \$14.60–\$23.80        |
+| Selected transport        | Calculator displays \$0   | \$0 in this estimate   |
+| **Component subtotal**    | **\$0.0818–\$0.1289/min** | **\$81.80–\$128.90**   |
+
+These are the calculator's provider ranges, not a quote for a single named model configuration. Carrier charges, paid packages, compliance options, and other add-ons can change the total. A \$0 transport line in the platform calculator does not erase bills from a carrier you bring yourself.
+
+### Retell AI pricing
+
+[Retell's public pricing page](https://www.retellai.com/pricing) advertises \$0.07–\$0.31/minute for voice agents, but its detailed component table is the better budgeting source. The default pipeline lists **\$0.055/minute for voice infrastructure**, with voice, LLM, telephony, and optional features charged separately. Some listed model configurations can exceed the headline range.
+
+For example, choosing **GPT 4.1 mini, Retell Platform Voices, and the listed US Twilio telephony rate** gives:
+
+| Component                   | Published rate   | Cost for 1,000 minutes |
+| --------------------------- | ---------------- | ---------------------- |
+| Retell voice infrastructure | \$0.055/min      | \$55.00                |
+| Retell Platform Voices      | \$0.015/min      | \$15.00                |
+| GPT 4.1 mini, standard tier | \$0.0128/min     | \$12.80                |
+| US Twilio telephony         | \$0.015/min      | \$15.00                |
+| **Usage subtotal**          | **\$0.0978/min** | **\$97.80**            |
+
+One standard Retell phone number adds \$2/month, making this example **\$99.80/month before taxes or other extras**. Knowledge-base usage adds \$0.005/minute, or \$5 for these 1,000 minutes. Other optional features and capacity are additional. For browser-only calls, omit the telephone number and telephony charge: the same selected AI components total **\$82.80 for 1,000 minutes**.
+
+Retell says silence and hold time count toward call duration. After a transfer, its AI agent fee stops while the telephony fee continues. Include those behaviors in your workload estimate.
+
+### Which is cheaper?
+
+The examples above use different model and voice assumptions, so **they do not establish a price winner**. Vapi exposes provider ranges in its calculator; Retell lists individual component rates. First choose the model, voice, carrier, add-ons, and concurrency you actually need, then compare the resulting totals.
+
+At 10,000 minutes, a \$0.01/minute difference is \$100/month. Fixed fees and peak concurrency can matter as much as a small usage difference. Twenty simultaneous calls for a few minutes require more capacity than the same minutes spread across a day.
+
+## Browser SDKs and React integration
+
+Both platforms can power a voice agent in a website without making a telephone call.
+
+Vapi's web SDK starts a configured assistant with a public key and emits events such as `call-start`, `call-end`, and transcript messages. Register listeners before starting calls, release them when your component unmounts, and keep private API keys on your server. The [Vapi adapter guide](/adapters/vapi) shows how orb-ui can manage that lifecycle and display listening and speaking activity.
+
+Retell's current browser guide uses `RetellClient` and `createWebCall()`, with public keys restricted to allowed domains. It exposes status, end, error, and optional audio/transcript hooks. Live transcripts use a separate monitoring connection and must be enabled explicitly. Follow the [current SDK guide](https://docs.retellai.com/deploy/web-call) rather than copying older `RetellWebClient` examples: Retell's [browser SDK migration notice](https://docs.retellai.com/deprecation-notice/2026/09-30_create_web_call_v2) currently gives October 18, 2026 as the deprecation date for the legacy client.
+
+orb-ui currently has no built-in Retell adapter. Use [controlled mode or a custom adapter](/adapters/custom) if you choose Retell. That is an integration-effort difference for orb-ui users, not a reason to assume one platform has better voice quality.
+
+For either SDK, browser-provided metadata and agent overrides are untrusted input. Authorize access to private records and tools in your backend, and test microphone denial, interrupted responses, connection failure, and repeated start/stop behavior.
+
+## Conversation flows, tools, and custom models
+
+**Vapi is worth evaluating first when provider composition is a core requirement.** Its model endpoint, transcription, voice, and tools can be configured separately. Its [custom LLM guide](https://docs.vapi.ai/customization/custom-llm/using-your-server) describes an OpenAI-compatible server, which can fit a backend already exposing that interface. Use [assistant handoffs](https://docs.vapi.ai/squads/handoff) when different assistants own different parts of the conversation.
+
+**Retell is worth evaluating first when the team wants explicit call-flow control.** Its conversation-flow nodes describe dialogue, functions, branching, and handoffs. Retell itself recommends beginning with a single prompt unless the additional structure is needed; a flow graph can become awkward when callers change their minds or provide information out of order.
+
+Retell also supports custom LLM servers, so “Vapi is customizable and Retell is not” is too simplistic. The tradeoff is operational: Retell's [custom LLM documentation](https://docs.retellai.com/integrate-llm/overview) says you take responsibility for latency and reconnection, and lose access to some built-in testing capabilities, including simulation and batch testing for those agents. Check the requirements of the exact agent type you plan to ship.
+
+## Phone calls, transfers, and hosting
+
+Both document SIP integration and human transfers. Vapi has [SIP trunking](https://docs.vapi.ai/advanced/sip/sip-trunk) and [warm-transfer modes](https://docs.vapi.ai/tools/transfer-call/warm-transfer); Retell has [custom telephony](https://docs.retellai.com/deploy/custom-telephony) and a [transfer-call tool](https://docs.retellai.com/build/single-multi-prompt/transfer-call). A feature appearing in a table does not guarantee that every carrier and transfer mode behave identically.
+
+For a receptionist, test a successful transfer, a busy destination, an unanswered destination, and the fallback back to the agent. For outbound calling, include voicemail and failed connections in the evaluation. Confirm caller ID and post-transfer billing with the carrier you intend to use.
+
+Running a custom LLM on your server does not self-host the whole Vapi or Retell platform. If control over the entire media and agent stack is a requirement, evaluate frameworks such as [LiveKit](/adapters/livekit) or [Pipecat](/adapters/pipecat) separately. Expect to own more deployment and reliability work.
+
+For regulated workloads, compare the actual contract, BAA availability, retention controls, and enabled services. For example, Vapi currently lists HIPAA handling as a \$2,000/month add-on, while Retell separates enterprise terms and features on its pricing page. A logo or a competitor's checklist is not enough to establish that your particular deployment meets its requirements.
+
+## How to choose with a small pilot
+
+Use the same task, knowledge, voice language, and success criteria on both platforms. Where the same model or voice is unavailable, record the difference rather than attributing it entirely to the platform.
+
+1. **Run representative conversations.** Include interruptions, background noise, ambiguous requests, tool failures, and requests to speak to a person.
+2. **Record outcomes.** Count completed tasks, incorrect answers, successful transfers, and abandoned calls. Measure end-of-user-speech to first audible response, including slower cases, rather than relying on a vendor's headline latency.
+3. **Calculate the complete bill.** Include AI usage, carrier charges, numbers, peak concurrent calls, paid features, and support packages.
+4. **Check who maintains it.** Have the actual developer or operations teammate change a prompt, debug a failed call, and roll back an agent update.
+
+Choose Vapi if its provider configuration and API fit reduce your team's integration work. Choose Retell if its agent builder and operating workflow make the target call flow easier to maintain. If the pilot reverses that expectation, follow the evidence from your calls.
+
+## Frequently asked questions
+
+### Is Vapi's \$0.05/minute the total price?
+
+No. It is the hosting fee. Model-provider costs, transport, selected packages, and add-ons can increase the total.
+
+### Does Retell charge a flat \$0.07/minute for every agent?
+
+No. Its detailed pricing varies with the model, voice, telephony, and optional features. Use the component table for the configuration you choose.
+
+### Can both work with React and custom LLMs?
+
+Yes. Both have browser SDKs and custom LLM integrations, with different connection and event contracts. Vapi documents an OpenAI-compatible model endpoint; Retell documents a custom LLM WebSocket protocol.
+
+### Which has lower latency?
+
+This guide does not establish a winner. Measure the same workload over the same channel and region with comparable model and voice configurations. A browser demo and a telephone call are not equivalent tests.
+
+## Continue building
+
+- [Voice agent platforms and architecture choices](/guides/voice-agent-platforms)
+- [Build directly with the OpenAI Realtime API](/guides/openai-realtime-api-tutorial)
+- [Vapi and orb-ui integration](/adapters/vapi)
+- [Custom voice UI integrations](/adapters/custom)

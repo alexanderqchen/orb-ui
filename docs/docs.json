@@ -92,6 +92,8 @@
         "group": "Guides",
         "icon": "library",
         "pages": [
+          "guides/openai-realtime-api-tutorial",
+          "guides/vapi-vs-retell",
           "guides/voice-agent-ui",
           "guides/signal-based-voice-agent-ui",
           "guides/volume-calibration",
