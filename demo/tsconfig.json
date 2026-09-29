@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src", "api"]
+  "include": ["src", "api", "blog/**/*.ts"]
 }

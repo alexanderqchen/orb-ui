@@ -104,6 +104,12 @@ retaining its broader voice agent UI positioning, the ElevenLabs guide explains 
 and includes a complete integration, and both provider and animation guides embed an interactive
 theme/state preview. The animation example remains a secondary homepage documentation link.
 
+Developer discovery now includes React tutorials for OpenAI Realtime and ElevenLabs, a sourced
+Vapi/Retell comparison, a Vapi alternatives guide, and a voice AI platform architecture guide.
+The five articles live in the main site’s static blog at `/blog`, with links from the homepage and
+relevant Mintlify provider references. Product documentation remains at `/docs`.
+Keep provider prices and API examples dated and recheck them when the providers change.
+
 ## Experience
 
 ### More impressive themes

@@ -16,7 +16,26 @@ orb-ui is intentionally narrow. It is the React UI layer that can sit on top of 
 | Voice generation     | ElevenLabs                                    | Render conversational state and audio activity |
 | Custom backend       | WebRTC, WebSocket, telephony                  | Use controlled mode or write an adapter        |
 
-## Comparison posture
+## Choose a stack for the work you need to do
+
+Start with the [voice AI platform guide](https://orb-ui.com/blog/voice-ai-platforms) to compare
+managed platforms, agent frameworks, and direct realtime APIs. If you are replacing an existing
+Vapi integration, the [Vapi alternatives guide](https://orb-ui.com/blog/vapi-alternatives) covers migration tradeoffs.
+
+For managed browser and phone agents, start with a concrete platform comparison:
+[Vapi vs Retell](https://orb-ui.com/blog/vapi-vs-retell) covers pricing components, browser SDKs, custom models,
+transfers, and capacity. Budget for the configured model and carrier as well as the platform fee.
+
+If you want to own a browser voice application directly, the
+[OpenAI Realtime API tutorial](https://orb-ui.com/blog/openai-realtime-api-tutorial) walks through a React client,
+server-side credentials, WebRTC, interruptions, and function calling. You own authentication,
+tool execution, and application operations; a model API alone does not supply a complete telephone workflow.
+
+For more control over the agent and media stack, evaluate LiveKit or Pipecat and decide which
+parts you will host. Their frontend adapters connect your UI to the agent deployment; they do not
+deploy that backend for you.
+
+## Keep the layers distinct
 
 When comparing tools, keep the distinction clear:
 

@@ -27,6 +27,10 @@
         "href": "https://orb-ui.com"
       },
       {
+        "label": "Blog",
+        "href": "https://orb-ui.com/blog"
+      },
+      {
         "type": "github",
         "href": "https://github.com/exprmntl/orb-ui"
       }

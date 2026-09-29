@@ -5,6 +5,21 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/blog/:path*/index.html",
+      "destination": "/blog/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/blog/",
+      "destination": "/blog",
+      "permanent": true
+    },
+    {
+      "source": "/blog/:slug/",
+      "destination": "/blog/:slug",
+      "permanent": true
+    },
+    {
       "source": "/index",
       "destination": "/",
       "permanent": true
@@ -251,6 +266,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/blog",
+      "destination": "/blog/index.html"
+    },
+    {
+      "source": "/blog/:slug([a-z0-9-]+)",
+      "destination": "/blog/:slug/index.html"
+    },
     {
       "source": "/demos/voice-orb",
       "destination": "/demos/voice-orb/index.html"
