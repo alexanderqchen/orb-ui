@@ -130,7 +130,8 @@ This guide does not establish a winner. Measure the same workload over the same 
 
 ## Continue building
 
-- [Voice agent platforms and architecture choices](/docs/guides/voice-agent-platforms)
+- [Vapi alternatives: managed platforms and open-source options](/blog/vapi-alternatives)
+- [Voice AI platforms and architecture choices](/blog/voice-ai-platforms)
 - [Build directly with the OpenAI Realtime API](/blog/openai-realtime-api-tutorial)
 - [Vapi and orb-ui integration](/docs/adapters/vapi)
 - [Custom voice UI integrations](/docs/adapters/custom)

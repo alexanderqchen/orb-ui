@@ -359,6 +359,8 @@ Choose one connection owner. Replace the raw WebRTC client when adopting the ada
 
 ## Related guides and sources
 
+- [Build an ElevenLabs conversational AI agent in React](/blog/elevenlabs-conversational-ai-react)
+- [Choose a voice AI platform](/blog/voice-ai-platforms)
 - [OpenAI WebRTC connection guide](https://developers.openai.com/api/docs/guides/voice-webrtc?api=realtime)
 - [OpenAI Realtime conversations and function calling](https://developers.openai.com/api/docs/guides/realtime-conversations)
 - [GPT-Realtime-2.1 model](https://developers.openai.com/api/docs/models/gpt-realtime-2.1)
