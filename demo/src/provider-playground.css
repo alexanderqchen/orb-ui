@@ -130,7 +130,7 @@ input {
   font-size: 13px;
 }
 
-.provider-button:hover:not(:disabled) {
+.provider-button:hover:not(:disabled):not(.is-selected) {
   border-color: #5b5b5b;
   color: #fff;
 }
@@ -244,7 +244,7 @@ input {
 
 .provider-calibration-phase small {
   grid-column: 1 / -1;
-  color: #777;
+  color: #858585;
   font-size: 11px;
   line-height: 1.4;
 }

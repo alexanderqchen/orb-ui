@@ -677,7 +677,7 @@ export default function App() {
         .code-window__copy {
           background: transparent;
           border: 0;
-          color: #777;
+          color: #858585;
           cursor: pointer;
           font-size: 11px;
           font-weight: 650;
@@ -862,7 +862,7 @@ export default function App() {
           background: #111;
           border: 1px solid #292929;
           border-radius: 7px;
-          color: #727272;
+          color: #858585;
           cursor: pointer;
           font-size: 10px;
           min-height: 30px;
@@ -1047,7 +1047,7 @@ export default function App() {
         }
 
         .integration-option__detail {
-          color: #626262;
+          color: #929292;
           font-family: ${MONOSPACE_FONT};
           font-size: 8px;
           grid-column: 1;
