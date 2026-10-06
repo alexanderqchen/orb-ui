@@ -112,8 +112,8 @@ credits or microphone access. Hosted provider proxy routes are disabled. Live ex
 your own authenticated backend and short-lived browser credentials; provider secrets stay server-side.
 The developer provider playground is available through `pnpm dev:demo` at localhost.
 
-The seven new integrations are unreleased until the next approved package release. Build this
-checkout to try the exported APIs; credential-based live provider tests have not been run.
+The seven expansion integrations require `orb-ui@0.10.0` or later. Install that version to use
+the exported APIs; credential-based live provider tests have not been run.
 See the [expansion checklist](EXPANSION_CHECKLIST.md) for all fifteen additions and their
 verification and publication boundaries.
 
