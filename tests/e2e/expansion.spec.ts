@@ -29,6 +29,31 @@ function watch(page: Page) {
   return { errors, providerRequests }
 }
 
+if (process.env.ORB_PREVIEW_URL) {
+  test('hosted provider routes reject requests and copied examples remain intact', async ({
+    page,
+  }) => {
+    // The Vite preview serves static assets; these functions are verified on the real deployment.
+    for (const path of [
+      'openai-live-session',
+      'openai-realtime-token',
+      'gemini-live-token',
+      'pipecat-start',
+    ]) {
+      const response = await page.request.post(`${origin}/api/${path}`, {
+        data: { apiKey: 'synthetic-test-key' },
+      })
+      expect(response.status()).toBe(403)
+      expect(response.headers()['cache-control']).toBe('no-store')
+    }
+    await page.goto(`${origin}/docs/recipes/product-search`)
+    const source = await page.locator('.code-block code').nth(1).textContent()
+    expect(source).toContain('gridTemplateColumns:')
+    await page.locator('.copy-code').nth(1).click()
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
+  })
+}
+
 for (const [slug] of integrations) {
   test(`${slug}: canonical content and simulated start/interrupt/error/reconnect/stop`, async ({
     page,
