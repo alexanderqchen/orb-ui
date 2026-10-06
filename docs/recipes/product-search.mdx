@@ -1,0 +1,452 @@
+---
+title: Spoken Product Search with Filters and Result Cards
+description: Build a React spoken search UI with editable queries, reviewable voice filters, a fictional backpack catalog, matching result cards, and one-step undo.
+---
+
+Spoken search should make its interpretation visible. This recipe captures an editable sample
+query, proposes a category, budget, and waterproof preference, then waits for confirmation
+before changing the product results. Users can refine the same filters manually or undo the last
+voice filter change.
+
+The preview uses a fictional catalog and a small local grammar. It does not perform speech
+recognition, query a store, or make recommendations about real products. No microphone,
+provider session, or API request is started.
+
+## Try the local preview
+
+<iframe
+  src="https://orb-ui.com/demos/recipes/?recipe=product-search"
+  title="Spoken product search: review heard filters, undo, and matching backpack cards"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the preview in a separate page](https://orb-ui.com/demos/recipes/?recipe=product-search).
+
+1. Select **Simulate spoken search** for the default query, “Waterproof hiking backpacks under $100”.
+2. Review the heard filters, then select **Apply heard filters**. The sample catalog returns Trail 24.
+3. Select **Undo voice filters** to restore the previous result set.
+4. Try “commute backpacks under $90”, use the manual filters, or reduce the price to inspect the empty state.
+
+The recognized phrases are hiking, commute, travel, waterproof, and budgets expressed as
+“under”, “below”, or “less than” followed by a number. A new spoken search replaces the previous
+filters after confirmation. Unrecognized text gives a helpful error and preserves existing
+results. Editing the transcript invalidates a pending proposal.
+
+## Set up the React example
+
+```bash
+npm install orb-ui
+```
+
+Save the component below as `product-search.tsx`, import its default export, and render it in your React
+app. In Next.js App Router, add `'use client'` as the first line of this component. The example
+requires no environment variables, credentials, or provider SDK.
+
+The preview runs this same component. The source is checked by the demo's TypeScript build, and
+[the complete TSX file is available to download](https://orb-ui.com/examples/product-search.tsx).
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbSignal } from 'orb-ui'
+
+type Category = 'all' | 'hiking' | 'commute' | 'travel'
+interface Filters {
+  category: Category
+  maxPrice: number
+  waterproof: boolean
+}
+const defaults: Filters = { category: 'all', maxPrice: 200, waterproof: false }
+const catalog = [
+  {
+    id: 'trail',
+    name: 'Trail 24',
+    category: 'hiking',
+    price: 79,
+    waterproof: true,
+    detail: '24 L · roll top · 680 g',
+  },
+  {
+    id: 'ridge',
+    name: 'Ridge 35',
+    category: 'hiking',
+    price: 129,
+    waterproof: true,
+    detail: '35 L · ventilated back · 920 g',
+  },
+  {
+    id: 'daylight',
+    name: 'Daylight 18',
+    category: 'hiking',
+    price: 49,
+    waterproof: false,
+    detail: '18 L · packable · 340 g',
+  },
+  {
+    id: 'metro',
+    name: 'Metro 20',
+    category: 'commute',
+    price: 89,
+    waterproof: true,
+    detail: '20 L · laptop sleeve · 760 g',
+  },
+  {
+    id: 'studio',
+    name: 'Studio 16',
+    category: 'commute',
+    price: 59,
+    waterproof: false,
+    detail: '16 L · padded straps · 540 g',
+  },
+  {
+    id: 'weekender',
+    name: 'Weekender 30',
+    category: 'travel',
+    price: 149,
+    waterproof: false,
+    detail: '30 L · clamshell · 1.1 kg',
+  },
+] as const
+
+// Intentionally limited grammar: this preview is not speech recognition or an LLM.
+function parseQuery(text: string): Filters | null {
+  const query = text.toLowerCase()
+  const category: Category = /hiking|trail/.test(query)
+    ? 'hiking'
+    : /commut|work/.test(query)
+      ? 'commute'
+      : /travel|weekend/.test(query)
+        ? 'travel'
+        : 'all'
+  const price = query.match(/(?:under|below|less than)\s*\$?\s*(\d+(?:\.\d+)?)/)
+  const waterproof = /waterproof/.test(query) && !/not waterproof|no waterproof/.test(query)
+  if (category === 'all' && !price && !/waterproof|all (?:bags|backpacks)/.test(query)) return null
+  return {
+    category,
+    maxPrice: price ? Math.min(200, Math.max(0, Number(price[1]))) : 200,
+    waterproof,
+  }
+}
+
+export default function ProductSearch() {
+  const [filters, setFilters] = useState<Filters>(defaults)
+  const [draft, setDraft] = useState('Waterproof hiking backpacks under $100')
+  const [pending, setPending] = useState<Filters | null>(null)
+  const [previous, setPrevious] = useState<Filters | null>(null)
+  const [signal, setSignal] = useState<OrbSignal>({ state: 'idle' })
+  const [status, setStatus] = useState(
+    'Search the sample catalog by voice simulation or manual filters.',
+  )
+  const [failNext, setFailNext] = useState(false)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const busy = useRef(false)
+  const active = ['listening', 'thinking'].includes(signal.state)
+  const results = catalog.filter(
+    (item) =>
+      (filters.category === 'all' || item.category === filters.category) &&
+      item.price <= filters.maxPrice &&
+      (!filters.waterproof || item.waterproof),
+  )
+
+  function clearRun() {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    busy.current = false
+  }
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  function simulateQuery() {
+    if (busy.current || !draft.trim()) return
+    clearRun()
+    busy.current = true
+    const query = draft.trim()
+    const fail = failNext
+    setFailNext(false)
+    setPending(null)
+    setSignal({ state: 'listening', inputVolume: 0.5, outputVolume: 0 })
+    setStatus('Simulating a spoken search. Current results stay visible.')
+    timers.current.push(
+      setTimeout(() => {
+        setSignal({ state: 'thinking', inputVolume: 0, outputVolume: 0 })
+        setStatus('Extracting category, price, and waterproof preference…')
+      }, 800),
+    )
+    timers.current.push(
+      setTimeout(() => {
+        busy.current = false
+        const proposed = fail ? null : parseQuery(query)
+        if (!proposed) {
+          setSignal({ state: 'error', inputVolume: 0, outputVolume: 0 })
+          setStatus(
+            fail
+              ? 'Sample search failed. Your filters and results were preserved; try again.'
+              : 'No supported filters found. Try “commute backpacks under $90” or use the manual filters.',
+          )
+          return
+        }
+        setPending(proposed)
+        setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+        setStatus('Search understood. Review the proposed filters before applying them.')
+      }, 1400),
+    )
+  }
+
+  function applyVoiceFilters() {
+    if (!pending || busy.current) return
+    setPrevious(filters)
+    setFilters(pending)
+    setPending(null)
+    setStatus('Voice filters applied. Undo restores your previous filter choices.')
+  }
+
+  function updateFilters(next: Filters) {
+    clearRun()
+    setFilters(next)
+    setPrevious(null)
+    setPending(null)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Manual filters updated.')
+  }
+
+  function undo() {
+    if (!previous) return
+    clearRun()
+    setFilters(previous)
+    setPrevious(null)
+    setPending(null)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Previous filters restored.')
+  }
+
+  function cancel() {
+    clearRun()
+    setPending(null)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Spoken search canceled. Current filters and results are unchanged.')
+  }
+
+  return (
+    <section className="recipe-demo" aria-label="Spoken product search">
+      <p>Local simulation · fictional catalog and prices · no microphone or AI calls</p>
+      <Orb signal={signal} theme="circle" size={112} interactive={false} />
+      <p className="recipe-status" role="status" aria-atomic="true">
+        {status}
+      </p>
+      <label className="recipe-field">
+        Spoken query (editable sample)
+        <input
+          value={draft}
+          maxLength={250}
+          disabled={active}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            setPending(null)
+          }}
+        />
+      </label>
+      <div className="recipe-actions">
+        <button type="button" disabled={active || !draft.trim()} onClick={simulateQuery}>
+          Simulate spoken search
+        </button>
+        <button type="button" disabled={!active && !pending} onClick={cancel}>
+          Cancel search
+        </button>
+        <button type="button" disabled={active || !previous} onClick={undo}>
+          Undo voice filters
+        </button>
+      </div>
+      <label>
+        <input
+          type="checkbox"
+          checked={failNext}
+          disabled={active}
+          onChange={(event) => setFailNext(event.target.checked)}
+        />{' '}
+        Simulate a search error next turn
+      </label>
+      {pending && (
+        <article className="recipe-card" aria-label="Proposed voice filters">
+          <h3>Review heard filters</h3>
+          <p>
+            {pending.category === 'all' ? 'All uses' : pending.category} · up to ${pending.maxPrice}{' '}
+            · {pending.waterproof ? 'waterproof only' : 'any weather protection'}
+          </p>
+          <button type="button" onClick={applyVoiceFilters}>
+            Apply heard filters
+          </button>
+        </article>
+      )}
+      <fieldset>
+        <legend>Refine results</legend>
+        <label className="recipe-field">
+          Use
+          <select
+            value={filters.category}
+            onChange={(event) =>
+              updateFilters({ ...filters, category: event.target.value as Category })
+            }
+          >
+            {(['all', 'hiking', 'commute', 'travel'] as const).map((category) => (
+              <option key={category} value={category}>
+                {category === 'all' ? 'All uses' : category}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="recipe-field">
+          Maximum price: ${filters.maxPrice}
+          <input
+            type="range"
+            min="0"
+            max="200"
+            step="1"
+            value={filters.maxPrice}
+            onChange={(event) =>
+              updateFilters({ ...filters, maxPrice: Number(event.target.value) })
+            }
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={filters.waterproof}
+            onChange={(event) => updateFilters({ ...filters, waterproof: event.target.checked })}
+          />{' '}
+          Waterproof only
+        </label>
+      </fieldset>
+      <h3 aria-live="polite">
+        {results.length} matching {results.length === 1 ? 'backpack' : 'backpacks'}
+      </h3>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+          gap: 12,
+        }}
+      >
+        {results.map((item) => (
+          <article className="recipe-card" key={item.id}>
+            <h3>{item.name}</h3>
+            <p>
+              <strong>${item.price}</strong> · {item.category}
+            </p>
+            <p>{item.detail}</p>
+            <p>{item.waterproof ? 'Waterproof shell' : 'Standard shell'}</p>
+          </article>
+        ))}
+      </div>
+      {results.length === 0 && (
+        <p>
+          No matches. Increase your budget or{' '}
+          <button type="button" onClick={() => updateFilters(defaults)}>
+            Reset filters
+          </button>
+          .
+        </p>
+      )}
+      <p>
+        Supported sample grammar: hiking, commute, travel, waterproof, and “under $100”. Filters
+        replace the previous search after your confirmation.
+      </p>
+    </section>
+  )
+}
+```
+
+The `recipe-*` classes are application layout hooks, not a required `orb-ui` stylesheet. Here is a
+minimal responsive treatment to paste into your app’s CSS; replace it with your own design system
+as needed. Native controls and visible focus remain available without custom styling.
+
+```css
+.recipe-demo {
+  max-width: 48rem;
+  margin: auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+.recipe-status {
+  min-height: 3rem;
+}
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.recipe-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-block: 0.8rem;
+}
+.recipe-field input,
+.recipe-field textarea,
+.recipe-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+.recipe-card {
+  border: 1px solid #9ca3af;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-block: 0.75rem;
+}
+.recipe-demo button,
+.recipe-demo select {
+  min-height: 2.75rem;
+}
+.recipe-demo button {
+  cursor: pointer;
+}
+.recipe-demo button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.recipe-demo :focus-visible {
+  outline: 3px solid #6366f1;
+  outline-offset: 3px;
+}
+.recipe-demo mark {
+  color: #172554;
+  background: #dbeafe;
+}
+.recipe-demo progress {
+  max-width: 100%;
+}
+```
+
+## Connect your app’s voice or media source
+
+The example separates `draft`, `pending`, and applied `filters`. This avoids changing a shopping
+page while a transcript is still being corrected. Undo stores the last applied filter snapshot;
+manually editing filters clears that snapshot because the newer manual choice is authoritative.
+
+In a live application, feed finalized transcript events into a constrained filter schema. Validate
+category identifiers and price bounds on your own backend, and return the interpreted filters
+before running a product query. Keep previous results visible during loading and preserve them
+on failure. Announce the result count rather than every card.
+
+The result cards here are static local data. Replace `catalog.filter(...)` with your existing
+search service when needed. Debounce manual filter requests, cancel stale queries, and correlate
+responses with the applied filter version. Connect the same [voice adapter](/adapters/overview)
+that your app already uses; visual state does not require a separate search-specific provider.
+
+Public demos stay local. Any optional live session should use your visitor’s or developer’s own
+backend and provider account, with scoped, short-lived session credentials. Never put a provider
+secret in the browser or create a public owner-funded endpoint to power this example.
+
+## Verify the complete interaction
+
+- Apply the default query, inspect the single result, and undo back to the full catalog.
+- Edit a pending query before confirmation and verify the previous proposal disappears.
+- Set a budget of zero and recover from the empty result state.
+- Cancel or fail a spoken search and verify current filters and results remain intact.
+- Check that manual filters cancel pending voice interpretation, and inspect cards on a narrow screen.
+
+These checks cover the recipe interaction. Live provider transcription, latency, reconnect,
+permissions, and audio alignment still need verification in your own environment. See the
+[Orb component reference](/reference/orb-component) for controlled signals and the
+[voice state guide](/themes/voice-states) for accessible lifecycle labels.

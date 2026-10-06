@@ -1,0 +1,32 @@
+{
+  "name": "orb-ui-nova-sonic-recipe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "server": "tsx server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "build": "tsc --noEmit && vite build"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1146.0",
+    "@smithy/node-http-handler": "4.12.1",
+    "orb-ui": "file:../..",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "socket.io": "4.8.4",
+    "socket.io-client": "4.8.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.15",
+    "@types/react": "18.3.29",
+    "@types/react-dom": "18.3.7",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.3"
+  }
+}

@@ -1,6 +1,14 @@
 import { Orb, OrbThemeProvider, defineOrbTheme } from 'orb-ui'
 import type { OrbThemeRenderer } from 'orb-ui'
 import {
+  createRetellAdapter,
+  createHumeAdapter,
+  createDeepgramAdapter,
+  createDeepgramReactAdapter,
+  createAgoraAdapter,
+  createAzureVoiceLiveAdapter,
+  createCartesiaAdapter,
+  createNovaSonicBridge,
   createElevenLabsAdapter,
   createGeminiLiveAdapter,
   createLiveKitAdapter as createAdvancedLiveKitAdapter,
@@ -8,6 +16,19 @@ import {
   createOpenAIRealtimeAdapter,
   createPipecatAdapter,
 } from 'orb-ui/adapters'
+
+// Every expansion factory must remain available from emitted ESM/Node declarations.
+const expansionFactories = [
+  createRetellAdapter,
+  createHumeAdapter,
+  createDeepgramAdapter,
+  createDeepgramReactAdapter,
+  createAgoraAdapter,
+  createAzureVoiceLiveAdapter,
+  createCartesiaAdapter,
+  createNovaSonicBridge,
+]
+void expansionFactories
 import { createLiveKitAdapter } from 'orb-ui/adapters/livekit'
 import type { LiveKitBrowserAdapterConfig } from 'orb-ui/adapters/livekit'
 import type {

@@ -1,3 +1,5 @@
+import { unavailableProviderProxy } from './public-demo-policy'
+
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } })
 }
@@ -61,4 +63,4 @@ export async function createLiveSession(request: Request, localApiKey?: string) 
   }
 }
 
-export default { fetch: (request: Request) => createLiveSession(request) }
+export default { fetch: unavailableProviderProxy }

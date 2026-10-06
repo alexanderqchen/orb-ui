@@ -1,0 +1,305 @@
+---
+title: Voice Document Q&A with Citations in React
+description: Build a React voice document question-and-answer interface with visible citations, source passages, typed fallback, cancellation, and a complete local orb-ui example.
+---
+
+An answer is more useful when the reader can check where it came from. This recipe pairs voice
+questions with a small source document, visible citations, a typed alternative, and an explicit
+no-match result. The source content stays available while the answer is displayed.
+
+## Try grounded document questions
+
+The preview contains three fictional handbook passages and a deterministic answer fixture. It
+simulates question transcription, retrieval, and answer narration without recording or playing
+audio, contacting a model, or spending provider credits.
+
+<iframe
+  src="/demos/recipes/?recipe=document-qa"
+  title="Local simulated voice document Q&A with linked source citations"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the document Q&A preview](/demos/recipes/?recipe=document-qa).
+Choose a sample question and select **Ask by voice (fixture)** or **Ask typed question**. Select
+the source link in the answer to inspect the supporting passage. Ask an unrelated question to
+see the no-match response, or use **Simulate retrieval error** to exercise recovery.
+
+## Setup
+
+```bash
+npm install orb-ui
+```
+
+Save the complete component as `DocumentQA.tsx` and render `<DocumentQA />` in an existing
+React app. Add `'use client'` before the imports in Next.js App Router. The source has no hidden
+fixture files, backend route, or extra dependency. The `recipe-*` classes are optional styling
+hooks.
+
+[Download the complete TSX example](/examples/document-qa.tsx).
+
+## Keep sources and session state explicit
+
+| Moment                      | Orb state   | Result behavior                                                     |
+| --------------------------- | ----------- | ------------------------------------------------------------------- |
+| Voice fixture starts        | `listening` | Show the captured question and clear the previous answer.           |
+| Typed question or retrieval | `thinking`  | Match against the current local source passages.                    |
+| Supported answer            | `speaking`  | Show answer text and a link to its supporting passage.              |
+| Narration finishes          | `idle`      | Keep the answer and citations readable.                             |
+| No matching source          | `idle`      | Explain the fixture's supported topics without inventing an answer. |
+| Cancel                      | `idle`      | Clear pending result and invalidate delayed callbacks.              |
+| Retrieval error             | `error`     | Preserve the editable question and offer retry.                     |
+
+`answerFromFixture` is intentionally deterministic keyword matching over fixed answer text. It
+is a local interaction fixture, not a retrieval model or a guarantee about answer quality. Its
+citations refer to stable passage IDs in the sample handbook. All source text is rendered as
+plain React text. A generation token prevents an older query from replacing a newer answer
+after cancellation, errors, or unmount.
+
+## Complete React example
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbState } from 'orb-ui'
+
+const passages = [
+  {
+    id: 'doc-refunds',
+    title: 'Refund window',
+    text: 'Unused seats can be refunded within 14 days of purchase. Submit a request with your order number. Used seats are not refundable.',
+  },
+  {
+    id: 'doc-access',
+    title: 'Team access',
+    text: 'Workspace owners can invite editors or viewers. Viewers can read documents; editors can change them. Access can be revoked from Workspace settings.',
+  },
+  {
+    id: 'doc-export',
+    title: 'Export your documents',
+    text: 'Owners and editors can export individual documents as Markdown from the document menu. Workspace-wide exports require the owner role.',
+  },
+]
+type Answer = { text: string; citations: string[] }
+const samples = ['Can I get a refund?', 'What can a viewer do?', 'How do I export a document?']
+
+function answerFromFixture(question: string): Answer | null {
+  if (/refund|money back/i.test(question))
+    return {
+      text: 'You can request a refund for unused seats within 14 days. Include your order number; used seats are excluded.',
+      citations: ['doc-refunds'],
+    }
+  if (/viewer|invite|access/i.test(question))
+    return {
+      text: 'Viewers can read documents. Owners invite viewers or editors, and can revoke access in Workspace settings.',
+      citations: ['doc-access'],
+    }
+  if (/export|download|markdown/i.test(question))
+    return {
+      text: 'Use the document menu to export Markdown. Owners and editors can export one document; only owners can export the whole workspace.',
+      citations: ['doc-export'],
+    }
+  return null
+}
+
+export default function DocumentQA() {
+  const [question, setQuestion] = useState(samples[0])
+  const [answer, setAnswer] = useState<Answer | null>(null)
+  const [state, setState] = useState<OrbState>('idle')
+  const [message, setMessage] = useState(
+    'Ask about the sample handbook. Every supported answer includes a source.',
+  )
+  const [transcript, setTranscript] = useState('')
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const generation = useRef(0)
+  const active = useRef(false)
+
+  function cancel() {
+    generation.current += 1
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    active.current = false
+  }
+  useEffect(
+    () => () => {
+      generation.current += 1
+      timers.current.forEach(clearTimeout)
+    },
+    [],
+  )
+  function later(delay: number, run: () => void) {
+    const token = generation.current
+    timers.current.push(
+      setTimeout(() => {
+        if (generation.current === token) run()
+      }, delay),
+    )
+  }
+  function ask(voice: boolean) {
+    if (active.current || !question.trim()) return
+    const capturedQuestion = question.trim()
+    cancel()
+    active.current = true
+    setAnswer(null)
+    setTranscript(voice ? 'Simulated question: ' + capturedQuestion : capturedQuestion)
+    setState(voice ? 'listening' : 'thinking')
+    setMessage(
+      voice
+        ? 'Playing a transcript fixture. No microphone is open.'
+        : 'Searching three local source passages…',
+    )
+    const delay = voice ? 800 : 0
+    later(delay, () => {
+      setState('thinking')
+      setMessage('Matching the question to the sample handbook…')
+    })
+    later(delay + 700, () => {
+      const result = answerFromFixture(capturedQuestion)
+      if (!result) {
+        active.current = false
+        setState('idle')
+        setMessage(
+          'No matching source in this fixture. Try refund, viewer access, or document export. No answer was invented.',
+        )
+        return
+      }
+      setAnswer(result)
+      setState('speaking')
+      setMessage('Simulated answer narration. Select a citation to read the source.')
+      later(1300, () => {
+        active.current = false
+        setState('idle')
+        setMessage('Answer ready. Check the source before relying on it.')
+      })
+    })
+  }
+  function stop(failed = false) {
+    cancel()
+    setState(failed ? 'error' : 'idle')
+    setAnswer(null)
+    setTranscript('')
+    setMessage(
+      failed
+        ? 'Simulated retrieval failure. Your question is preserved. Retry the question.'
+        : 'Question cancelled. No delayed answer will replace the next question.',
+    )
+  }
+  const busy = state === 'listening' || state === 'thinking' || state === 'speaking'
+
+  return (
+    <section className="recipe-demo" aria-label="Voice document questions with citations">
+      <p className="recipe-status">
+        LOCAL SIMULATION · Text fixtures; no microphone, audio, or paid calls
+      </p>
+      <Orb
+        theme="circle"
+        size={126}
+        interactive={false}
+        signal={{
+          state,
+          inputVolume: state === 'listening' ? 0.42 : 0,
+          outputVolume: state === 'speaking' ? 0.62 : 0,
+        }}
+      />
+      <p role="status" className="recipe-status">
+        {message}
+      </p>
+      <label className="recipe-field">
+        Question about the sample handbook
+        <input
+          value={question}
+          disabled={busy}
+          onChange={(event) => setQuestion(event.target.value)}
+        />
+      </label>
+      <div className="recipe-actions" aria-label="Sample questions">
+        {samples.map((sample) => (
+          <button
+            key={sample}
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setQuestion(sample)
+              setAnswer(null)
+            }}
+          >
+            {sample}
+          </button>
+        ))}
+      </div>
+      <div className="recipe-actions">
+        <button type="button" disabled={busy || !question.trim()} onClick={() => ask(true)}>
+          {state === 'error' ? 'Retry voice question' : 'Ask by voice (fixture)'}
+        </button>
+        <button type="button" disabled={busy || !question.trim()} onClick={() => ask(false)}>
+          Ask typed question
+        </button>
+        <button type="button" disabled={!busy} onClick={() => stop()}>
+          Stop answer
+        </button>
+        <button type="button" disabled={state === 'error'} onClick={() => stop(true)}>
+          Simulate retrieval error
+        </button>
+      </div>
+      {transcript && <p className="recipe-status">{transcript}</p>}
+      {answer && (
+        <article className="recipe-card" aria-label="Answer with sources">
+          <h3>Grounded sample answer</h3>
+          <p>{answer.text}</p>
+          <p>
+            Sources:{' '}
+            {answer.citations.map((id) => {
+              const source = passages.find((passage) => passage.id === id)!
+              return (
+                <a key={id} href={'#' + id}>
+                  {source.title}
+                </a>
+              )
+            })}
+          </p>
+        </article>
+      )}
+      <div className="recipe-card" aria-label="Source document">
+        <h3>Sample handbook · version 1</h3>
+        {passages.map((passage) => (
+          <section key={passage.id} id={passage.id} tabIndex={-1}>
+            <h4>{passage.title}</h4>
+            <p>{passage.text}</p>
+          </section>
+        ))}
+      </div>
+    </section>
+  )
+}
+```
+
+## Replace the fixture with document retrieval
+
+Keep document access checks, retrieval, and model calls in your own authenticated backend. The
+browser should receive answer text plus stable citation IDs, document version, and the exact
+supporting passages the visitor is allowed to read. Validate every citation against the retrieved
+source set, and show a no-answer result when the evidence is insufficient. A plausible paragraph
+without a valid source should not be presented as grounded.
+
+Drive the Orb from the existing voice session or [provider adapter](/adapters/overview), while
+keeping question/answer state in the application. Reuse the session's audio tracks rather than
+requesting a second microphone stream. If microphone access is denied, preserve typed questions.
+Abort retrieval when a question is cancelled and detach session listeners on unmount.
+
+Use visitor/developer-owned credentials through your own backend with scoped, short-lived
+browser credentials where needed. Do not ship provider secrets or route public previews through
+an owner-funded model endpoint. If sources contain sensitive content, enforce authorization
+before retrieval and before opening a citation.
+
+## Verify the interaction
+
+Ask each sample question and check that its citation opens the supporting passage. Ask an
+unsupported question and verify that no answer is fabricated. Start a query, stop it, choose a
+different question, and make sure the first result never returns. Simulate retrieval failure and
+retry. Check the typed fallback, citation keyboard navigation, source readability, narrow
+screens, and reduced motion.
+
+The [voice agent UI guide](/guides/voice-agent-ui) covers broader session design. Use the
+[custom integration guide](/adapters/custom) for an app-owned runtime and the
+[voice form recipe](/recipes/voice-form) when spoken output needs review before a transaction.

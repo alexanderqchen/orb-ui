@@ -300,7 +300,7 @@ const SEO_SECTIONS = [
   {
     id: 'adapters',
     title: 'Provider adapters',
-    copy: 'Use adapters for Vapi, ElevenLabs, LiveKit, Pipecat, OpenAI Live, OpenAI Realtime, and Gemini Live.',
+    copy: 'Connect managed voice SDKs, app-owned sessions, and full-stack audio pipelines.',
     link: '/docs/adapters/overview',
     linkLabel: 'Explore adapters',
   },
@@ -328,6 +328,13 @@ const SEO_SECTIONS = [
 ] as const
 
 const PROVIDER_GUIDES = [
+  { href: '/docs/adapters/retell', label: 'Retell', detail: 'Browser WebCall' },
+  { href: '/docs/adapters/hume', label: 'Hume EVI', detail: 'VoiceProvider bridge' },
+  { href: '/docs/adapters/deepgram', label: 'Deepgram', detail: 'Voice Agent' },
+  { href: '/docs/adapters/agora', label: 'Agora', detail: 'Conversational AI' },
+  { href: '/docs/adapters/azure-voice-live', label: 'Azure Voice Live', detail: 'Session bridge' },
+  { href: '/docs/adapters/cartesia', label: 'Cartesia', detail: 'Managed Agents' },
+  { href: '/docs/adapters/nova-sonic', label: 'Nova 2 Sonic', detail: 'Full-stack recipe' },
   { href: '/docs/adapters/vapi', label: 'Vapi', detail: 'Web SDK' },
   { href: '/docs/adapters/elevenlabs', label: 'ElevenLabs', detail: 'Conversational AI' },
   { href: '/docs/adapters/livekit', label: 'LiveKit', detail: 'Agents' },
@@ -339,6 +346,7 @@ const PROVIDER_GUIDES = [
 ] as const
 
 const USE_CASE_GUIDES = [
+  { href: '/docs/recipes', label: 'Eight voice UI recipes', detail: 'Interactive React examples' },
   {
     href: '/docs/guides/ai-voice-sales-agents',
     label: 'AI voice sales agents',

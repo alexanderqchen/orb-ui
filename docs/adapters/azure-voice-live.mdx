@@ -1,0 +1,154 @@
+---
+title: Azure Voice Live React Voice UI
+description: Connect Azure Voice Live JavaScript sessions to orb-ui with AudioWorklet microphone capture, PCM playback, interruption handling, and a local simulated preview.
+---
+
+`createAzureVoiceLiveAdapter` connects an injected Azure JavaScript SDK session to a React orb.
+It supplies the browser audio path: mono PCM16 microphone capture, 24 kHz resampling, queued
+playback, separate input/output meters, interruption cleanup, and session disposal. Your
+application owns Azure identity, its resource, model selection, instructions, and tools.
+
+## Try the local simulation
+
+This preview uses synthetic signals and local audio fixtures. It does not contact Azure, request
+microphone permission, or consume anyone's API credits. Listening, thinking, interruption, errors,
+and reconnection can be reviewed before configuring an Azure resource.
+
+<iframe
+  src="/demos/integrations/?provider=azure-voice-live"
+  title="Simulated Azure Voice Live orb integration"
+  width="100%"
+  height="760"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+## Install and supply your own identity
+
+```bash
+npm install orb-ui @azure/ai-voicelive@1.1.0
+```
+
+The compatibility example is checked against `@azure/ai-voicelive` **1.1.0** and its browser
+declarations. That SDK defaults to Voice Live API version `2026-07-15`. This integration's
+browser service behavior has not been tested with live Azure credentials; availability of models,
+voices, and preview features depends on your resource and region.
+
+The component below accepts an existing **token credential for the visitor or developer's own
+resource**. Azure does not provide a session-scoped anonymous client secret in this recipe.
+Use your application's established identity flow and narrow Azure role assignments. Do not hand
+anonymous visitors a shared server managed-identity bearer token. Do not pass an API key as
+the credential, put secrets in `VITE_*` or `NEXT_PUBLIC_*`, or expose an owner-funded token endpoint.
+
+## Copyable React component
+
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { VoiceLiveClient } from '@azure/ai-voicelive'
+import { Orb } from 'orb-ui'
+import { createAzureVoiceLiveAdapter } from 'orb-ui/adapters'
+
+// Accept TokenCredential only; exclude the SDK's API-key credential alternative.
+type BrowserTokenCredential = Exclude<
+  ConstructorParameters<typeof VoiceLiveClient>[1],
+  { key: string }
+>
+
+export function AzureVoiceUI({
+  endpoint,
+  credential,
+}: {
+  endpoint: string
+  credential: BrowserTokenCredential
+}) {
+  const [caption, setCaption] = useState('')
+  const adapter = useMemo(
+    () =>
+      createAzureVoiceLiveAdapter({
+        createSession: () => {
+          const client = new VoiceLiveClient(endpoint, credential)
+          // Return an unconnected session. The adapter subscribes before connect().
+          return client.createSession('gpt-realtime-mini')
+        },
+        configureSession: async (session) => {
+          await session.updateSession({
+            modalities: ['text', 'audio'],
+            voice: { type: 'azure-standard', name: 'en-US-AvaNeural' },
+            instructions: 'Respond concisely. Ask before performing actions.',
+            inputAudioTranscription: { model: 'azure-speech' },
+          })
+        },
+        onEvent: (event) => {
+          if (event.type === 'conversation.item.input_audio_transcription.completed') {
+            setCaption(event.transcript ?? '')
+          }
+        },
+      }),
+    [endpoint, credential],
+  )
+  useEffect(
+    () => () => {
+      void adapter.stop().catch(() => undefined)
+    },
+    [adapter],
+  )
+
+  return (
+    <section>
+      <Orb adapter={adapter} theme="circle" aria-label="Start or stop Azure Voice Live" />
+      <p aria-live="polite">{caption}</p>
+    </section>
+  )
+}
+```
+
+Keep the credential object stable between renders. Every start creates a fresh SDK session;
+the credential must acquire or refresh short-lived tokens through your established identity flow.
+Session creation receives an `AbortSignal` if your factory needs to fetch user-authorized
+configuration. No Azure SDK code is bundled into orb-ui itself.
+
+## Audio ownership and state mapping
+
+| Trigger                                                   | Orb behavior                                 |
+| --------------------------------------------------------- | -------------------------------------------- |
+| Permission, credential work, SDK connection/configuration | `connecting`                                 |
+| User speech starts                                        | `listening`; immediately flush queued output |
+| User speech stops or response starts                      | `thinking`                                   |
+| PCM output enters the playback queue                      | `speaking`                                   |
+| Response finishes and playback drains                     | `listening`                                  |
+| Explicit stop or normal service hangup                    | `idle`; release local resources              |
+| Permission, timeout, audio, or provider failure           | `error`; dispose the session                 |
+
+Azure SDK `response.audio.delta` contains **decoded `Uint8Array` bytes**, not a base64 string.
+The adapter uses server VAD by default and forces PCM16 input/output after your configuration
+callback. SDK/server events stay available through `onEvent` for captions and tools. Audio is
+owned by this adapter; do not also capture or play the same session through another audio manager.
+
+## Browser constraints and recovery
+
+Start from a user gesture on HTTPS or localhost. The local AudioWorklet batches 2048 frames,
+resamples continuously, and never routes the microphone to speakers. Echo cancellation is
+requested by default. Playback volume uses an analyser; the shipped RMS anchors are conservative
+defaults, not provider-measured live calibration. Adjust `inputVolumeCalibration` and
+`outputVolumeCalibration` for your recordings.
+
+Startup has a 30-second deadline. Repeated starts share one startup promise; a stop aborts pending
+work, shuts down audio, closes subscriptions, and disposes the SDK session. Late credentials,
+microphone streams, and old-session callbacks cannot reopen a stopped conversation. Reconnect by
+calling `start()` again after stop or failure. There is no automatic paid reconnect loop.
+
+The default capture module uses a local blob URL. If your existing Content Security Policy
+disallows blob worklet modules, supply `createCaptureNode(context)` using your already-approved
+AudioWorklet module. No policy change is required. `getUserMedia` and `createAudioContext` also
+support an application's existing browser wrappers.
+
+## Verification and sources
+
+Synthetic tests cover cancellation, permission rejection, PCM encoding, queued playback,
+interruption, stale callbacks, reconnect, deadlines, and transport failure. SDK type compatibility
+is checked in the source examples. Live credential, regional availability, and device-specific
+echo/autoplay checks remain for your application before production use.
+
+- [Azure Voice Live JavaScript SDK](https://learn.microsoft.com/en-us/javascript/api/overview/azure/ai-voicelive-readme?view=azure-node-latest)
+- [Azure SDK source and samples](https://github.com/Azure/azure-sdk-for-js/tree/main/sdk/voicelive/ai-voicelive)
+- [Custom audio and session bridges](/adapters/custom)

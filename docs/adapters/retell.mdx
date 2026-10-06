@@ -1,0 +1,230 @@
+---
+title: Retell WebCall Voice UI for React
+description: Connect Retell's current browser WebCall SDK to a React voice orb with turn feedback, measured output audio, safe cleanup, and a local simulated preview.
+---
+
+Retell owns the browser call, microphone, and playback. orb-ui observes the current WebCall
+session and renders its connection, turn, and audio signals. Use this adapter when your app wants
+Retell call controls alongside the same accessible orb themes used by your other voice surfaces.
+
+## Try the local preview
+
+This preview uses simulated states and a local audio fixture. It opens no microphone, makes no
+provider request, and spends no API credits. Start, interrupt, end, and replay it to inspect the UI.
+
+<iframe
+  src="/demos/integrations/?provider=retell"
+  title="Simulated Retell WebCall UI"
+  loading="lazy"
+  style={{ width: '100%', height: '680px', border: '0', borderRadius: '20px' }}
+></iframe>
+
+## Install
+
+```bash
+npm install orb-ui retell-client-js-sdk@3.0.2
+```
+
+The adapter was checked against the published `retell-client-js-sdk` **3.0.2** declarations and
+runtime source on October 6, 2026. It uses `RetellClient.createWebCall()` and `WebCallSession`,
+rather than assuming the legacy client's events are interchangeable. The provider SDK remains an
+application dependency; orb-ui imports no Retell runtime code.
+
+## Working React example
+
+This example routes the SDK's control requests to **your own authenticated backend**. That
+backend uses your developer-owned Retell credentials to issue a scoped access token for one call.
+The browser receives that call credential and the SDK connects audio directly to Retell. There is
+no owner-funded public endpoint in the orb-ui demo.
+
+The endpoint contract appears below the example. After implementing those routes in your app,
+render `<RetellVoiceExample agentId="your-agent-id" />` from a client component.
+
+```tsx
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { RetellClient } from 'retell-client-js-sdk'
+import { Orb } from 'orb-ui'
+import { createRetellAdapter } from 'orb-ui/adapters'
+import type { OrbSignal } from 'orb-ui/adapters'
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : 'The voice session could not continue.'
+}
+
+// An authenticated developer-owned backend implements both allowlisted routes.
+const retellControlFetch: typeof fetch = (input, init) => {
+  const url = new URL(input instanceof Request ? input.url : String(input))
+  let endpoint: string
+  if (url.pathname === '/v3/create-web-call') endpoint = '/api/retell/call'
+  else {
+    const match = /^\/v2\/stop-call\/([^/]+)$/.exec(url.pathname)
+    if (!match) return Promise.reject(new Error('Unsupported Retell control request'))
+    endpoint = `/api/retell/call/${match[1]}/stop`
+  }
+  // Discard the SDK Authorization placeholder; own backend authenticates its visitor.
+  return fetch(endpoint, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: init?.body,
+    signal: init?.signal,
+  })
+}
+
+export function RetellVoiceExample({ agentId }: { agentId: string }) {
+  const adapter = useMemo(() => {
+    const client = new RetellClient({ key: 'backend-owned-placeholder', fetch: retellControlFetch })
+    return createRetellAdapter(client, {
+      getCallOptions: () => ({ agent_id: agentId, transcript: false }),
+    })
+  }, [agentId])
+  const [signal, setSignal] = useState<OrbSignal>({ state: 'idle' })
+  const [problem, setProblem] = useState('')
+  useEffect(() => {
+    const unsubscribe = adapter.subscribe(setSignal)
+    return () => {
+      unsubscribe()
+      void adapter.stop().catch(() => undefined)
+    }
+  }, [adapter])
+  const run = (operation: () => Promise<void>) => {
+    setProblem('')
+    void operation().catch((error: unknown) => setProblem(errorText(error)))
+  }
+  return (
+    <section aria-label="Retell voice session">
+      <Orb adapter={adapter} interactive={false} theme="circle" />
+      <p role="status">{signal.state}</p>
+      <button
+        type="button"
+        disabled={signal.state !== 'idle' && signal.state !== 'error'}
+        onClick={() => run(adapter.start)}
+      >
+        Start voice
+      </button>
+      <button type="button" disabled={signal.state === 'idle'} onClick={() => run(adapter.stop)}>
+        End voice
+      </button>
+      <button
+        type="button"
+        disabled={signal.state === 'idle'}
+        onClick={() => run(adapter.resumeAudio)}
+      >
+        Enable speaker
+      </button>
+      {Boolean(problem || signal.error) && <p role="alert">{problem || errorText(signal.error)}</p>}
+    </section>
+  )
+}
+```
+
+### Your backend contract
+
+`POST /api/retell/call` authenticates the requesting developer or visitor, enforces that caller's
+usage budget, validates the permitted agent, and forwards the allowlisted request to Retell's
+`POST /v3/create-web-call` with the caller's server-held API credential. Return the provider's
+`call_id`, `access_token`, and transport fields unchanged. The credential is scoped to that call;
+do not cache it, place it in a URL, or log it.
+
+`POST /api/retell/call/:callId/stop` verifies that the same caller owns that call before forwarding
+to Retell's `POST /v2/stop-call/:callId`. The SDK uses this route to clean up a creation request
+that finishes after the user cancels. Do not accept an arbitrary upstream URL or arbitrary agent
+configuration from the browser. Keep provider secrets out of React, `VITE_*`, and `NEXT_PUBLIC_*`.
+
+The SDK's injectable `fetch` is its documented control-plane extension point. The placeholder
+`key` in the example is discarded by that function and is never an API credential. Audio signaling
+still goes to Retell using the returned per-call token. Implement these routes in the caller's
+application; this repository does not host a free proxy for visitors.
+
+`transcript: false` is intentional: the SDK's separate monitoring WebSocket does not use the
+injected control `fetch`. If you add monitoring, use your own authorized monitoring bridge and
+follow Retell's monitoring authentication requirements. A transcription connection is optional
+and can fail while audio continues.
+
+## Signal mapping and limits
+
+| Current supported signal                               | Orb behavior                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------- |
+| Initial session / `onStatus('connecting')`             | Connecting; zeroed audio envelopes                                   |
+| `onStatus('live')`                                     | Listening until measurable, audible output activity arrives          |
+| `onAudio(Float32Array)` above the activity threshold   | Speaking estimate, gated on a running playback audio context         |
+| Output below threshold or missing snapshots for 180 ms | Listening; zero output envelope                                      |
+| `getTurnObserver()('thinking')`                        | Explicit app-owned waiting cue; active playback keeps speaking       |
+| `getTurnObserver()('interrupted')`                     | Explicit app-owned interruption cue; clears activity immediately     |
+| `onError()`                                            | Visible error; clears activity and survives the subsequent end event |
+| `onEnd()` / deliberate stop                            | Idle; old callbacks cannot update a restarted call                   |
+
+The adapter uses the guide's documented `status`, `audio`, `error`, and `end` hooks. It does not
+rely on legacy talking callbacks, transcript-derived speaking, or undocumented turn-taking events.
+
+Retell's current output samples include incoming audio and background sound. They are visualization
+snapshots, not continuous recordings or exact speech boundaries. `speaking` therefore means an
+**audible output-activity estimate**. Background audio above the configurable PCM RMS threshold
+can also animate it. Use `outputActivityThreshold` and `outputActivityHoldMs` for your environment;
+these are visual settings, not speech recognition. No live provider calibration is claimed.
+
+By default, the adapter gates activity on the SDK analyzer's audio context being `running`. A
+suspended or missing context yields zero output activity. Use `isAudioPlaybackActive(session)`
+when your product has additional output-mute or playback state. A blocked browser does not start
+animating merely because an agent generated text or sent audio.
+
+There is no documented LLM-generation or precise user-interruption boundary in this contract.
+The adapter remains listening during those gaps unless **your app** supplies a reliable event:
+
+```ts
+await adapter.start()
+const observeTurn = adapter.getTurnObserver()
+// Call from explicit application events for this connection:
+observeTurn('thinking') // Your app submitted a user turn or started a tool.
+observeTurn('interrupted') // Your owner interrupted provider playback.
+observeTurn('listening') // Your owner completed that operation.
+```
+
+Each observer is scoped to its current session; an old observer cannot affect a reconnect.
+An interruption clears the visual envelope and suppresses remaining active snapshots until a
+quiet frame or an explicit listening observation arrives. Your existing owner must perform the
+actual provider interruption. This is a visual bridge, not a substitute for Retell call control.
+
+No microphone volume signal is supplied by this API, so `inputVolume` remains zero; avoid opening
+a second microphone merely to animate it. The optional transcript's text and stable item IDs do
+not mark exact playback boundaries, so this adapter never infers speaking from transcript updates.
+
+Output calibration uses a configurable visual PCM baseline, not measurements from a live Retell
+account. Override `outputVolumeCalibration` after measuring your own deployment if needed.
+
+## Lifecycle and browser audio
+
+Create one memoized adapter per configured agent. Repeated starts share the same pending
+operation, and an active call cannot start a duplicate session. Stop aborts delayed option
+resolution, ends the owned SDK call, resets volume, and makes old hooks inert. A new start obtains
+fresh call options. Keep `getCallOptions(signal)` abortable when it fetches data.
+
+The last subscriber leaving ends the adapter-owned call by default. The example also explicitly
+stops on unmount so cleanup is easy to audit. Set `stopOnUnsubscribe: false` only when another
+application surface deliberately owns the longer-lived call, and stop it from that owner.
+
+Microphone permission and playback require a secure context: HTTPS or localhost. Start from a
+real click or keyboard activation. If a browser blocks playback, **Enable speaker** invokes
+`session.startAudioPlayback()` from a user gesture. Permission denial, expired call credentials,
+and a rejected backend request appear beside the orb; retry creates a fresh session.
+
+The adapter does not reconnect automatically or spend additional credits after failure. Your UI
+can offer a deliberate retry, with the same backend authentication and limits applied again.
+
+## Verification
+
+Synthetic SDK fixtures cover scoped turn observations, output activity decay, playback gating, audio normalization, repeated
+start/stop, cancellation, stale callbacks, permission failure, playback recovery, and final
+unsubscribe. The React example is typechecked against the published SDK. No credentialed live
+Retell call was run; provider transport and live audio should be verified in your own authorized
+staging environment before treating the integration as production proven.
+
+## Official references
+
+- [Retell browser web-call guide](https://docs.retellai.com/deploy/web-call)
+- [Current Retell SDK source and injected fetch contract](https://github.com/RetellAI/retell-client-js-sdk/blob/main/src/client.ts)
+- [Current session audio sampling and lifecycle](https://github.com/RetellAI/retell-client-js-sdk/blob/main/src/session/base-session.ts)
+- [Retell SDK releases](https://www.npmjs.com/package/retell-client-js-sdk)
+- [Adapter overview](/adapters/overview) and [custom integration guide](/adapters/custom)

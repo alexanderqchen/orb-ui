@@ -1,0 +1,213 @@
+---
+title: Amazon Nova 2 Sonic Voice UI for React
+description: Build a React voice UI with Amazon Nova 2 Sonic, a local Node and Socket.IO bridge to Bedrock, browser PCM audio, and a simulated demo that uses no AWS credits.
+---
+
+Amazon Nova 2 Sonic uses Amazon Bedrock's bidirectional streaming API. This integration is a
+**fullstack recipe**: your Node server owns the AWS client, the browser owns microphone capture and
+PCM playback, and `createNovaSonicBridge` reflects those sessions in Orb. It does not connect to AWS
+from the browser.
+
+## Try the simulated conversation
+
+This preview runs local authored states and an audio fixture. It requests no AWS credentials,
+makes no provider calls, and spends no API credits. Start, interrupt, stop, and reconnect to inspect
+the UI behavior before running a live session on your own backend.
+
+<iframe
+  src="/demos/integrations/?provider=nova-sonic"
+  title="Simulated Amazon Nova 2 Sonic integration"
+  width="100%"
+  height="580"
+  loading="lazy"
+></iframe>
+
+## Run the complete Node and React example
+
+The [complete recipe source](https://github.com/exprmntl/orb-ui/tree/main/examples/nova-sonic)
+includes a typed Socket.IO protocol, a bounded Bedrock input stream, React UI, AudioWorklet
+capture, queued PCM playback, synthetic fixtures, and offline transport tests. Use Node 22.12 or
+newer. Build the checked-out orb-ui version first so this example resolves its local package.
+
+```bash
+git clone https://github.com/exprmntl/orb-ui.git
+cd orb-ui
+pnpm install
+pnpm build
+cd examples/nova-sonic
+npm install --ignore-scripts
+npm run typecheck
+npm test
+npm run server
+```
+
+In a second terminal, run `npm run dev` from `examples/nova-sonic`, then open
+`http://127.0.0.1:5174`. The default server is **simulated**. It needs no AWS setup, does not open
+the microphone, and streams an authored transcript with a quiet synthetic tone. The controls also
+exercise an interruption and a connection failure. Restart creates a fresh application session.
+
+The example pins `@aws-sdk/client-bedrock-runtime` **3.1146.0**, `@smithy/node-http-handler`
+**4.12.1**, and `socket.io` / `socket.io-client` **4.8.4**. These versions and the official model
+event reference were checked on **October 6, 2026**. AWS's generic SDK declaration still describes
+the earlier Sonic model in a comment; the current Nova 2 sample and guide use
+`amazon.nova-2-sonic-v1:0`.
+
+## Observe your existing session
+
+The bridge is deliberately controlled. Call its methods from the socket and player your app already
+owns. Your playback component must stop both the currently audible source and every scheduled
+source when `onInterrupt` fires.
+
+```tsx
+import { Orb } from 'orb-ui'
+import { createNovaSonicBridge } from 'orb-ui/adapters'
+
+const bridge = createNovaSonicBridge({
+  onInterrupt: () => player.interrupt(),
+  onTranscript: ({ role, text, final }) => {
+    // Upsert by contentId in a real transcript view.
+    updateTranscript(role, text, final)
+  },
+})
+
+// An application-generated ID fences callbacks from an older socket.
+const sessionId = crypto.randomUUID()
+bridge.beginSession(sessionId)
+await connectYourNodeSession(sessionId)
+bridge.connected(sessionId)
+
+socket.on('nova:event', (id, event, acknowledge) => {
+  bridge.handleEvent(id, event)
+  player.handleEvent(event)
+  acknowledge({ ok: true })
+})
+player.onActivity = (active, measuredVolume) => {
+  bridge.setPlayback(sessionId, active, measuredVolume)
+}
+
+export function NovaVoiceActivity() {
+  return <Orb adapter={bridge} interactive={false} aria-label="Nova Sonic voice activity" />
+}
+```
+
+This illustrates the boundary; `player`, `socket`, and your app's functions come from your existing
+session. For an immediately runnable implementation, use `BrowserSession` and `PcmPlayer` in the
+complete recipe. The React example also stops the session when it unmounts.
+
+## Bedrock startup and shutdown
+
+The server constructs the official `InvokeModelWithBidirectionalStreamCommand` with a bounded
+`AsyncIterable<InvokeModelWithBidirectionalStreamInput>`. Each item contains UTF-8 JSON inside
+`chunk.bytes`. The startup sequence is:
+
+1. `sessionStart` with inference settings and `MEDIUM` endpointing sensitivity.
+2. `promptStart` with text output and 24 kHz mono PCM16 audio output.
+3. A `SYSTEM` text `contentStart`, `textInput`, and `contentEnd`.
+4. An interactive `USER` audio `contentStart` with 16 kHz mono PCM16 input.
+5. Continuous `audioInput` chunks carrying the same `promptName` and input `contentName`.
+
+The local server sends `contentEnd`, `promptEnd`, and `sessionEnd` on a normal stop, then closes
+the input iterator. A broken connection, startup timeout, or abandoned browser aborts the AWS
+request. A one-second shutdown deadline prevents an unresponsive stream from keeping the local
+session open indefinitely. Every application session also has a five-minute ceiling.
+
+```ts
+import {
+  BedrockRuntimeClient,
+  InvokeModelWithBidirectionalStreamCommand,
+} from '@aws-sdk/client-bedrock-runtime'
+import { NodeHttp2Handler } from '@smithy/node-http-handler'
+
+const bedrock = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION ?? 'us-east-1',
+  requestHandler: new NodeHttp2Handler({
+    requestTimeout: 300_000,
+    sessionTimeout: 300_000,
+  }),
+})
+
+// body is the complete bounded input iterator in examples/nova-sonic/bedrock.ts.
+const response = await bedrock.send(
+  new InvokeModelWithBidirectionalStreamCommand({
+    modelId: 'amazon.nova-2-sonic-v1:0',
+    body,
+  }),
+  { abortSignal },
+)
+```
+
+## Audio, interruptions, and state
+
+The AudioWorklet continuously resamples the browser's actual input rate to 16 kHz. It sends
+32 ms frames as mono signed 16-bit **little-endian** PCM. Resampling state survives worklet render
+blocks. The server acknowledges a frame when Bedrock consumes it, and the browser has a bounded
+outgoing queue. An input stall produces a recoverable error instead of accumulating microphone
+audio without a limit.
+
+Output PCM is decoded at the rate from its `contentStart.audioOutputConfiguration`, normally
+24 kHz in this recipe. Browser playback uses a bounded schedule, independently measures the
+output level, and discards the interrupted content's remaining audio. An `INTERRUPTED`
+`contentEnd` clears playback immediately. Only a new audio content block can resume the response.
+
+| Session or audio event                              | Orb state                         |
+| --------------------------------------------------- | --------------------------------- |
+| Starting a new application session                  | `connecting`                      |
+| Socket and Bedrock stream ready                     | `listening`                       |
+| User transcription content ends                     | `thinking`                        |
+| Player schedules audible response audio             | `speaking`                        |
+| Provider finishes while buffered audio remains      | `speaking` until playback drains  |
+| `completionEnd` after playback drains               | `listening`                       |
+| `contentEnd.stopReason === 'INTERRUPTED'`           | `listening`, queued audio cleared |
+| Transport, permission, capture, or playback failure | `error`                           |
+| Explicit stop, unmount, or normal stream closure    | `idle`                            |
+
+Nova performs turn detection on the server. Microphone volume updates the animation without
+inventing a user-turn boundary. The transcript callback combines `textOutput` chunks by output
+`contentId` and reports `FINAL` blocks. `SPECULATIVE` text is a planned response and is excluded
+from the spoken transcript.
+
+## Optional live mode with your own backend
+
+Only run live mode if you already have authorized AWS credentials and Nova 2 Sonic access in a
+supported region. This recipe does not create an account, change IAM, or request model access.
+Keep the default AWS credential chain on the server; no AWS access key or session token is sent
+to the browser.
+
+```bash
+# Launch locally with your own already-configured server credentials.
+NOVA_ENABLE_LIVE=1 AWS_REGION=us-east-1 npm run server
+```
+
+The browser receives a 60-second, single-use **application token** scoped to one local connection
+and the fixed model. It is not an AWS credential. The Node server binds only to `127.0.0.1`, checks
+the exact browser Origin and backend Host, allows one active local socket, validates frame size
+and input rate, and caps session duration. Its token endpoint and Socket.IO connection cannot be
+used as a public provider proxy. The published Orb preview does not run this backend.
+
+Live Bedrock usage is billed to the developer operating that backend. Do not publish this local
+recipe as an anonymous owner-funded endpoint. A public application needs its own authenticated
+backend, per-user authorization and usage limits, and an explicit arrangement for who pays. No
+provider secrets belong in `VITE_*` variables, query strings, or copied browser examples.
+
+## Verification and limits
+
+The bridge has synthetic lifecycle, stale-session, volume, transcript, and interruption tests. The
+recipe adds offline AWS byte-envelope fixtures, startup/shutdown ordering, input backpressure,
+Socket.IO origin/token checks, and browser PCM playback checks using the real published SDK
+types. Run `npm test`, `npm run typecheck`, and `npm run build` in the example directory.
+
+**Live credential tests have not been run.** This is a reviewed recipe, not a claim of production
+validation against your AWS account, model access, region, microphone, or network. It does not add
+tool execution, automatic session continuation, persisted history, or telephony. Restart after an
+error creates a new session; automatic retries cannot silently continue billing. Browser audio
+requires a user gesture and, in live mode, microphone permission. The default simulation can be
+used without either provider access or a microphone.
+
+## Official references
+
+- [Nova 2 Sonic code examples](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-code-examples.html)
+- [Current Node and browser sample](https://github.com/aws-samples/amazon-nova-samples/tree/main/speech-to-speech/amazon-nova-2-sonic/sample-codes/websocket-nodejs)
+- [Input event lifecycle](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-input-events.html)
+- [Output events and final transcription](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-output-events.html)
+- [Client-side barge-in requirements](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-barge-in.html)
+- [Custom controlled integrations](/adapters/custom)

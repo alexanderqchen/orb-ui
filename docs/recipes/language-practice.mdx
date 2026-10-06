@@ -1,0 +1,339 @@
+---
+title: Language Practice with Corrections and Repeat
+description: Build a React language practice UI with editable transcripts, local correction feedback, repeat cues, and an Orb that separates the learner and coach turns.
+---
+
+A language tutor needs more than a moving orb. The learner should see what the app heard,
+understand one correction, and repeat the phrase without losing their original attempt. This
+recipe pairs a controlled `Orb` with three Spanish exercises, editable transcripts, a visible
+before-and-after correction, and a repeat action.
+
+The preview checks a small, explicit set of local language rules. It does not assess arbitrary
+Spanish, pronunciation, or fluency. Coach speaking states and repeat cues are silent simulations.
+
+## Try the local preview
+
+<iframe
+  src="https://orb-ui.com/demos/recipes/?recipe=language-practice"
+  title="Spanish language practice: editable attempts, corrections, and silent repeat cues"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the preview in a separate page](https://orb-ui.com/demos/recipes/?recipe=language-practice).
+
+1. Choose a lesson and edit the sample attempt.
+2. Select **Practice sample**. The orb previews the learner turn, the feedback gap, and the coach turn.
+3. Read the correction and its explanation, then select **Repeat corrected phrase** to put it back in the editor.
+4. Practice again, cancel mid-turn, or simulate a feedback error to inspect recovery.
+
+Changing a lesson cancels the pending turn. Failed feedback preserves the draft, and cancellation
+clears the scheduled callbacks so old feedback cannot appear in a new lesson.
+
+## Set up the React example
+
+```bash
+npm install orb-ui
+```
+
+Save the component below as `language-practice.tsx`, import its default export, and render it in your React
+app. In Next.js App Router, add `'use client'` as the first line of this component. The example
+requires no environment variables, credentials, or provider SDK.
+
+The preview runs this same component. The source is checked by the demo's TypeScript build, and
+[the complete TSX file is available to download](https://orb-ui.com/examples/language-practice.tsx).
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbSignal } from 'orb-ui'
+
+const lessons = [
+  {
+    prompt: 'Introduce yourself in Spanish',
+    sample: 'Yo es Alex y trabaja en diseño.',
+    target: 'Yo soy Alex y trabajo en diseño.',
+    tip: 'With yo, use soy for identity and trabajo for what you do.',
+    replacements: [
+      [/\byo es\b/gi, 'Yo soy'],
+      [/\btrabaja\b/gi, 'trabajo'],
+    ] as const,
+  },
+  {
+    prompt: 'Say how long you have studied',
+    sample: 'Estudio español desde hace dos año.',
+    target: 'Estudio español desde hace dos años.',
+    tip: 'Use the plural años after dos. Desde hace describes an ongoing duration.',
+    replacements: [[/\bdos año\b/gi, 'dos años']] as const,
+  },
+  {
+    prompt: 'Order a coffee politely',
+    sample: 'Quiero un café, por favor.',
+    target: 'Quisiera un café, por favor.',
+    tip: 'Quiero is grammatical. Quisiera makes the request more polite.',
+    replacements: [[/\bquiero\b/gi, 'Quisiera']] as const,
+  },
+]
+
+export default function LanguagePractice() {
+  const [lessonIndex, setLessonIndex] = useState(0)
+  const [draft, setDraft] = useState(lessons[0].sample)
+  const [feedback, setFeedback] = useState<{ original: string; corrected: string } | null>(null)
+  const [attempts, setAttempts] = useState(0)
+  const [signal, setSignal] = useState<OrbSignal>({ state: 'idle' })
+  const [status, setStatus] = useState('Choose a lesson, then practice the sample.')
+  const [failNext, setFailNext] = useState(false)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const busy = useRef(false)
+  const lesson = lessons[lessonIndex]
+  const active = ['listening', 'thinking', 'speaking'].includes(signal.state)
+
+  function clearRun() {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    busy.current = false
+  }
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  function later(delay: number, callback: () => void) {
+    timers.current.push(setTimeout(callback, delay))
+  }
+
+  function practice() {
+    if (busy.current || !draft.trim()) return
+    clearRun()
+    busy.current = true
+    const original = draft.trim()
+    const fail = failNext
+    setFailNext(false)
+    setFeedback(null)
+    setSignal({ state: 'listening', inputVolume: 0.42, outputVolume: 0 })
+    setStatus('Simulating your spoken attempt. The transcript stays editable after this turn.')
+    later(900, () => {
+      setSignal({ state: 'thinking', inputVolume: 0, outputVolume: 0 })
+      setStatus('Checking the local lesson rules…')
+    })
+    later(1500, () => {
+      if (fail) {
+        setSignal({ state: 'error', inputVolume: 0, outputVolume: 0 })
+        setStatus('Sample feedback error. Your attempt is saved; try the same turn again.')
+        busy.current = false
+        return
+      }
+      let corrected = original
+      for (const [pattern, replacement] of lesson.replacements) {
+        corrected = corrected.replace(pattern, replacement)
+      }
+      setFeedback({ original, corrected })
+      setAttempts((value) => value + 1)
+      setSignal({ state: 'speaking', inputVolume: 0, outputVolume: 0.58 })
+      setStatus('Previewing the coach reply silently. Read the correction below.')
+      later(1300, () => {
+        busy.current = false
+        setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+        setStatus('Feedback ready. Edit your attempt or repeat the corrected phrase.')
+      })
+    })
+  }
+
+  function repeat() {
+    if (busy.current || !feedback) return
+    clearRun()
+    busy.current = true
+    setDraft(feedback.corrected)
+    setSignal({ state: 'speaking', inputVolume: 0, outputVolume: 0.5 })
+    setStatus(`Silent repeat cue: ${feedback.corrected}`)
+    later(1600, () => {
+      busy.current = false
+      setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+      setStatus('Your corrected phrase is now in the editor. Practice it again when ready.')
+    })
+  }
+
+  function cancel() {
+    clearRun()
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Turn canceled. Your text and any completed feedback are preserved.')
+  }
+
+  function changeLesson(index: number) {
+    clearRun()
+    setLessonIndex(index)
+    setDraft(lessons[index].sample)
+    setFeedback(null)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('New lesson ready. Practice the sample or edit it first.')
+  }
+
+  return (
+    <section className="recipe-demo" aria-label="Spanish language practice">
+      <p>Local simulation · silent coach replies · no microphone or AI calls</p>
+      <Orb signal={signal} theme="circle" size={112} interactive={false} />
+      <p className="recipe-status" role="status" aria-atomic="true">
+        {status}
+      </p>
+      <label className="recipe-field">
+        Lesson
+        <select value={lessonIndex} onChange={(event) => changeLesson(Number(event.target.value))}>
+          {lessons.map((item, index) => (
+            <option key={item.prompt} value={index}>
+              {item.prompt}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="recipe-field">
+        Your attempt (editable transcript)
+        <textarea
+          value={draft}
+          disabled={active}
+          rows={2}
+          maxLength={300}
+          lang="es"
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </label>
+      <div className="recipe-actions">
+        <button type="button" disabled={active || !draft.trim()} onClick={practice}>
+          Practice sample
+        </button>
+        <button type="button" disabled={active || !feedback} onClick={repeat}>
+          Repeat corrected phrase
+        </button>
+        <button type="button" disabled={!active} onClick={cancel}>
+          Cancel turn
+        </button>
+      </div>
+      <label>
+        <input
+          type="checkbox"
+          checked={failNext}
+          disabled={active}
+          onChange={(event) => setFailNext(event.target.checked)}
+        />{' '}
+        Simulate a feedback error next turn
+      </label>
+      {feedback && (
+        <article className="recipe-card" aria-label="Practice feedback">
+          <h3>
+            {feedback.corrected !== feedback.original
+              ? 'Suggested correction'
+              : 'No lesson-rule changes needed'}
+          </h3>
+          <p lang="es">
+            <del>{feedback.corrected !== feedback.original ? feedback.original : ''}</del>
+          </p>
+          <p lang="es">
+            <strong>{feedback.corrected}</strong>
+          </p>
+          <p>{lesson.tip}</p>
+          <p>
+            Model phrase: <span lang="es">{lesson.target}</span>
+          </p>
+        </article>
+      )}
+      <p>
+        {attempts} completed {attempts === 1 ? 'attempt' : 'attempts'}. Feedback checks only the
+        displayed lesson rules; it is not a general language assessment.
+      </p>
+    </section>
+  )
+}
+```
+
+The `recipe-*` classes are application layout hooks, not a required `orb-ui` stylesheet. Here is a
+minimal responsive treatment to paste into your app’s CSS; replace it with your own design system
+as needed. Native controls and visible focus remain available without custom styling.
+
+```css
+.recipe-demo {
+  max-width: 48rem;
+  margin: auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+.recipe-status {
+  min-height: 3rem;
+}
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.recipe-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-block: 0.8rem;
+}
+.recipe-field input,
+.recipe-field textarea,
+.recipe-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+.recipe-card {
+  border: 1px solid #9ca3af;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-block: 0.75rem;
+}
+.recipe-demo button,
+.recipe-demo select {
+  min-height: 2.75rem;
+}
+.recipe-demo button {
+  cursor: pointer;
+}
+.recipe-demo button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.recipe-demo :focus-visible {
+  outline: 3px solid #6366f1;
+  outline-offset: 3px;
+}
+.recipe-demo mark {
+  color: #172554;
+  background: #dbeafe;
+}
+.recipe-demo progress {
+  max-width: 100%;
+}
+```
+
+## Connect your app’s voice or media source
+
+The app owns the draft and feedback; `Orb` owns only the visual state. The local lesson rules
+replace specific phrases such as “Yo es” with “Yo soy”. If no displayed rule matches, the UI says
+that no **lesson-rule** changes were needed; it does not claim the whole sentence is correct.
+
+In a live tutor, subscribe to your existing session’s transcript and feedback events. Keep a
+final transcript distinct from an interim transcript, and associate each correction with a turn
+ID so a delayed reply cannot overwrite the next attempt. Use the adapter’s input meter while the
+learner speaks and its output meter only while coach audio actually plays. An instruction to
+repeat should not itself open a microphone or begin another paid session.
+
+For pronunciation playback, use an app-owned media element and the lifecycle shown in the
+[audio narration recipe](/recipes/audio-narration). Keep the text available when audio is muted or
+unavailable.
+
+Public demos stay local. Any optional live session should use your visitor’s or developer’s own
+backend and provider account, with scoped, short-lived session credentials. Never put a provider
+secret in the browser or create a public owner-funded endpoint to power this example.
+
+## Verify the complete interaction
+
+- Start a turn, cancel during listening or thinking, and confirm no correction arrives later.
+- Change the lesson mid-turn and confirm the new draft remains intact.
+- Enable the feedback error, retry, and confirm the failed turn does not increment completed attempts.
+- Repeat a correction, then edit and practice again using only the keyboard.
+- In a live integration, verify transcript language, finalization, permission errors, and playback failure separately.
+
+These checks cover the recipe interaction. Live provider transcription, latency, reconnect,
+permissions, and audio alignment still need verification in your own environment. See the
+[Orb component reference](/reference/orb-component) for controlled signals and the
+[voice state guide](/themes/voice-states) for accessible lifecycle labels.

@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { Orb, OrbThemeProvider } from 'orb-ui'
 import type { OrbAdapter, OrbSignal, OrbState, OrbThemePreset } from 'orb-ui'
 import {
+  createRetellAdapter,
+  createHumeAdapter,
+  createDeepgramAdapter,
+  createAgoraAdapter,
+  createAzureVoiceLiveAdapter,
+  createCartesiaAdapter,
+  createNovaSonicBridge,
   createElevenLabsAdapter,
   createLiveKitAdapter,
   createOpenAILiveAdapter,
@@ -51,6 +58,15 @@ function App() {
   useEffect(() => adapter.subscribe(setAdapterSignal), [adapter])
 
   const adapterExportsReady =
+    [
+      createRetellAdapter,
+      createHumeAdapter,
+      createDeepgramAdapter,
+      createAgoraAdapter,
+      createAzureVoiceLiveAdapter,
+      createCartesiaAdapter,
+      createNovaSonicBridge,
+    ].every((factory) => typeof factory === 'function') &&
     typeof createVapiAdapter === 'function' &&
     typeof createElevenLabsAdapter === 'function' &&
     typeof createLiveKitAdapter === 'function' &&

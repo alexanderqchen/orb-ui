@@ -72,13 +72,14 @@ pnpm build
 pnpm dev:demo
 ```
 
-Then open `http://localhost:5173/playground`. The same `/playground` path is available on preview
-deployments and the production site. Paste provider test config into the Provider Config panel: a
+Then open `http://localhost:5173/playground`. The live harness is available only in local development.
+Preview deployments and the production site link to local simulated demos instead. Paste your own
+provider test config into the local Provider Config panel: a
 Vapi public key plus assistant ID, an ElevenLabs agent ID, or LiveKit sandbox token server ID plus
 agent name.
 
-Pipecat Cloud, OpenAI Realtime, and Gemini Live testing uses Vercel Functions under `demo/api`, so
-use a Vercel preview (or `vercel dev` from `demo/`) for those providers. Their standard API keys are
+Pipecat Cloud, OpenAI Realtime, and Gemini Live testing uses loopback-only Vite development handlers.
+Hosted `demo/api` provider proxy routes reject requests without contacting a provider. Standard API keys are
 held in page memory only and exchanged for provider session credentials; they are not saved in
 local storage or accepted through `VITE_*` variables. Self-hosted Pipecat SmallWebRTC only needs a
 public `/api/offer` URL.
@@ -87,7 +88,7 @@ GPT-Live is also available in the playground. `pnpm dev:demo` serves its session
 Provide `OPENAI_API_KEY` to the dev server process to use a saved server-side credential, or paste
 a test key in the GPT-Live panel for the current page session. Never use a `VITE_*` variable for
 the key. Server credentials are accepted only on same-origin loopback requests. The deployed
-endpoint requires each caller's own key. Select **OpenAI GPT-Live**, then click the orb to start
+endpoint is disabled. Select **OpenAI GPT-Live** locally, then click the orb to start
 and click it again to end the billed session. Model settings persist; pasted Live keys do not.
 
 Non-secret playground values are saved in browser local storage for that origin, and the Clear

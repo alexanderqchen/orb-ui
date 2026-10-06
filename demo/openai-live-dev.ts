@@ -15,6 +15,8 @@ export function openAILiveDevPlugin(): Plugin {
           res.end(JSON.stringify(data))
         }
         const origin = `http://${req.headers.host}`
+        if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? ''))
+          return reply(403, { error: 'Local access only.' })
         let hostname: string
         try {
           hostname = new URL(origin).hostname

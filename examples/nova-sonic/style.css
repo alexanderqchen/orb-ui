@@ -1,0 +1,139 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, sans-serif;
+  color: #e8e8ee;
+  background: #0b0c10;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+a {
+  color: #bebbcf;
+  text-underline-offset: 4px;
+}
+.eyebrow {
+  margin-top: 48px;
+  color: #a8a3bf;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+h1 {
+  font-size: clamp(32px, 7vw, 54px);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  margin: 20px 0;
+}
+.lede {
+  color: #acacb8;
+  max-width: 560px;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.mode {
+  padding: 14px;
+  border: 1px solid #343143;
+  border-radius: 12px;
+  color: #c8c3db;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.stage {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  min-height: 340px;
+  padding: 28px 0;
+}
+.stage > p {
+  margin: 16px 0;
+  text-transform: capitalize;
+  color: #b9b5ce;
+}
+button {
+  border: 1px solid #4c475f;
+  border-radius: 9px;
+  background: #292435;
+  color: #f1edf9;
+  min-height: 44px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: #393144;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #c3adf4;
+  outline-offset: 4px;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.transcript {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid #292b35;
+  background: #111319;
+}
+h2 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.transcript p,
+.footnote {
+  color: #a9a9b8;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.transcript strong {
+  display: block;
+  color: #e3dcee;
+}
+.empty {
+  font-style: italic;
+}
+.error {
+  padding: 14px;
+  border: 1px solid #7c4251;
+  border-radius: 10px;
+  color: #edb7c7;
+}
+.footnote {
+  margin-top: 24px;
+}
+code {
+  color: #d8d0eb;
+  font-size: 0.9em;
+}
+@media (max-width: 480px) {
+  main {
+    padding: 24px 16px 40px;
+  }
+  .eyebrow {
+    margin-top: 32px;
+  }
+  .controls button {
+    width: 100%;
+  }
+  .transcript {
+    padding: 16px;
+  }
+}

@@ -1,0 +1,283 @@
+---
+title: Push-to-Talk Composer in React
+description: Build a React push-to-talk composer with interim transcription, editable messages, keyboard controls, cancellation, and an orb-ui status visual. Includes a complete local demo.
+---
+
+A voice composer should help someone write a message without taking away control of its wording.
+This recipe treats transcription as a draft: hold to dictate, release to finalize, edit the text,
+and explicitly add the message. Dictation never automatically submits the result.
+
+## Try the composer
+
+The preview uses a fixed transcript and simulated input levels. It opens no microphone, plays no
+actual audio, sends no network request, and consumes no provider credits. Messages stay in the
+component's in-memory conversation.
+
+<iframe
+  src="/demos/recipes/?recipe=push-to-talk"
+  title="Local simulated push-to-talk composer with editable transcript"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the composer preview](/demos/recipes/?recipe=push-to-talk).
+Try **Try sample dictation** for a full sentence, or hold **Hold to dictate** with a pointer,
+Space, or Enter to capture a partial sentence. Release the control to finalize. Change the
+words in **Editable message**, then select **Add message**.
+
+## Setup
+
+```bash
+npm install orb-ui
+```
+
+Save the complete component below as `PushToTalk.tsx`, import its default export, and render
+`<PushToTalk />` in an existing React app. In Next.js App Router, add `'use client'` before the
+imports. The CSS classes are optional styling hooks; the component has no local file imports
+and works with your app's form styles.
+
+[Download the complete TSX example](/examples/push-to-talk.tsx).
+
+## Design the transcript lifecycle
+
+| Transition            | Orb state   | Product behavior                                                |
+| --------------------- | ----------- | --------------------------------------------------------------- |
+| Press or sample start | `listening` | Show the interim transcript separately from the editable draft. |
+| Release               | `thinking`  | Finalize the captured words; disable editing briefly.           |
+| Final transcript      | `idle`      | Append the transcript to the draft and enable editing.          |
+| Cancel                | `idle`      | Discard interim words; preserve the existing draft.             |
+| Transcription failure | `error`     | Preserve the draft and expose retry.                            |
+| Add message           | `idle`      | Append the reviewed text to local conversation history.         |
+
+A synchronous `active` ref prevents overlapping starts. Every delayed fixture callback carries
+a generation token; cancelling, failing, or unmounting invalidates it. Input volume is reset to
+zero outside listening, so a stale level cannot suggest that recording continues.
+
+The hold control captures its pointer so release outside the button still finalizes. Pointer
+cancellation discards the interim words. The one-click sample and editable textarea offer
+alternatives to holding a button, including on touch screens and with assistive technology.
+
+## Complete React example
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbState } from 'orb-ui'
+
+const sample = 'Can we move the design review to Thursday at 2 pm?'
+
+export default function PushToTalk() {
+  const [state, setState] = useState<OrbState>('idle')
+  const [draft, setDraft] = useState('')
+  const [interim, setInterim] = useState('')
+  const [message, setMessage] = useState('Hold the button, or try the sample dictation.')
+  const [sent, setSent] = useState<string[]>([])
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const generation = useRef(0)
+  const active = useRef(false)
+  const partial = useRef('')
+  const submitted = useRef<string | null>(null)
+
+  function cancel() {
+    generation.current += 1
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    active.current = false
+  }
+
+  useEffect(
+    () => () => {
+      generation.current += 1
+      timers.current.forEach(clearTimeout)
+    },
+    [],
+  )
+
+  function later(delay: number, run: () => void) {
+    const token = generation.current
+    timers.current.push(
+      setTimeout(() => {
+        if (generation.current === token) run()
+      }, delay),
+    )
+  }
+
+  function finish(useFullSample = false) {
+    if (!active.current) return
+    const text = useFullSample ? sample : partial.current
+    cancel()
+    if (!text) {
+      setState('idle')
+      setInterim('')
+      setMessage('Nothing captured yet. Hold a little longer, or try the sample.')
+      return
+    }
+    active.current = true
+    setState('thinking')
+    setMessage('Finalizing simulated dictation…')
+    later(450, () => {
+      setDraft((previous) => [previous.trim(), text].filter(Boolean).join(' '))
+      setInterim('')
+      setState('idle')
+      active.current = false
+      submitted.current = null
+      setMessage('Draft ready. Edit the words before adding your message.')
+    })
+  }
+
+  function start(autoFinish = false) {
+    if (active.current) return
+    cancel()
+    active.current = true
+    partial.current = ''
+    setInterim('')
+    setState('listening')
+    setMessage('Simulated dictation in progress. No microphone is open.')
+    sample.split(' ').forEach((_, index, words) => {
+      later((index + 1) * 160, () => {
+        partial.current = words.slice(0, index + 1).join(' ')
+        setInterim(partial.current)
+      })
+    })
+    if (autoFinish) later(2100, () => finish(true))
+  }
+
+  function fail() {
+    cancel()
+    setInterim('')
+    setState('error')
+    setMessage('Simulated transcription failure. Your existing draft is safe. Try again.')
+  }
+
+  function stop() {
+    cancel()
+    setInterim('')
+    setState('idle')
+    setMessage('Dictation cancelled. Your existing draft is unchanged.')
+  }
+
+  function send() {
+    const text = draft.trim()
+    if (active.current || !text || submitted.current === text) return
+    submitted.current = text
+    setSent((previous) => [...previous, text])
+    setDraft('')
+    setMessage('Message added to the local conversation. Nothing was sent to a server.')
+  }
+
+  const busy = state === 'listening' || state === 'thinking'
+  return (
+    <section className="recipe-demo" aria-label="Push-to-talk composer">
+      <p className="recipe-status">LOCAL SIMULATION · No microphone, network, or paid calls</p>
+      <Orb
+        theme="circle"
+        size={126}
+        interactive={false}
+        signal={{ state, inputVolume: state === 'listening' ? 0.48 : 0, outputVolume: 0 }}
+      />
+      <p role="status" className="recipe-status">
+        {message}
+      </p>
+      <div className="recipe-actions">
+        <button
+          type="button"
+          disabled={state === 'thinking'}
+          aria-pressed={state === 'listening'}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId)
+            start()
+          }}
+          onPointerUp={() => finish()}
+          onPointerCancel={stop}
+          onKeyDown={(event) => {
+            if (event.key === ' ' || event.key === 'Enter') {
+              event.preventDefault()
+              if (!event.repeat) start()
+            }
+          }}
+          onKeyUp={(event) => {
+            if (event.key === ' ' || event.key === 'Enter') {
+              event.preventDefault()
+              finish()
+            }
+          }}
+          onBlur={() => {
+            if (state === 'listening') finish()
+          }}
+        >
+          Hold to dictate
+        </button>
+        <button type="button" disabled={busy} onClick={() => start(true)}>
+          {state === 'error' ? 'Retry sample dictation' : 'Try sample dictation'}
+        </button>
+        <button type="button" disabled={!busy} onClick={stop}>
+          Cancel dictation
+        </button>
+      </div>
+      <p className="recipe-status">Hold with a pointer, Space, or Enter. Release to finish.</p>
+      <div className="recipe-card" aria-label="Interim transcript">
+        <strong>Live draft</strong>
+        <p>{interim || 'Your simulated words appear here.'}</p>
+      </div>
+      <label className="recipe-field">
+        Editable message
+        <textarea
+          rows={3}
+          value={draft}
+          disabled={busy}
+          placeholder="Dictate or type a message…"
+          onChange={(event) => {
+            setDraft(event.target.value)
+            submitted.current = null
+          }}
+        />
+      </label>
+      <div className="recipe-actions">
+        <button type="button" disabled={busy || !draft.trim()} onClick={send}>
+          Add message
+        </button>
+        <button type="button" disabled={state === 'error'} onClick={fail}>
+          Simulate transcription error
+        </button>
+      </div>
+      {sent.length > 0 && (
+        <div className="recipe-card" aria-label="Local messages">
+          <strong>Local conversation</strong>
+          <ul>
+            {sent.map((text, index) => (
+              <li key={index}>{text}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
+```
+
+## Connect an app-owned transcription session
+
+Replace `start` and the synthetic word timers with your existing capture/transcription session.
+Keep one owner for microphone tracks. Map interim words to `interim`, final words to the editable
+`draft`, and permission or provider failures to the existing error/retry path. On stop and unmount,
+abort pending transcription, remove listeners, and release only tracks your session owns.
+
+A live app should ask for microphone access from an explicit user action and leave typed entry
+usable if permission is denied. Send only the reviewed draft when the user chooses the submit
+action. Use your own authenticated backend and visitor/developer-owned provider credentials;
+exchange scoped, short-lived browser credentials there. Never embed provider secret keys in the
+component or fund public visitors' transcription through a shared endpoint.
+
+## Verify the interaction
+
+Hold briefly, hold through the full sample, release outside the control, and cancel before
+finalization. Edit the resulting draft and confirm that interim words do not overwrite edits.
+Simulate an error during listening, retry, and navigate away during finalization. Repeated starts
+must produce one run; cancelled callbacks must never append a stale transcript. Test Space,
+Enter, textarea navigation, narrow screens, and reduced motion.
+
+Use the [custom integration guide](/adapters/custom) for app-owned sessions, or choose an
+[existing provider adapter](/adapters/overview) when a voice SDK already owns the call. The
+[voice form recipe](/recipes/voice-form) extends the same review-before-commit pattern to
+structured data.

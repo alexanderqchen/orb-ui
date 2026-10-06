@@ -2253,7 +2253,34 @@ function ProviderPlayground() {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ProviderPlayground />
-  </StrictMode>,
+  <StrictMode>{import.meta.env.DEV ? <ProviderPlayground /> : <PublicPlayground />}</StrictMode>,
 )
+
+function PublicPlayground() {
+  return (
+    <main className="provider-playground" style={{ padding: 32, maxWidth: 800, margin: 'auto' }}>
+      <h1>Preview voice UI locally</h1>
+      <p>
+        Hosted demos use simulated signals and local audio fixtures. They need no account,
+        microphone, or API credits.
+      </p>
+      <p>
+        <a href="/demos/integrations/">Try integration states</a> ·{' '}
+        <a href="/docs/recipes">Explore eight React recipes</a> ·{' '}
+        <a href="/demos/voice-orb/">Customize the orb</a>
+      </p>
+      <h2>Test your own provider</h2>
+      <p>
+        Run <code>pnpm dev:demo</code> in your checkout to use the developer playground at{' '}
+        <code>localhost:5173/playground</code>. Use your own agents and credentials. For a deployed
+        application, keep provider secrets on your authenticated backend and give the browser a
+        short-lived session credential.
+      </p>
+      <p>
+        <a href="https://github.com/exprmntl/orb-ui/blob/main/CONTRIBUTING.md">
+          Local setup instructions ↗
+        </a>
+      </p>
+    </main>
+  )
+}

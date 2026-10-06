@@ -83,6 +83,13 @@ The only difference is how the adapter obtains a provider session:
 | [OpenAI Live guide](https://orb-ui.com/docs/adapters/openai-live)         | Exchange an SDP offer through your server with `createSession`           |
 | [OpenAI Realtime guide](https://orb-ui.com/docs/adapters/openai-realtime) | Return a fresh short-lived client secret from `getClientSecret`          |
 | [Gemini Live guide](https://orb-ui.com/docs/adapters/gemini-live)         | Open the official Google Live session in `connect`                       |
+| [Retell WebCall](https://orb-ui.com/docs/adapters/retell)                 | Pass the current Retell client with developer-owned session creation     |
+| [Hume EVI](https://orb-ui.com/docs/adapters/hume)                         | Observe your existing `VoiceProvider` and `useVoice` values              |
+| [Deepgram Voice Agent](https://orb-ui.com/docs/adapters/deepgram)         | Connect the browser SDK or observe its React provider                    |
+| [Agora Conversational AI](https://orb-ui.com/docs/adapters/agora)         | Observe your toolkit and app-owned RTC audio                             |
+| [Azure Voice Live](https://orb-ui.com/docs/adapters/azure-voice-live)     | Supply an authenticated JavaScript session; adapter owns PCM audio       |
+| [Cartesia Managed Agents](https://orb-ui.com/docs/adapters/cartesia)      | Return a short-lived Line agent WebSocket URL from your backend          |
+| [Amazon Nova 2 Sonic](https://orb-ui.com/docs/adapters/nova-sonic)        | Run the Node/Socket.IO/Bedrock recipe; use its controlled browser bridge |
 
 The adapter owns provider event mapping and emits one consistent `OrbSignal`. OpenAI and Gemini
 standard API keys, and LiveKit participant-token signing, stay on your server. See the
@@ -91,6 +98,22 @@ advanced setup shapes.
 
 For an app-owned WebRTC, WebSocket, telephony, or speech runtime, follow the
 [custom integration guide](https://orb-ui.com/docs/adapters/custom).
+
+## Complete voice UI recipes
+
+[Explore eight React recipes](https://orb-ui.com/docs/recipes): push-to-talk composition, voice form
+review, document answers with citations, guided onboarding with undo, language practice,
+interview rehearsal, spoken product search, and audio-reactive narration. Each page includes
+a copyable working component and an embedded local fixture demo. Demo source can be downloaded
+from the canonical recipe page.
+
+Public demos use local simulated signals or committed audio fixtures. They never use provider
+credits or microphone access. Hosted provider proxy routes are disabled. Live examples require
+your own authenticated backend and short-lived browser credentials; provider secrets stay server-side.
+The developer provider playground is available through `pnpm dev:demo` at localhost.
+
+The seven new integrations are unreleased until the next approved package release. Build this
+checkout to try the exported APIs; credential-based live provider tests have not been run.
 
 ## Quick Start
 

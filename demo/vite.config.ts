@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 import { openAILiveDevPlugin } from './openai-live-dev'
 import { blogPlugin } from './blog/plugin'
+import { expansionPlugin } from './expansion/plugin'
+import { localProviderDevPlugin } from './local-provider-dev'
 
 function resolveInput(path: string) {
   return fileURLToPath(new URL(path, import.meta.url))
@@ -16,8 +18,8 @@ function playgroundRoutePlugin(): Plugin {
         const url = request.url ?? ''
         const [pathname, query] = url.split('?')
 
-        if (pathname === '/demos/voice-orb') {
-          request.url = `/demos/voice-orb/${query ? `?${query}` : ''}`
+        if (['/demos/voice-orb', '/demos/recipes', '/demos/integrations'].includes(pathname)) {
+          request.url = `${pathname}/${query ? `?${query}` : ''}`
         }
 
         if (
@@ -36,13 +38,22 @@ function playgroundRoutePlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), playgroundRoutePlugin(), openAILiveDevPlugin(), blogPlugin()],
+  plugins: [
+    react(),
+    playgroundRoutePlugin(),
+    openAILiveDevPlugin(),
+    localProviderDevPlugin(),
+    blogPlugin(),
+    expansionPlugin(),
+  ],
   build: {
     rollupOptions: {
       input: {
         main: resolveInput('./index.html'),
         playground: resolveInput('./playground/index.html'),
         voiceOrb: resolveInput('./demos/voice-orb/index.html'),
+        recipes: resolveInput('./demos/recipes/index.html'),
+        integrations: resolveInput('./demos/integrations/index.html'),
       },
     },
   },
