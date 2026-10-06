@@ -1,8 +1,8 @@
 # Voice integration and recipe expansion
 
 All fifteen additions have implementation, setup instructions, a copyable typed example, and a
-canonical page with an embedded local simulation. The seven new exports remain unreleased until
-an approved package release. Live credential-based provider tests have not been run; simulated
+canonical page with an embedded local simulation. The seven new integration exports are available
+in `orb-ui@0.10.0` and later. Live credential-based provider tests have not been run; simulated
 previews do not establish live provider reliability.
 
 ## Integrations

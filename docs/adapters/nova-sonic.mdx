@@ -3,7 +3,7 @@ title: Amazon Nova 2 Sonic Voice UI for React
 description: Build a React voice UI with Amazon Nova 2 Sonic, a local Node and Socket.IO bridge to Bedrock, browser PCM audio, and a simulated demo that uses no AWS credits.
 ---
 
-> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+> Requires `orb-ui@0.10.0` or later. SDK types, offline fixtures, and browser lifecycle tests have been checked. Live provider credential tests have not been run.
 
 Amazon Nova 2 Sonic uses Amazon Bedrock's bidirectional streaming API. This integration is a
 **fullstack recipe**: your Node server owns the AWS client, the browser owns microphone capture and
@@ -34,8 +34,6 @@ newer. Build the checked-out orb-ui version first so this example resolves its l
 ```bash
 git clone https://github.com/exprmntl/orb-ui.git
 cd orb-ui
-# Before this review branch is merged, check out its implementation:
-git switch codex/orb-expansion
 pnpm install
 pnpm build
 cd examples/nova-sonic
