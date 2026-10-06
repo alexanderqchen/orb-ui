@@ -3,6 +3,8 @@ title: Amazon Nova 2 Sonic Voice UI for React
 description: Build a React voice UI with Amazon Nova 2 Sonic, a local Node and Socket.IO bridge to Bedrock, browser PCM audio, and a simulated demo that uses no AWS credits.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 Amazon Nova 2 Sonic uses Amazon Bedrock's bidirectional streaming API. This integration is a
 **fullstack recipe**: your Node server owns the AWS client, the browser owns microphone capture and
 PCM playback, and `createNovaSonicBridge` reflects those sessions in Orb. It does not connect to AWS
@@ -10,7 +12,7 @@ from the browser.
 
 ## Try the simulated conversation
 
-This preview runs local authored states and an audio fixture. It requests no AWS credentials,
+This preview runs local authored states and synthetic volume levels. It requests no AWS credentials,
 makes no provider calls, and spends no API credits. Start, interrupt, stop, and reconnect to inspect
 the UI behavior before running a live session on your own backend.
 
@@ -32,6 +34,8 @@ newer. Build the checked-out orb-ui version first so this example resolves its l
 ```bash
 git clone https://github.com/exprmntl/orb-ui.git
 cd orb-ui
+# Before this review branch is merged, check out its implementation:
+git switch codex/orb-expansion
 pnpm install
 pnpm build
 cd examples/nova-sonic
@@ -140,7 +144,7 @@ const response = await bedrock.send(
 
 The AudioWorklet continuously resamples the browser's actual input rate to 16 kHz. It sends
 32 ms frames as mono signed 16-bit **little-endian** PCM. Resampling state survives worklet render
-blocks. The server acknowledges a frame when Bedrock consumes it, and the browser has a bounded
+blocks. The server acknowledges a frame when the AWS SDK consumes its input iterator, and the browser has a bounded
 outgoing queue. An input stall produces a recoverable error instead of accumulating microphone
 audio without a limit.
 

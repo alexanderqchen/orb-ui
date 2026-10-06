@@ -118,6 +118,7 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
   const resumed = context.state === 'suspended' ? context.resume() : Promise.resolve()
   // Permission can resolve after close; open() releases that late stream immediately.
   let disposed = false
+  let opened = false
   let stream: MediaStream | undefined
   let capture: AudioWorkletNode | undefined
   let input: MediaStreamAudioSourceNode | undefined
@@ -130,6 +131,12 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
   const microphoneEnded = () => {
     if (!disposed) options.onError(new Error('The microphone track ended.'))
   }
+  const contextChanged = () => {
+    if (!opened || disposed || context.state === 'running') return
+    clear()
+    options.onError(new Error(`Browser audio is ${context.state}. Start a new session to resume.`))
+  }
+  context.addEventListener('statechange', contextChanged)
 
   function check() {
     if (disposed) throw new DOMException('Audio startup canceled.', 'AbortError')
@@ -154,7 +161,7 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
   return {
     clear,
     get hasOutput() {
-      return sources.size > 0
+      return context.state === 'running' && sources.size > 0
     },
     async open() {
       await resumed
@@ -171,12 +178,18 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
         check()
       }
       stream = acquired
+      if (context.state !== 'running') {
+        throw new Error(`Browser audio is ${context.state}. Start a new session to resume.`)
+      }
       stream.getTracks().forEach((track) => track.addEventListener('ended', microphoneEnded))
       capture = await (options.createCaptureNode ?? createCaptureNode)(context)
       if (disposed) {
         capture.port.close()
         capture.disconnect()
         check()
+      }
+      if (context.state !== 'running') {
+        throw new Error(`Browser audio is ${context.state}. Start a new session to resume.`)
       }
       input = context.createMediaStreamSource(stream)
       mute = context.createGain()
@@ -202,14 +215,22 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
       analyser.fftSize = 512
       analyser.connect(context.destination)
       const samples = new Float32Array(analyser.fftSize)
+      opened = true
       meter = setInterval(() => {
         if (disposed || !analyser) return
+        if (context.state !== 'running' || sources.size === 0) {
+          options.onOutputVolume(0)
+          return
+        }
         analyser.getFloatTimeDomainData(samples)
         options.onOutputVolume(pcmRms(samples))
       }, 33)
     },
     play(bytes) {
       if (disposed || !analyser || bytes.byteLength === 0) return
+      if (context.state !== 'running') {
+        throw new Error(`Browser audio is ${context.state}. Start a new session to resume.`)
+      }
       if (nextOutputTime - context.currentTime > 5) {
         throw new Error('Audio playback fell more than five seconds behind.')
       }
@@ -225,7 +246,10 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
       source.onended = () => {
         if (!sources.delete(source)) return
         source.disconnect()
-        if (!disposed && sources.size === 0) options.onPlayback(false)
+        if (!disposed && sources.size === 0) {
+          options.onOutputVolume(0)
+          options.onPlayback(false)
+        }
       }
       source.start(startAt)
       options.onPlayback(true)
@@ -233,6 +257,7 @@ export function createPcmBrowserAudio(options: AudioOptions): PcmBrowserAudio {
     async close() {
       if (disposed) return
       disposed = true
+      context.removeEventListener('statechange', contextChanged)
       clear()
       if (meter) clearInterval(meter)
       if (capture) {

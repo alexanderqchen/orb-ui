@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
-    "server": "tsx server.ts",
+    "server": "node --import tsx server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:browser": "node --import tsx tests/browser-qa.ts",
     "build": "tsc --noEmit && vite build"
   },
   "engines": {
@@ -22,6 +23,7 @@
     "socket.io-client": "4.8.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@types/node": "22.19.15",
     "@types/react": "18.3.29",
     "@types/react-dom": "18.3.7",

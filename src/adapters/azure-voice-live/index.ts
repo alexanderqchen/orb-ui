@@ -140,7 +140,13 @@ export function createAzureVoiceLiveAdapter<Session extends AzureVoiceLiveSessio
   }
 
   function finishResponse(session: ActiveSession<Session>) {
-    if (session.responseComplete && !session.audio?.hasOutput) state('listening')
+    if (session.audio?.hasOutput) return
+    output.reset()
+    emit({
+      ...signal,
+      state: session.userSpeaking || session.responseComplete ? 'listening' : 'thinking',
+      outputVolume: 0,
+    })
   }
 
   function handle(session: ActiveSession<Session>, event: AzureVoiceLiveServerEvent) {

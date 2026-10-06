@@ -3,13 +3,15 @@ title: Retell WebCall Voice UI for React
 description: Connect Retell's current browser WebCall SDK to a React voice orb with turn feedback, measured output audio, safe cleanup, and a local simulated preview.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 Retell owns the browser call, microphone, and playback. orb-ui observes the current WebCall
 session and renders its connection, turn, and audio signals. Use this adapter when your app wants
 Retell call controls alongside the same accessible orb themes used by your other voice surfaces.
 
 ## Try the local preview
 
-This preview uses simulated states and a local audio fixture. It opens no microphone, makes no
+This preview uses simulated states and synthetic volume levels. It opens no microphone, makes no
 provider request, and spends no API credits. Start, interrupt, end, and replay it to inspect the UI.
 
 <iframe

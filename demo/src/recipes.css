@@ -93,6 +93,18 @@ body {
 .recipe-demo input[type='checkbox'] {
   width: auto;
 }
+.recipe-demo label:has(> input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.recipe-heading {
+  max-width: 840px;
+  margin: 24px auto 0;
+  padding: 0 clamp(16px, 4vw, 32px);
+  font-size: clamp(26px, 5vw, 36px);
+  letter-spacing: -0.035em;
+}
 .recipe-status,
 .simulation-label {
   display: block;

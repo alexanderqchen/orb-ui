@@ -141,9 +141,13 @@ export function createCartesiaAdapter(config: CartesiaAdapterConfig): CartesiaOr
   }
 
   function finishOutput(session: Session) {
-    if (!session.userSpeaking && session.outputComplete && !session.audio?.hasOutput) {
-      state('listening')
-    }
+    if (session.audio?.hasOutput) return
+    output.reset()
+    emit({
+      ...signal,
+      state: session.userSpeaking || session.outputComplete ? 'listening' : 'thinking',
+      outputVolume: 0,
+    })
   }
 
   function send(session: Session, event: object) {

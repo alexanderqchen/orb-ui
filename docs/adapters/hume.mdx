@@ -3,6 +3,8 @@ title: Hume EVI Voice UI for React
 description: Observe an existing Hume EVI VoiceProvider with an accessible React voice orb, playback-based state, directional audio activity, and a safe local preview.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 Hume's `VoiceProvider` already owns EVI's microphone, WebSocket, player, and message history.
 orb-ui adds the visual React layer by observing that existing session. You can render a controlled
 orb directly from `useVoice()`, or use the session bridge when your application coordinates more
@@ -10,7 +12,7 @@ complex lifecycle and tool events.
 
 ## Try the local preview
 
-The embedded session uses simulated states and a local audio fixture. It spends no provider
+The embedded session uses simulated states and synthetic volume levels. It spends no provider
 credits, records no microphone, and requires no Hume account. The controls let you inspect
 connection, response, interruption, and restart behavior before adding a live backend.
 

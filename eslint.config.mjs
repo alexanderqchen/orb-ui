@@ -7,6 +7,7 @@ export default [
     ignores: [
       'dist/**',
       'demo/dist/**',
+      'examples/**/dist/**',
       'node_modules/**',
       'demo/node_modules/**',
       'demo/.vercel/**',

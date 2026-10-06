@@ -114,6 +114,8 @@ The developer provider playground is available through `pnpm dev:demo` at localh
 
 The seven new integrations are unreleased until the next approved package release. Build this
 checkout to try the exported APIs; credential-based live provider tests have not been run.
+See the [expansion checklist](EXPANSION_CHECKLIST.md) for all fifteen additions and their
+verification and publication boundaries.
 
 ## Quick Start
 

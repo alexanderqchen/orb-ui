@@ -7,6 +7,7 @@ class FakeNode {
 }
 
 function fixture() {
+  const stateListeners = new Set<() => void>()
   const track = { stop: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }
   const stream = { getTracks: () => [track] } as unknown as MediaStream
   const capture = Object.assign(new FakeNode(), {
@@ -26,6 +27,10 @@ function fixture() {
     sampleRate: 48_000,
     currentTime: 1,
     destination: new FakeNode(),
+    addEventListener: vi.fn((_name: string, listener: () => void) => stateListeners.add(listener)),
+    removeEventListener: vi.fn((_name: string, listener: () => void) =>
+      stateListeners.delete(listener),
+    ),
     resume: vi.fn(async () => undefined),
     close: vi.fn(async () => {
       context.state = 'closed'
@@ -68,7 +73,7 @@ function fixture() {
     onError,
     onOutputVolume,
   }
-  return { track, stream, capture, context, sources, options }
+  return { track, stream, capture, context, sources, options, stateListeners }
 }
 
 afterEach(() => vi.useRealTimers())
@@ -148,5 +153,40 @@ describe('PCM AudioWorklet browser path', () => {
       expect.objectContaining({ message: 'The microphone AudioWorklet failed.' }),
     )
     await audio.close()
+  })
+
+  it('flushes and reports suspended audio instead of claiming queued sources are audible', async () => {
+    const f = fixture()
+    const audio = createPcmBrowserAudio(f.options)
+    await audio.open()
+    audio.play(new Uint8Array([0, 0, 255, 127]))
+    expect(audio.hasOutput).toBe(true)
+    f.context.state = 'suspended'
+    f.stateListeners.forEach((listener) => listener())
+    expect(audio.hasOutput).toBe(false)
+    expect(f.sources[0].stop).toHaveBeenCalledOnce()
+    expect(f.options.onPlayback).toHaveBeenLastCalledWith(false)
+    expect(f.options.onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Browser audio is suspended. Start a new session to resume.',
+      }),
+    )
+    expect(() => audio.play(new Uint8Array([0, 0]))).toThrow('Browser audio is suspended')
+    expect(f.sources).toHaveLength(1)
+    await audio.close()
+    expect(f.stateListeners.size).toBe(0)
+  })
+
+  it('rejects audio suspended during microphone permission and releases the acquired track', async () => {
+    const f = fixture()
+    f.options.getUserMedia.mockImplementationOnce(async () => {
+      f.context.state = 'suspended'
+      return f.stream
+    })
+    const audio = createPcmBrowserAudio(f.options)
+    await expect(audio.open()).rejects.toThrow('Browser audio is suspended')
+    await audio.close()
+    expect(f.track.stop).toHaveBeenCalledOnce()
+    expect(f.context.createMediaStreamSource).not.toHaveBeenCalled()
   })
 })

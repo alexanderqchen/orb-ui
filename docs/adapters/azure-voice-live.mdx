@@ -3,6 +3,8 @@ title: Azure Voice Live React Voice UI
 description: Connect Azure Voice Live JavaScript sessions to orb-ui with AudioWorklet microphone capture, PCM playback, interruption handling, and a local simulated preview.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 `createAzureVoiceLiveAdapter` connects an injected Azure JavaScript SDK session to a React orb.
 It supplies the browser audio path: mono PCM16 microphone capture, 24 kHz resampling, queued
 playback, separate input/output meters, interruption cleanup, and session disposal. Your
@@ -10,7 +12,7 @@ application owns Azure identity, its resource, model selection, instructions, an
 
 ## Try the local simulation
 
-This preview uses synthetic signals and local audio fixtures. It does not contact Azure, request
+This preview uses synthetic states and volume levels. It does not contact Azure, request
 microphone permission, or consume anyone's API credits. Listening, thinking, interruption, errors,
 and reconnection can be reviewed before configuring an Azure resource.
 
@@ -114,7 +116,8 @@ configuration. No Azure SDK code is bundled into orb-ui itself.
 | Permission, credential work, SDK connection/configuration | `connecting`                                 |
 | User speech starts                                        | `listening`; immediately flush queued output |
 | User speech stops or response starts                      | `thinking`                                   |
-| PCM output enters the playback queue                      | `speaking`                                   |
+| PCM playback starts in a running browser audio context    | `speaking`                                   |
+| Playback drains while the response is still generating    | `thinking`; output volume resets to zero     |
 | Response finishes and playback drains                     | `listening`                                  |
 | Explicit stop or normal service hangup                    | `idle`; release local resources              |
 | Permission, timeout, audio, or provider failure           | `error`; dispose the session                 |
@@ -136,6 +139,11 @@ Startup has a 30-second deadline. Repeated starts share one startup promise; a s
 work, shuts down audio, closes subscriptions, and disposes the SDK session. Late credentials,
 microphone streams, and old-session callbacks cannot reopen a stopped conversation. Reconnect by
 calling `start()` again after stop or failure. There is no automatic paid reconnect loop.
+
+If the browser suspends or interrupts its audio context, the adapter flushes playback, reports
+an error, and closes the session. Start again from a user gesture to resume. A queued source in
+a suspended context is never reported as speaking. Between generated chunks, drained playback
+returns to thinking with zero output volume until more audio arrives or the response completes.
 
 The default capture module uses a local blob URL. If your existing Content Security Policy
 disallows blob worklet modules, supply `createCaptureNode(context)` using your already-approved

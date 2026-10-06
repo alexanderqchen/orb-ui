@@ -10,6 +10,7 @@ const audio = vi.hoisted(() => ({
   options: undefined as unknown as {
     onInput(bytes: Uint8Array, rms: number): void
     onPlayback(playing: boolean): void
+    onOutputVolume(rms: number): void
   },
   play: vi.fn(),
 }))
@@ -103,6 +104,23 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('Cartesia Managed Agent browser WebSocket', () => {
+  it('shows thinking with zero output between audio chunks and preserves user listening', async () => {
+    const f = fixture()
+    const socket = await f.start()
+    socket.receive({ type: 'turn_started', turn: 1, role: 'assistant' })
+    socket.receive({ type: 'audio_output', audio: 'AAD/fw==' })
+    audio.options.onOutputVolume(0.2)
+    expect(f.signals.at(-1)?.outputVolume).toBeGreaterThan(0)
+    audio.playing = false
+    audio.options.onPlayback(false)
+    expect(f.signals.at(-1)).toMatchObject({ state: 'thinking', outputVolume: 0 })
+    socket.receive({ type: 'audio_output', audio: 'AAD/fw==' })
+    expect(f.signals.at(-1)?.state).toBe('speaking')
+    socket.receive({ type: 'turn_started', turn: 2, role: 'user' })
+    audio.options.onPlayback(false)
+    expect(f.signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
+    await f.adapter.stop()
+  })
   it('sends session_create first, waits for session_ready and streams base64 PCM JSON', async () => {
     const f = fixture()
     const starting = f.adapter.start()

@@ -25,6 +25,18 @@ markdown.use({
     code({ text, lang }) {
       return `<div class="code-block"><div class="code-label"><span>${escape(lang ?? 'code')}</span><button class="copy-code" type="button" hidden>Copy code</button></div><pre tabindex="0"><code>${escape(text)}</code></pre></div>`
     },
+    table(token) {
+      const header = token.header
+        .map((cell) => `<th scope="col">${this.parser.parseInline(cell.tokens)}</th>`)
+        .join('')
+      const rows = token.rows
+        .map(
+          (row) =>
+            `<tr>${row.map((cell) => `<td>${this.parser.parseInline(cell.tokens)}</td>`).join('')}</tr>`,
+        )
+        .join('')
+      return `<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></div>`
+    },
   },
 })
 
@@ -72,7 +84,7 @@ export function expansionAssets() {
   }
   assets.set(
     'expansion.css',
-    '.expansion-doc{max-width:960px;margin:auto;padding:48px 24px 72px}.expansion-doc h1{font-size:clamp(36px,6vw,58px);line-height:1.1;letter-spacing:-.045em}.expansion-lede{font-size:20px;color:#b3c0d4;line-height:1.6}.expansion-doc h2{margin-top:44px}.expansion-doc p,.expansion-doc li{line-height:1.75}.expansion-doc a{color:#87b8ff}.expansion-doc iframe{width:100%;border:1px solid #28364f;border-radius:14px;min-height:640px;display:block;margin:24px 0}.expansion-doc pre{overflow:auto}.expansion-doc table{display:block;overflow-x:auto;border-collapse:collapse}.expansion-doc td,.expansion-doc th{border:1px solid #293750;padding:12px}.expansion-doc blockquote{border-left:3px solid #639ffa;padding:4px 20px;color:#b8c5d9}.expansion-doc img{max-width:100%}@media(max-width:480px){.expansion-doc{padding:28px 16px}.expansion-doc iframe{min-height:800px}}',
+    '.expansion-doc{max-width:960px;margin:auto;padding:48px 24px 72px}.expansion-doc h1{font-size:clamp(36px,6vw,58px);line-height:1.1;letter-spacing:-.045em}.expansion-lede{font-size:20px;color:#b3c0d4;line-height:1.6}.expansion-doc h2{margin-top:44px}.expansion-doc p,.expansion-doc li{line-height:1.75}.expansion-doc a{color:#87b8ff}.expansion-doc iframe{width:100%;border:1px solid #28364f;border-radius:14px;min-height:640px;display:block;margin:24px 0}.expansion-doc pre{overflow:auto}.expansion-doc table{border-collapse:collapse}.expansion-doc .table-scroll{max-width:100%}.expansion-doc td,.expansion-doc th{border:1px solid #293750;padding:12px}.expansion-doc blockquote{border-left:3px solid #639ffa;padding:4px 20px;color:#b8c5d9}.expansion-doc img{max-width:100%}@media(max-width:480px){.expansion-doc{padding:28px 16px}.expansion-doc iframe{min-height:800px}}',
   )
   assets.set(
     'expansion-sitemap.xml',

@@ -3,6 +3,8 @@ title: Cartesia Managed Agents React Voice UI
 description: Build a Cartesia Managed Agent voice interface with browser WebSocket sessions, PCM16 audio, captions, client tools, interruption cleanup, and a local simulation.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 `createCartesiaAdapter` connects a **Managed Agent conversation** to orb-ui. It opens Cartesia's
 agent WebSocket, waits for `session_ready`, streams mono PCM16 input, plays returned audio,
 and preserves conversation and client-tool events. It supplies microphone capture and playback;
@@ -10,7 +12,7 @@ your application supplies its own agent and a fresh browser access token.
 
 ## Try the local simulation
 
-The preview uses synthetic signals and bundled audio fixtures. It has no Cartesia connection,
+The preview uses synthetic states and volume levels. It has no Cartesia connection,
 microphone request, API key, or paid calls. Use it to inspect the interaction before connecting
 your own agent.
 
@@ -121,7 +123,8 @@ the session rather than allowing an unlimited queue.
 | Microphone permission, token work, socket/session setup   | `connecting`                                        |
 | User turn starts                                          | `listening`; discard previous playback              |
 | User turn ends or assistant turn starts                   | `thinking`                                          |
-| Agent PCM enters playback                                 | `speaking`                                          |
+| Agent PCM playback starts in a running audio context      | `speaking`                                          |
+| Playback drains before the assistant turn ends            | `thinking`; output volume resets to zero            |
 | Assistant turn ends and playback drains                   | `listening`                                         |
 | `audio_output_clear` interruption                         | Stop current/queued output immediately; `listening` |
 | Stop or normal agent hangup                               | `idle` and release microphone/audio/socket          |
@@ -140,6 +143,11 @@ token/socket work. Stop cancels pending startup, closes the socket normally, sto
 disconnects AudioWorklet/analyser nodes, and flushes output. Repeated start/stop calls are
 idempotent; stale callbacks from old sockets are ignored. Reconnect explicitly after an error;
 there is no automatic billable retry loop. The default startup deadline is 30 seconds.
+
+Browser audio suspension or interruption flushes playback and reports an error with session
+cleanup. Resume by starting again from a user gesture. Queued audio in a suspended context never
+claims a speaking state. When playback drains between generated chunks, the orb shows thinking
+with zero output volume; active user speech keeps listening priority.
 
 RMS input/output defaults are conservative and have not been calibrated against live Cartesia
 voices. Supply directional volume calibration for your audio. For a policy that disallows local

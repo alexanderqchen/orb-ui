@@ -3,6 +3,15 @@ import type { Page } from '@playwright/test'
 import { integrations, recipes } from '../../demo/expansion/catalog'
 
 const origin = process.env.ORB_PREVIEW_URL ?? 'http://127.0.0.1:4174'
+const observations = new WeakMap<Page, ReturnType<typeof watch>>()
+if (process.env.ORB_PREVIEW_URL) test.use({ trace: 'off' })
+test.beforeEach(async ({ page }) => {
+  if (process.env.ORB_PREVIEW_ACCESS_URL) await page.goto(process.env.ORB_PREVIEW_ACCESS_URL)
+  observations.set(page, watch(page))
+})
+test.afterEach(async ({ page }) => {
+  expect(observations.get(page)).toEqual({ errors: [], providerRequests: [] })
+})
 function watch(page: Page) {
   const errors: string[] = []
   const providerRequests: string[] = []
@@ -10,7 +19,9 @@ function watch(page: Page) {
   page.on('request', (request) => {
     const url = new URL(request.url())
     if (
-      /retell|hume|deepgram|cartesia|bedrock|agora|openai|generativelanguage/.test(url.hostname) ||
+      /retell|hume|deepgram|cartesia|bedrock|agora|openai|generativelanguage|cognitiveservices|amazonaws|voicelive/.test(
+        url.hostname,
+      ) ||
       url.pathname.startsWith('/api/')
     )
       providerRequests.push(request.url())
@@ -23,6 +34,7 @@ for (const [slug] of integrations) {
     page,
   }) => {
     const observed = watch(page)
+    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(`${origin}/docs/adapters/${slug}`)
     await expect(page.locator('h1')).toHaveCount(1)
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
@@ -30,6 +42,9 @@ for (const [slug] of integrations) {
       `https://orb-ui.com/docs/adapters/${slug}`,
     )
     await expect(page.locator('iframe')).toBeVisible()
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
     await page.goto(`${origin}/demos/integrations/?provider=${slug}`)
     await page.getByRole('button', { name: 'Start simulation', exact: true }).click()
     await expect(page.getByRole('status')).toContainText('listening')
@@ -52,11 +67,14 @@ for (const [slug] of integrations) {
 for (const [slug] of recipes) {
   test(`${slug}: canonical example and mobile keyboard preview`, async ({ page }) => {
     const observed = watch(page)
+    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(`${origin}/docs/recipes/${slug}`)
     await expect(page.locator('h1')).toHaveCount(1)
     await expect(page.locator('iframe')).toBeVisible()
     await expect(page.locator('.copy-code').first()).toBeVisible()
-    await page.setViewportSize({ width: 390, height: 844 })
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
     await page.goto(`${origin}/demos/recipes/?recipe=${slug}`)
     await expect(page.locator('.recipe-demo')).toBeVisible()
     expect(
@@ -152,7 +170,12 @@ test('interview rehearsal advances only on save and retries the same question', 
   await expect(page.getByRole('heading', { name: 'Question 1 · attempt 2' })).toBeVisible()
   await page.getByRole('button', { name: 'Rehearse answer' }).click()
   await expect(page.getByRole('button', { name: 'Save and next question' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Save and next question' }).click()
+  await page
+    .getByRole('button', { name: 'Save and next question' })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click()
+      button.click()
+    })
   await expect(page.getByRole('heading', { name: 'Question 2 · attempt 1' })).toBeVisible()
 })
 

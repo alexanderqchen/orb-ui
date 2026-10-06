@@ -81,6 +81,7 @@ export default function VoiceForm() {
   const [state, setState] = useState<OrbState>('idle')
   const [message, setMessage] = useState('Fill the draft by voice, then review every detail.')
   const [heard, setHeard] = useState('')
+  const [resetAvailable, setResetAvailable] = useState(true)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const generation = useRef(0)
   const active = useRef(false)
@@ -159,11 +160,15 @@ export default function VoiceForm() {
   function confirm() {
     if (active.current || confirmed.current || stage !== 'review') return
     confirmed.current = true
+    setResetAvailable(false)
     setStage('confirmed')
     setState('idle')
     setMessage('Local booking confirmed. This demo does not reserve a real table.')
+    // The second click of a confirmation double-click must not reset the new screen.
+    later(600, () => setResetAvailable(true))
   }
   function reset() {
+    if (!resetAvailable) return
     cancel()
     confirmed.current = false
     setFields({ ...empty })
@@ -293,7 +298,7 @@ export default function VoiceForm() {
                 </button>
               </>
             ) : (
-              <button type="button" onClick={reset}>
+              <button type="button" disabled={!resetAvailable} onClick={reset}>
                 Start a new draft
               </button>
             )}

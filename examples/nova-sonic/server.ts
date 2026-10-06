@@ -38,7 +38,6 @@ export function createRecipeServer(options: Options = {}) {
   }
   const tokens = new Map<string, number>()
   let activeConnections = 0
-  let lastTokenAt = 0
   let bedrock: BedrockRuntimeClient | null = null
   const validHost = (host: string | undefined) => {
     const address = http.address()
@@ -58,13 +57,12 @@ export function createRecipeServer(options: Options = {}) {
     }
     const now = Date.now()
     for (const [token, expiry] of tokens) if (expiry <= now) tokens.delete(token)
-    if (activeConnections || tokens.size >= 8 || now - lastTokenAt < 1000) {
+    if (activeConnections || tokens.size >= 8) {
       response
         .writeHead(429)
         .end(JSON.stringify({ error: 'One local session at a time; try again shortly' }))
       return
     }
-    lastTokenAt = now
     const token = randomBytes(32).toString('base64url')
     tokens.set(token, now + 60_000)
     response.end(JSON.stringify({ token, expiresAt: now + 60_000, mode, model: MODEL_ID }))
@@ -151,7 +149,13 @@ export function createRecipeServer(options: Options = {}) {
             ended,
           )
         })
-      session = create(onEvent, fail, onClose)
+      try {
+        session = create(onEvent, fail, onClose)
+      } catch (error) {
+        ack({ ok: false, error: 'Could not create the voice session' })
+        fail(error)
+        return
+      }
       const startupTimeout = setTimeout(
         () => fail(new Error('Voice session startup timed out')),
         10_000,

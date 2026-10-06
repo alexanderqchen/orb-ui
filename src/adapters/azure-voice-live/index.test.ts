@@ -11,6 +11,7 @@ const audio = vi.hoisted(() => ({
   options: undefined as unknown as {
     onInput(bytes: Uint8Array, rms: number): void
     onPlayback(playing: boolean): void
+    onOutputVolume(rms: number): void
     onError(error: unknown): void
   },
   play: vi.fn(),
@@ -75,6 +76,31 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('Azure Voice Live SDK bridge', () => {
+  it('shows thinking with zero output during generation gaps and preserves user listening', async () => {
+    const f = fixture()
+    await f.adapter.start()
+    await f.handlers.onServerEvent?.({ type: 'response.created', response: { id: 'r-gap' } })
+    await f.handlers.onServerEvent?.({
+      type: 'response.audio.delta',
+      responseId: 'r-gap',
+      delta: new Uint8Array([0, 0]),
+    })
+    audio.options.onOutputVolume(0.2)
+    expect(f.signals.at(-1)?.outputVolume).toBeGreaterThan(0)
+    audio.playing = false
+    audio.options.onPlayback(false)
+    expect(f.signals.at(-1)).toMatchObject({ state: 'thinking', outputVolume: 0 })
+    await f.handlers.onServerEvent?.({
+      type: 'response.audio.delta',
+      responseId: 'r-gap',
+      delta: new Uint8Array([0, 0]),
+    })
+    expect(f.signals.at(-1)?.state).toBe('speaking')
+    await f.handlers.onServerEvent?.({ type: 'input_audio_buffer.speech_started' })
+    audio.options.onPlayback(false)
+    expect(f.signals.at(-1)).toMatchObject({ state: 'listening', outputVolume: 0 })
+    await f.adapter.stop()
+  })
   it('connects once, configures PCM and waits for playback drain after response.done', async () => {
     const f = fixture()
     const starting = f.adapter.start()

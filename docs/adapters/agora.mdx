@@ -3,6 +3,8 @@ title: Agora Conversational AI Voice UI for React
 description: Connect Agora Voice AI toolkit events and existing RTC audio tracks to a React voice orb, with safe local simulations, scoped session tokens, and explicit cleanup.
 ---
 
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
 Use `createAgoraAdapter` to connect an Agora Conversational AI session to orb-ui. Your application
 owns RTC, RTM, microphone capture, remote playback, and backend agent creation. The adapter
 observes those resources, filters the selected agent UID, and keeps voice generation separate
@@ -10,7 +12,7 @@ from measured browser playback.
 
 ## Try the local simulation
 
-Start, interrupt, reconnect, and retry using simulated events and local audio fixtures. This
+Start, interrupt, reconnect, and retry using simulated events and synthetic volume levels. This
 preview joins no Agora channel, requests no microphone, and uses no provider credits.
 
 <iframe

@@ -21,6 +21,7 @@ interface Run {
 
 export class BrowserSession {
   private run: Run | null = null
+  private closing: Promise<void> | null = null
   readonly bridge = createNovaSonicBridge({
     onInterrupt: () => this.run?.player.interrupt(),
     onTranscript: (transcript) => this.onTranscript(transcript),
@@ -33,9 +34,10 @@ export class BrowserSession {
 
   async start() {
     if (this.run) return
+    const previousClosing = this.closing
     const id = crypto.randomUUID()
     this.bridge.beginSession(id)
-    let context: AudioContext
+    let context: AudioContext | null = null
     let player: PcmPlayer
     try {
       context = new AudioContext() // Created by the click, before network/permission awaits.
@@ -43,6 +45,7 @@ export class BrowserSession {
         this.bridge.setPlayback(id, active, volume),
       )
     } catch (error) {
+      if (context) void context.close().catch(() => undefined)
       this.bridge.failed(id, error)
       return
     }
@@ -67,6 +70,7 @@ export class BrowserSession {
     }
     try {
       await context.resume()
+      if (previousClosing) await previousClosing
       current()
       const response = await fetch('/api/nova-session', {
         method: 'POST',
@@ -259,12 +263,19 @@ export class BrowserSession {
       track.onended = null
       track.stop()
     })
-    if (run.socket?.connected) {
-      await new Promise<void>((resolve) => {
-        run.socket!.timeout(1200).emit('nova:stop', run.id, () => resolve())
-      })
-    }
-    await this.dispose(run)
+    const previousClosing = this.closing
+    const closing = (async () => {
+      if (run.socket?.connected) {
+        await new Promise<void>((resolve) => {
+          run.socket!.timeout(1200).emit('nova:stop', run.id, () => resolve())
+        })
+      }
+      await this.dispose(run)
+      if (previousClosing) await previousClosing
+    })()
+    this.closing = closing
+    await closing
+    if (this.closing === closing) this.closing = null
   }
 
   private async dispose(run: Run) {

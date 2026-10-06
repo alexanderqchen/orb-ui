@@ -49,7 +49,10 @@ function RecipePreviews() {
           Setup and React source ↗
         </a>
       </nav>
-      <Component key={slug} />
+      <main>
+        <h1 className="recipe-heading">{recipes.find(([id]) => id === slug)![1]}</h1>
+        <Component key={slug} />
+      </main>
     </>
   )
 }
