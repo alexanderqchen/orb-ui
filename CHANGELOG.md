@@ -1,5 +1,19 @@
 # orb-ui
 
+## 0.10.0
+
+### Minor Changes
+
+- b7feb99: Add Retell WebCall, Hume EVI, Deepgram Voice Agent, Agora Conversational AI, Azure Voice Live, and Cartesia Managed Agents integrations, plus a controlled bridge and full-stack recipe for Amazon Nova 2 Sonic. Existing Orb and adapter APIs remain compatible.
+
+  Add eight complete React voice UI recipes with local simulated demos, transcripts, review controls, citations, progress, search results, and fixture narration. Hosted provider proxies are disabled; live developer testing stays local or uses the developer's own authenticated backend.
+
+### Patch Changes
+
+- 0e78ad5: Improve the default text contrast of the debug theme's inactive state buttons and Stop button.
+  Keep selected playground buttons readable while hovered, and improve button text contrast on
+  the homepage and calibration controls.
+
 ## 0.9.0
 
 ### Minor Changes
