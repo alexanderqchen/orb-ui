@@ -3,7 +3,7 @@ title: Deepgram Voice Agent UI for React
 description: Build a playback-aware Deepgram voice agent orb with the browser SDK or your existing React AgentProvider, with safe local simulations and explicit audio ownership.
 ---
 
-> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+> Requires `orb-ui@0.10.0` or later. SDK types, offline fixtures, and browser lifecycle tests have been checked. Live provider credential tests have not been run.
 
 Connect Deepgram Voice Agent to an audio-reactive orb without adding a second microphone or
 speaker pipeline. Use `createDeepgramAdapter` for browser SDK resources, or
@@ -30,7 +30,7 @@ explore the state transitions before connecting your own application.
 ## Install and choose an audio owner
 
 ```bash
-pnpm add orb-ui @deepgram/agents@0.1.2
+pnpm add orb-ui@0.10.0 @deepgram/agents@0.1.2
 # For an existing React provider:
 pnpm add @deepgram/react@0.2.0
 ```

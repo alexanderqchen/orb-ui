@@ -3,7 +3,7 @@ title: Agora Conversational AI Voice UI for React
 description: Connect Agora Voice AI toolkit events and existing RTC audio tracks to a React voice orb, with safe local simulations, scoped session tokens, and explicit cleanup.
 ---
 
-> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+> Requires `orb-ui@0.10.0` or later. SDK types, offline fixtures, and browser lifecycle tests have been checked. Live provider credential tests have not been run.
 
 Use `createAgoraAdapter` to connect an Agora Conversational AI session to orb-ui. Your application
 owns RTC, RTM, microphone capture, remote playback, and backend agent creation. The adapter
@@ -30,7 +30,7 @@ preview joins no Agora channel, requests no microphone, and uses no provider cre
 ## Install
 
 ```bash
-pnpm add orb-ui agora-agent-client-toolkit@2.10.0 agora-rtc-sdk-ng@4.24.8 agora-rtm@2.3.0
+pnpm add orb-ui@0.10.0 agora-agent-client-toolkit@2.10.0 agora-rtc-sdk-ng@4.24.8 agora-rtm@2.3.0
 ```
 
 Versions were verified on October 6, 2026. The latest toolkit exports `AgoraVoiceAI` and retains

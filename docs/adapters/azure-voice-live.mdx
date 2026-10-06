@@ -3,7 +3,7 @@ title: Azure Voice Live React Voice UI
 description: Connect Azure Voice Live JavaScript sessions to orb-ui with AudioWorklet microphone capture, PCM playback, interruption handling, and a local simulated preview.
 ---
 
-> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+> Requires `orb-ui@0.10.0` or later. SDK types, offline fixtures, and browser lifecycle tests have been checked. Live provider credential tests have not been run.
 
 `createAzureVoiceLiveAdapter` connects an injected Azure JavaScript SDK session to a React orb.
 It supplies the browser audio path: mono PCM16 microphone capture, 24 kHz resampling, queued
@@ -28,7 +28,7 @@ and reconnection can be reviewed before configuring an Azure resource.
 ## Install and supply your own identity
 
 ```bash
-npm install orb-ui @azure/ai-voicelive@1.1.0
+npm install orb-ui@0.10.0 @azure/ai-voicelive@1.1.0
 ```
 
 The compatibility example is checked against `@azure/ai-voicelive` **1.1.0** and its browser

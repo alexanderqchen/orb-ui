@@ -9,7 +9,7 @@ and does not request microphone permission. No provider endpoint is deployed wit
 Use Node 22.12 or newer, and run these commands from a checkout containing this example:
 
 ```bash
-# In the orb-ui repository root, build this candidate's bridge exports first.
+# In the orb-ui repository root, build the checked-out bridge exports first.
 pnpm install
 pnpm build
 cd examples/nova-sonic
@@ -25,9 +25,9 @@ Start, interrupt, replay the local tone, simulate a transport error, stop, and s
 Do not use `localhost` interchangeably: Origin and backend Host are checked exactly. Vite proxies
 the local `/api/nova-session` and `/socket.io` requests to `127.0.0.1:3001`.
 
-`orb-ui` is a local `file:../..` dependency so the example uses this checkout's unpublished bridge.
-If distributing the example outside the checkout, include the matching built orb-ui package;
-an older installed orb-ui release may not export `createNovaSonicBridge`.
+`orb-ui` is a local `file:../..` dependency so the example uses this checkout's built bridge.
+If distributing the example outside the checkout, use `orb-ui@0.10.0` or later;
+older releases do not export `createNovaSonicBridge`.
 
 ## Optional live mode
 
