@@ -1,0 +1,336 @@
+---
+title: Voice Form Review and Confirmation in React
+description: Build a React voice form that extracts an editable draft, reads back a review, and requires explicit confirmation. Includes a local orb-ui demo and complete source.
+---
+
+Voice input is useful for filling several fields at once. A safe form still makes the extracted
+values visible and editable, and places an explicit confirmation after review. This recipe uses
+a restaurant booking draft to demonstrate that separation.
+
+## Try the review flow
+
+The local preview reads a fixed transcript into name, requested time, party size, and seating
+fields. Its read-back state and audio levels are simulated; no audio, microphone, provider call,
+or real reservation is involved.
+
+<iframe
+  src="/demos/recipes/?recipe=voice-form"
+  title="Local simulated voice form with editable fields, review, and confirmation"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the voice form preview](/demos/recipes/?recipe=voice-form).
+Select **Start voice fill**, edit one field, select **Review booking**, and check the summary
+before choosing **Confirm local booking**. **Edit details** returns to the draft. **Simulate
+voice error** preserves the current form and makes retry available.
+
+## Setup
+
+```bash
+npm install orb-ui
+```
+
+Save the component below as `VoiceForm.tsx` and render `<VoiceForm />` in your React app.
+Add `'use client'` above the imports for Next.js App Router. It imports only React and orb-ui;
+the `recipe-*` classes are optional hooks for your form styles.
+
+[Download the complete TSX example](/examples/voice-form.tsx).
+
+## Separate voice state from form state
+
+| Voice state | Form stage | What the user can do                                                      |
+| ----------- | ---------- | ------------------------------------------------------------------------- |
+| `listening` | Edit draft | Watch the synthetic transcript; stop or simulate failure.                 |
+| `thinking`  | Edit draft | Wait for extraction or cancel; fields are protected from competing edits. |
+| `idle`      | Edit draft | Correct fields or fill them using only the keyboard.                      |
+| `speaking`  | Review     | Read the simulated spoken summary; return to editing at any time.         |
+| `idle`      | Review     | Explicitly confirm or edit details.                                       |
+| `idle`      | Confirmed  | Inspect the local confirmation or start a fresh draft.                    |
+| `error`     | Edit draft | Keep edited fields and retry voice fill.                                  |
+
+The `stage` variable controls the form's product flow. The Orb receives `state` and directionally
+appropriate volume independently. A voice completion cannot confirm the booking. Required
+name/time fields and a party size of 1–12 guard review; a synchronous confirmation ref prevents
+a repeated activation from committing twice.
+
+The date is intentionally free text in this fixture. A real booking flow must resolve phrases
+such as “Thursday at 7” into an explicit date and time zone, show that interpretation in review,
+and check availability before confirmation.
+
+## Complete React example
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbState } from 'orb-ui'
+
+type Booking = { name: string; time: string; guests: string; seating: string }
+const empty: Booking = { name: '', time: '', guests: '2', seating: 'Inside' }
+const fixture: Booking = {
+  name: 'Morgan Lee',
+  time: 'Thursday, 7 pm',
+  guests: '4',
+  seating: 'Patio',
+}
+
+export default function VoiceForm() {
+  const [fields, setFields] = useState<Booking>(empty)
+  const [stage, setStage] = useState<'edit' | 'review' | 'confirmed'>('edit')
+  const [state, setState] = useState<OrbState>('idle')
+  const [message, setMessage] = useState('Fill the draft by voice, then review every detail.')
+  const [heard, setHeard] = useState('')
+  const [resetAvailable, setResetAvailable] = useState(true)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const generation = useRef(0)
+  const active = useRef(false)
+  const confirmed = useRef(false)
+
+  function cancel() {
+    generation.current += 1
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    active.current = false
+  }
+  useEffect(
+    () => () => {
+      generation.current += 1
+      timers.current.forEach(clearTimeout)
+    },
+    [],
+  )
+  function later(delay: number, run: () => void) {
+    const token = generation.current
+    timers.current.push(
+      setTimeout(() => {
+        if (generation.current === token) run()
+      }, delay),
+    )
+  }
+  function fill() {
+    if (active.current || stage !== 'edit') return
+    cancel()
+    active.current = true
+    setState('listening')
+    setMessage('Listening to a local transcript fixture…')
+    setHeard('A table for four…')
+    later(650, () => setHeard('A table for four, Thursday at 7 pm, on the patio.'))
+    later(1400, () => {
+      setHeard('A table for four, Thursday at 7 pm, on the patio. The name is Morgan Lee.')
+      setState('thinking')
+      setMessage('Extracting editable fields from the simulated request…')
+    })
+    later(2000, () => {
+      setFields({ ...fixture })
+      setState('idle')
+      active.current = false
+      setMessage('Draft filled. Correct anything the transcript got wrong, then review.')
+    })
+  }
+  function stop(failed = false) {
+    cancel()
+    setState(failed ? 'error' : 'idle')
+    setHeard('')
+    setMessage(
+      failed
+        ? 'Simulated voice failure. Your editable fields were preserved. Retry voice fill.'
+        : 'Voice fill cancelled. Your editable fields were preserved.',
+    )
+  }
+  const valid =
+    fields.name.trim().length > 0 &&
+    fields.time.trim().length > 0 &&
+    Number(fields.guests) >= 1 &&
+    Number(fields.guests) <= 12
+  const busy = state === 'listening' || state === 'thinking' || state === 'speaking'
+  function review() {
+    if (!valid || active.current) return
+    cancel()
+    active.current = true
+    setStage('review')
+    setState('speaking')
+    setMessage('Simulated read-back: check the name, time, party size, and seating below.')
+    later(1000, () => {
+      setState('idle')
+      active.current = false
+      setMessage('Ready for your explicit confirmation.')
+    })
+  }
+  function confirm() {
+    if (active.current || confirmed.current || stage !== 'review') return
+    confirmed.current = true
+    setResetAvailable(false)
+    setStage('confirmed')
+    setState('idle')
+    setMessage('Local booking confirmed. This demo does not reserve a real table.')
+    // The second click of a confirmation double-click must not reset the new screen.
+    later(600, () => setResetAvailable(true))
+  }
+  function reset() {
+    if (!resetAvailable) return
+    cancel()
+    confirmed.current = false
+    setFields({ ...empty })
+    setHeard('')
+    setStage('edit')
+    setState('idle')
+    setMessage('New local draft. Fill by voice or use the keyboard.')
+  }
+
+  return (
+    <section className="recipe-demo" aria-label="Voice form review and confirmation">
+      <p className="recipe-status">LOCAL SIMULATION · No microphone, network, or paid calls</p>
+      <Orb
+        theme="radial"
+        size={126}
+        interactive={false}
+        signal={{
+          state,
+          inputVolume: state === 'listening' ? 0.5 : 0,
+          outputVolume: state === 'speaking' ? 0.56 : 0,
+        }}
+      />
+      <p role="status" className="recipe-status">
+        {message}
+      </p>
+      {stage === 'edit' ? (
+        <>
+          <div className="recipe-actions">
+            <button type="button" disabled={busy} onClick={fill}>
+              {state === 'error' ? 'Retry voice fill' : 'Start voice fill'}
+            </button>
+            <button type="button" disabled={!busy} onClick={() => stop()}>
+              Stop voice fill
+            </button>
+            <button type="button" disabled={state === 'error'} onClick={() => stop(true)}>
+              Simulate voice error
+            </button>
+          </div>
+          {heard && (
+            <p className="recipe-card">
+              <strong>Simulated transcript:</strong> {heard}
+            </p>
+          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              review()
+            }}
+          >
+            <label className="recipe-field">
+              Booking name
+              <input
+                required
+                value={fields.name}
+                disabled={busy}
+                onChange={(event) => setFields({ ...fields, name: event.target.value })}
+              />
+            </label>
+            <label className="recipe-field">
+              Requested date and time
+              <input
+                required
+                value={fields.time}
+                disabled={busy}
+                placeholder="For example, Thursday at 7 pm"
+                onChange={(event) => setFields({ ...fields, time: event.target.value })}
+              />
+            </label>
+            <label className="recipe-field">
+              Guests (1–12)
+              <input
+                type="number"
+                required
+                min={1}
+                max={12}
+                value={fields.guests}
+                disabled={busy}
+                onChange={(event) => setFields({ ...fields, guests: event.target.value })}
+              />
+            </label>
+            <label className="recipe-field">
+              Seating preference
+              <select
+                value={fields.seating}
+                disabled={busy}
+                onChange={(event) => setFields({ ...fields, seating: event.target.value })}
+              >
+                <option>Inside</option>
+                <option>Patio</option>
+                <option>No preference</option>
+              </select>
+            </label>
+            <button type="submit" disabled={busy || !valid}>
+              Review booking
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="recipe-card">
+          <h3>{stage === 'confirmed' ? 'Local confirmation' : 'Review your draft'}</h3>
+          <dl>
+            <dt>Name</dt>
+            <dd>{fields.name}</dd>
+            <dt>When</dt>
+            <dd>{fields.time}</dd>
+            <dt>Guests</dt>
+            <dd>{fields.guests}</dd>
+            <dt>Seating</dt>
+            <dd>{fields.seating}</dd>
+          </dl>
+          <div className="recipe-actions">
+            {stage === 'review' ? (
+              <>
+                <button type="button" disabled={busy} onClick={confirm}>
+                  Confirm local booking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    cancel()
+                    setStage('edit')
+                    setState('idle')
+                    setMessage('Edit your draft, then review again.')
+                  }}
+                >
+                  Edit details
+                </button>
+              </>
+            ) : (
+              <button type="button" disabled={!resetAvailable} onClick={reset}>
+                Start a new draft
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+```
+
+## Use real extraction and submission
+
+Replace the transcript/extraction timers with output from your existing voice session. Validate
+structured values on your backend as well as in the form; model-produced fields are untrusted
+input. Keep the editable draft separate from a confirmed record. On final confirmation, submit
+with an idempotency key and show any server validation or availability errors next to the fields.
+
+Use your own authenticated backend and visitor/developer-owned provider credentials. Your
+backend may mint scoped, short-lived browser session credentials, but provider secret keys must
+never appear in browser code. Public previews should keep the local fixture rather than calling
+an owner-funded service. Microphone denial should leave all typed fields and review controls
+usable. Stop/unmount must detach session listeners and cancel pending work.
+
+## Verify the interaction
+
+Fill the form by fixture and by keyboard. Change the guest count, review, go back, and review
+again: the summary must reflect the final edits. Confirm once, then activate the control rapidly
+and verify there is only one confirmation. Stop during extraction and return to editing during
+read-back. Simulate failure, retry, and leave the page while a timer is pending. Test labels,
+keyboard focus, browser validation, narrow screens, and reduced motion.
+
+Continue with the [push-to-talk composer](/recipes/push-to-talk) for free text, the
+[guided onboarding recipe](/recipes/guided-onboarding) for reversible tool steps, and the
+[custom integration guide](/adapters/custom) for app-owned session wiring.

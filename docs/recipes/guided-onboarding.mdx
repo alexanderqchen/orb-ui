@@ -1,0 +1,329 @@
+---
+title: Voice-Guided Onboarding with Undo in React
+description: Build React voice-guided onboarding with explicit step progress, local tool feedback, confirmation, retry, and reversible changes. Includes a complete orb-ui recipe.
+---
+
+A voice guide can explain the current step while the application keeps ownership of choices and
+changes. This recipe guides three workspace setup steps, asks the user to apply each choice,
+shows tool progress, and keeps a snapshot for undo.
+
+## Try reversible guided setup
+
+The preview uses fixed text instructions and simulated audio levels. Every tool changes only
+React memory: it creates no account, sends no invitation, changes no permissions, and calls no
+provider or server. There is no recording or audible narration.
+
+<iframe
+  src="/demos/recipes/?recipe=guided-onboarding"
+  title="Local simulated voice-guided onboarding with step progress, tool feedback, and undo"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the guided onboarding preview](/demos/recipes/?recipe=guided-onboarding).
+Select **Guide this step**, review the instruction and choice, then select **Apply local step**.
+Complete all three steps, or use **Undo previous step** to restore the prior committed draft.
+Enable **Simulate an error on the next local tool** to test retry without committing a change.
+
+## Setup
+
+```bash
+npm install orb-ui
+```
+
+Save the component as `GuidedOnboarding.tsx` and render `<GuidedOnboarding />` in your React
+app. Add `'use client'` above imports for Next.js App Router. The complete example uses only
+React and orb-ui. Its `recipe-*` classes are optional styling hooks.
+
+[Download the complete TSX example](/examples/guided-onboarding.tsx).
+
+## Separate guidance, tools, and committed progress
+
+| Action               | Orb state   | Application behavior                                    |
+| -------------------- | ----------- | ------------------------------------------------------- |
+| Guide current step   | `listening` | Simulate the user's request for help.                   |
+| Explain step         | `speaking`  | Display the instruction; do not change the draft.       |
+| Instruction finishes | `idle`      | Enable the explicit apply control.                      |
+| Apply local step     | `thinking`  | Run a delayed in-memory tool, with visible progress.    |
+| Tool succeeds        | `idle`      | Save the previous snapshot and advance one step.        |
+| Tool fails           | `error`     | Commit nothing, keep the step and choice, expose retry. |
+| Undo previous step   | `idle`      | Restore the prior committed snapshot and step.          |
+
+The input choices are separate from the committed `draft`. Editing an input does not execute a
+tool. `history` contains the draft before each successful tool, so undo restores saved values as
+well as progress. An `active` ref guards rapid repeated clicks. A generation token invalidates
+pending guidance and tools after stop, failure, or unmount. The step list uses `aria-current`
+and plain text; animation is supplementary feedback.
+
+## Complete React example
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbState } from 'orb-ui'
+
+type Draft = { name: string; visibility: string; reviewed: boolean }
+const steps = [
+  {
+    title: 'Name your workspace',
+    instruction: 'Choose a recognizable workspace name. This only creates a local draft.',
+  },
+  {
+    title: 'Choose access',
+    instruction:
+      'Choose private or team access. No invitations or permissions change in this demo.',
+  },
+  {
+    title: 'Review your setup',
+    instruction: 'Check the draft below, then mark it reviewed. You can undo every step.',
+  },
+]
+
+export default function GuidedOnboarding() {
+  const [step, setStep] = useState(0)
+  const [draft, setDraft] = useState<Draft>({ name: '', visibility: 'Private', reviewed: false })
+  const [nameChoice, setNameChoice] = useState('Studio North')
+  const [accessChoice, setAccessChoice] = useState('Private')
+  const [history, setHistory] = useState<Draft[]>([])
+  const [ready, setReady] = useState(false)
+  const [state, setState] = useState<OrbState>('idle')
+  const [message, setMessage] = useState(
+    'Guide a step, review its instruction, then apply it locally.',
+  )
+  const [tool, setTool] = useState('No local tool has run yet.')
+  const [failNext, setFailNext] = useState(false)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const generation = useRef(0)
+  const active = useRef(false)
+  const complete = step === steps.length
+
+  function cancel() {
+    generation.current += 1
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    active.current = false
+  }
+  useEffect(
+    () => () => {
+      generation.current += 1
+      timers.current.forEach(clearTimeout)
+    },
+    [],
+  )
+  function later(delay: number, run: () => void) {
+    const token = generation.current
+    timers.current.push(
+      setTimeout(() => {
+        if (generation.current === token) run()
+      }, delay),
+    )
+  }
+  function guide() {
+    if (active.current || complete) return
+    cancel()
+    active.current = true
+    setReady(false)
+    setState('listening')
+    setMessage('Simulated request: “Help me with ' + steps[step].title.toLowerCase() + '.”')
+    later(600, () => {
+      setState('speaking')
+      setMessage(steps[step].instruction)
+    })
+    later(1500, () => {
+      active.current = false
+      setState('idle')
+      setReady(true)
+      setMessage('Instruction ready. Make your choice, then apply this local step.')
+    })
+  }
+  function apply() {
+    if (active.current || !ready || complete || (step === 0 && !nameChoice.trim())) return
+    cancel()
+    active.current = true
+    const snapshot = { ...draft }
+    const currentStep = step
+    const result =
+      currentStep === 0
+        ? { ...snapshot, name: nameChoice.trim() }
+        : currentStep === 1
+          ? { ...snapshot, visibility: accessChoice }
+          : { ...snapshot, reviewed: true }
+    setState('thinking')
+    setTool(
+      'Running local tool: ' +
+        ['save workspace draft', 'save access preference', 'mark draft reviewed'][step] +
+        '…',
+    )
+    setMessage('Applying your choice to in-memory state…')
+    later(650, () => {
+      if (failNext) {
+        setFailNext(false)
+        active.current = false
+        setState('error')
+        setTool('Simulated tool failure. No local change was committed.')
+        setMessage('Retry Apply local step, or stop and edit your choice.')
+        return
+      }
+      setHistory((previous) => [...previous, snapshot])
+      setDraft(result)
+      setStep(currentStep + 1)
+      setReady(false)
+      active.current = false
+      setState('idle')
+      setTool('Local tool succeeded: ' + steps[currentStep].title + '. Undo is available.')
+      setMessage(
+        currentStep === 2
+          ? 'Setup draft complete. Nothing was created on a server.'
+          : 'Step complete. Guide the next step when you are ready.',
+      )
+    })
+  }
+  function stop() {
+    cancel()
+    setState('idle')
+    setTool('Pending local work cancelled. Previously completed steps remain.')
+    setMessage('Stopped. Guide this step again, or edit your draft.')
+  }
+  function undo() {
+    if (active.current || history.length === 0) return
+    cancel()
+    setDraft(history[history.length - 1])
+    setHistory(history.slice(0, -1))
+    setStep((previous) => Math.max(0, previous - 1))
+    setReady(false)
+    setState('idle')
+    setTool('Previous local step undone.')
+    setMessage('Back one step. Review your choice and guide it again.')
+  }
+  const busy = state === 'listening' || state === 'speaking' || state === 'thinking'
+
+  return (
+    <section className="recipe-demo" aria-label="Voice guided onboarding with undo">
+      <p className="recipe-status">
+        LOCAL SIMULATION · No account, network, permissions, or paid calls
+      </p>
+      <Orb
+        theme="radial"
+        size={126}
+        interactive={false}
+        signal={{
+          state,
+          inputVolume: state === 'listening' ? 0.43 : 0,
+          outputVolume: state === 'speaking' ? 0.6 : 0,
+        }}
+      />
+      <p role="status" className="recipe-status">
+        {message}
+      </p>
+      <ol aria-label="Onboarding progress">
+        {steps.map((item, index) => (
+          <li key={item.title} aria-current={index === step ? 'step' : undefined}>
+            {index < step ? '✓ ' : ''}
+            {item.title}
+            {index === step ? ' · current' : ''}
+          </li>
+        ))}
+      </ol>
+      <div className="recipe-card">
+        <h3>{complete ? 'Your reviewed local draft' : steps[step].title}</h3>
+        {step === 0 && (
+          <label className="recipe-field">
+            Workspace name
+            <input
+              required
+              value={nameChoice}
+              disabled={busy}
+              onChange={(event) => setNameChoice(event.target.value)}
+            />
+          </label>
+        )}
+        {step === 1 && (
+          <label className="recipe-field">
+            Access preference
+            <select
+              value={accessChoice}
+              disabled={busy}
+              onChange={(event) => setAccessChoice(event.target.value)}
+            >
+              <option>Private</option>
+              <option>Team</option>
+            </select>
+          </label>
+        )}
+        {step >= 2 && (
+          <dl>
+            <dt>Workspace</dt>
+            <dd>{draft.name}</dd>
+            <dt>Access</dt>
+            <dd>{draft.visibility}</dd>
+            <dt>Review</dt>
+            <dd>{draft.reviewed ? 'Complete' : 'Awaiting your confirmation'}</dd>
+          </dl>
+        )}
+        <div className="recipe-actions">
+          <button type="button" disabled={busy || complete} onClick={guide}>
+            Guide this step
+          </button>
+          <button
+            type="button"
+            disabled={busy || !ready || complete || (step === 0 && !nameChoice.trim())}
+            onClick={apply}
+          >
+            {state === 'error' ? 'Retry local step' : 'Apply local step'}
+          </button>
+          <button type="button" disabled={!busy} onClick={stop}>
+            Stop guidance
+          </button>
+          <button type="button" disabled={busy || history.length === 0} onClick={undo}>
+            Undo previous step
+          </button>
+        </div>
+      </div>
+      <p className="recipe-status" role="status">
+        {tool}
+      </p>
+      <label className="recipe-field">
+        <span>
+          <input
+            type="checkbox"
+            checked={failNext}
+            disabled={busy || complete}
+            onChange={(event) => setFailNext(event.target.checked)}
+          />{' '}
+          Simulate an error on the next local tool
+        </span>
+      </label>
+    </section>
+  )
+}
+```
+
+## Connect real guided tools
+
+Treat spoken instructions as suggestions. Validate tool arguments on your backend and require
+explicit confirmation for external effects such as creating workspaces, inviting people, or
+changing permissions. A real tool response should include an operation ID, updated application
+state, and whether undo is supported. Make retries idempotent; a timed-out response may already
+have completed on the server. Restore authoritative state before repeating uncertain operations.
+
+Only offer undo when your backend has a valid compensating action. Undoing a local draft and
+undoing a sent invitation have different consequences; describe the concrete effect next to the
+control. Keep step progress driven by confirmed tool results rather than assistant narration.
+
+Reuse your app-owned voice session or an [existing adapter](/adapters/overview) for listening
+and speaking state, with one audio owner. Use your own authenticated backend, visitor/developer-
+owned provider credentials, and scoped, short-lived session tokens. Never put secret keys in the
+browser or fund public preview interactions through a shared paid endpoint. Keep keyboard-only
+setup usable when microphone permission is denied, and abort pending work on stop/unmount.
+
+## Verify the interaction
+
+Complete all steps and undo each one in reverse order. Change the access choice, commit it,
+undo it, and confirm that committed state was restored. Simulate a tool failure and retry: the
+step must advance exactly once. Stop during guidance and during a tool, then run the step again.
+Navigate away with pending work, rapidly activate controls, and test the form and progress list
+with a keyboard, narrow viewport, and reduced motion.
+
+Continue with the [voice form recipe](/recipes/voice-form) for structured review and the
+[custom integration guide](/adapters/custom) for connecting an existing session layer.

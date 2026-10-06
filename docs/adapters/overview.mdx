@@ -23,15 +23,30 @@ including normalized input and output volume when the provider exposes audio.
 
 ## Compare providers and integration styles
 
-| Provider        | Browser code you provide                               | What orb-ui owns                                                                  |
-| --------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Vapi            | A configured `Vapi` client and assistant ID            | Provider event mapping, SDK microphone track metering, and output metering        |
-| ElevenLabs      | The `Conversation` class and agent/session credential  | Session lifecycle, state mapping, playback, and both volume levels                |
-| LiveKit         | A token endpoint and optional agent name               | SDK setup, room lifecycle, agent discovery, playback, and both volume levels      |
-| Pipecat         | A configured `PipecatClient` and its connect callback  | RTVI state mapping, remote playback, and both volume levels                       |
-| OpenAI GPT-Live | A callback that exchanges SDP through your server      | Browser WebRTC, full-duplex metering, playback, and session finalization          |
-| OpenAI Realtime | A callback that returns a fresh client secret          | Browser WebRTC, microphone, playback, state, and both volume levels               |
-| Gemini Live     | A callback that opens the official Google Live session | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
+| Provider                                       | Browser code you provide                               | What orb-ui owns                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Vapi                                           | A configured `Vapi` client and assistant ID            | Provider event mapping, SDK microphone track metering, and output metering        |
+| ElevenLabs                                     | The `Conversation` class and agent/session credential  | Session lifecycle, state mapping, playback, and both volume levels                |
+| LiveKit                                        | A token endpoint and optional agent name               | SDK setup, room lifecycle, agent discovery, playback, and both volume levels      |
+| Pipecat                                        | A configured `PipecatClient` and its connect callback  | RTVI state mapping, remote playback, and both volume levels                       |
+| OpenAI GPT-Live                                | A callback that exchanges SDP through your server      | Browser WebRTC, full-duplex metering, playback, and session finalization          |
+| OpenAI Realtime                                | A callback that returns a fresh client secret          | Browser WebRTC, microphone, playback, state, and both volume levels               |
+| Gemini Live                                    | A callback that opens the official Google Live session | Microphone PCM streaming, turn detection, playback, state, and both volume levels |
+| [Retell](/adapters/retell)                     | Current WebCall client and session options             | Session event mapping and supported audio snapshots                               |
+| [Hume EVI](/adapters/hume)                     | Existing VoiceProvider/useVoice session                | Controlled state and FFT bridge; app retains audio ownership                      |
+| [Deepgram](/adapters/deepgram)                 | Browser Agent SDK or existing React provider           | Managed browser audio or controlled React bridge                                  |
+| [Agora](/adapters/agora)                       | Conversational AI toolkit plus app RTC client          | Agent state, interruption, and supplied audio levels                              |
+| [Azure Voice Live](/adapters/azure-voice-live) | Fresh authenticated JavaScript SDK session             | PCM capture/playback, state, interruption, and cleanup                            |
+| [Cartesia](/adapters/cartesia)                 | Scoped short-lived managed-agent WebSocket URL         | PCM media, agent events, interruption, and cleanup                                |
+| [Nova 2 Sonic](/adapters/nova-sonic)           | Your Node/Socket.IO/Bedrock application                | Controlled bridge; full-stack recipe supplies transport and media                 |
+
+The seven expansion integrations are available from the source checkout pending the next approved
+package release. Their tests use real SDK types and synthetic events; no credential-based live
+provider test has been run. The individual guides document current SDK versions and limits.
+
+All public previews use local fixtures. For live applications, authenticate and limit your own
+backend, keep provider secrets server-side, and mint short-lived browser session credentials.
+The public site has no provider proxy or owner-funded voice endpoint.
 
 Choose based on who should own the session:
 

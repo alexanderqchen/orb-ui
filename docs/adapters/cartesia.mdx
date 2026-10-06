@@ -1,0 +1,164 @@
+---
+title: Cartesia Managed Agents React Voice UI
+description: Build a Cartesia Managed Agent voice interface with browser WebSocket sessions, PCM16 audio, captions, client tools, interruption cleanup, and a local simulation.
+---
+
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
+`createCartesiaAdapter` connects a **Managed Agent conversation** to orb-ui. It opens Cartesia's
+agent WebSocket, waits for `session_ready`, streams mono PCM16 input, plays returned audio,
+and preserves conversation and client-tool events. It supplies microphone capture and playback;
+your application supplies its own agent and a fresh browser access token.
+
+## Try the local simulation
+
+The preview uses synthetic states and volume levels. It has no Cartesia connection,
+microphone request, API key, or paid calls. Use it to inspect the interaction before connecting
+your own agent.
+
+<iframe
+  src="/demos/integrations/?provider=cartesia"
+  title="Simulated Cartesia Managed Agent orb integration"
+  width="100%"
+  height="760"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+## Setup and credential ownership
+
+```bash
+npm install orb-ui
+# Optional, on your trusted backend only:
+npm install @cartesia/cartesia-js@4.2.0
+```
+
+The browser adapter uses native WebSocket and Managed Agent API version **`2026-08-14`**. The
+official server SDK **4.2.0** is used to typecheck token generation. Its TTS socket helpers are
+separate from this Managed Agent protocol. No Cartesia runtime dependency is bundled into orb-ui.
+
+Use an agent configured in **the visitor or developer's own account**. Your existing authenticated
+backend can mint a short-lived token from that account's server credential:
+
+```ts
+// Trusted server module. Call only after authorizing the caller's own provider account.
+import Cartesia from '@cartesia/cartesia-js'
+
+export async function mintCartesiaAgentToken(serverApiKey: string) {
+  const client = new Cartesia({ apiKey: serverApiKey })
+  return client.accessToken.create({ expires_in: 60, grants: { agent: true } })
+}
+```
+
+Connect this function to your application's authenticated `/api/my-cartesia-agent-token` route.
+The route returns `{ token }` and should use the caller's authorized provider account. The
+`agent` grant is capability-scoped; the current token API does not expose an individual-agent
+allowlist. Do not turn it into an anonymous owner-funded proxy. Keep API keys server-only;
+browser tokens stay in memory and must be redacted from WebSocket URL logs.
+
+## Copyable React component
+
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { Orb } from 'orb-ui'
+import { createCartesiaAdapter } from 'orb-ui/adapters'
+
+export function CartesiaVoiceUI({ agentId }: { agentId: string }) {
+  const [caption, setCaption] = useState('')
+  const adapter = useMemo(
+    () =>
+      createCartesiaAdapter({
+        agentId,
+        inputFormat: 'pcm_24000',
+        getAccessToken: async (signal) => {
+          const response = await fetch('/api/my-cartesia-agent-token', {
+            method: 'POST',
+            signal,
+          })
+          if (!response.ok) throw new Error('Could not authorize your Cartesia agent')
+          const data: { token: string } = await response.json()
+          return data.token
+        },
+        onEvent: (event) => {
+          if (event.type === 'turn_ended') setCaption(event.text ?? '')
+        },
+      }),
+    [agentId],
+  )
+  useEffect(
+    () => () => {
+      void adapter.stop().catch(() => undefined)
+    },
+    [adapter],
+  )
+
+  return (
+    <section>
+      <Orb adapter={adapter} theme="circle" aria-label="Start or stop Cartesia agent" />
+      <p aria-live="polite">{caption}</p>
+    </section>
+  )
+}
+```
+
+Every reconnect fetches a fresh token. `adapter.callId` contains the session's call record ID
+after readiness; retrieve transcript/recording data only from your trusted backend. The example's
+caption displays finalized `turn_ended.text`; build interim assistant captions by appending
+`turn_output_text_delta.text` verbatim through `onEvent`.
+
+## Audio and interruption
+
+The adapter sends `session_create` immediately after WebSocket open and waits for the server to
+confirm the requested format. Capture uses a local AudioWorklet. Supported formats are
+`pcm_16000`, `pcm_24000` (default), and `pcm_44100`: headerless, mono, signed 16-bit little-endian
+PCM. Input and output use the same rate. Audio is carried as base64 in JSON text frames.
+
+`outputDelivery` defaults to `speaking_pace`, including agents with background audio.
+`as_available` is available for configurations without background audio; the adapter buffers
+playback and rejects a backlog above five seconds. Microphone transport backpressure also closes
+the session rather than allowing an unlimited queue.
+
+| Trigger                                                   | Orb behavior                                        |
+| --------------------------------------------------------- | --------------------------------------------------- |
+| Microphone permission, token work, socket/session setup   | `connecting`                                        |
+| User turn starts                                          | `listening`; discard previous playback              |
+| User turn ends or assistant turn starts                   | `thinking`                                          |
+| Agent PCM playback starts in a running audio context      | `speaking`                                          |
+| Playback drains before the assistant turn ends            | `thinking`; output volume resets to zero            |
+| Assistant turn ends and playback drains                   | `listening`                                         |
+| `audio_output_clear` interruption                         | Stop current/queued output immediately; `listening` |
+| Stop or normal agent hangup                               | `idle` and release microphone/audio/socket          |
+| Fatal protocol, permission, timeout, or transport failure | `error` with cleanup                                |
+
+Recoverable `error` events have `fatal: false`; they reach `onRecoverableError` and `onEvent`
+without destroying the session. `sendToolResult(toolCallId, result, isError)` answers a
+`client_tool_call` with `expects_response: true`. Match the supplied tool-call ID, authorize the
+action in your application, and keep UTF-8 results within 4096 bytes. The adapter does not execute
+tools on your behalf.
+
+## Browser lifecycle and verification
+
+Start from a user gesture on HTTPS or localhost. Microphone permission is acquired before the
+token/socket work. Stop cancels pending startup, closes the socket normally, stops tracks,
+disconnects AudioWorklet/analyser nodes, and flushes output. Repeated start/stop calls are
+idempotent; stale callbacks from old sockets are ignored. Reconnect explicitly after an error;
+there is no automatic billable retry loop. The default startup deadline is 30 seconds.
+
+Browser audio suspension or interruption flushes playback and reports an error with session
+cleanup. Resume by starting again from a user gesture. Queued audio in a suspended context never
+claims a speaking state. When playback drains between generated chunks, the orb shows thinking
+with zero output volume; active user speech keeps listening priority.
+
+RMS input/output defaults are conservative and have not been calibrated against live Cartesia
+voices. Supply directional volume calibration for your audio. For a policy that disallows local
+blob worklet modules, inject `createCaptureNode(context)` from your existing approved module.
+
+Synthetic tests cover session ordering, audio encoding, playback drain, interruption, recoverable
+and fatal errors, tool limits, transport backpressure, denied permission, cancellation, and
+reconnect. Live provider credential tests have **not been run**. The local simulation validates
+the visual interaction; confirm your agent behavior and real-device audio before production use.
+
+- [Managed Agent WebSocket integration](https://docs.cartesia.ai/line/integrations/websocket-api)
+- [Managed Agent event reference](https://docs.cartesia.ai/api-reference/agents/agent-websocket)
+- [Access token API](https://docs.cartesia.ai/api-reference/auth/access-token)
+- [Custom audio and session bridges](/adapters/custom)

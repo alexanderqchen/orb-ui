@@ -1,0 +1,295 @@
+---
+title: Agora Conversational AI Voice UI for React
+description: Connect Agora Voice AI toolkit events and existing RTC audio tracks to a React voice orb, with safe local simulations, scoped session tokens, and explicit cleanup.
+---
+
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
+Use `createAgoraAdapter` to connect an Agora Conversational AI session to orb-ui. Your application
+owns RTC, RTM, microphone capture, remote playback, and backend agent creation. The adapter
+observes those resources, filters the selected agent UID, and keeps voice generation separate
+from measured browser playback.
+
+## Try the local simulation
+
+Start, interrupt, reconnect, and retry using simulated events and synthetic volume levels. This
+preview joins no Agora channel, requests no microphone, and uses no provider credits.
+
+<iframe
+  src="/demos/integrations/?provider=agora"
+  title="Simulated Agora Conversational AI integration"
+  loading="lazy"
+  style={{
+    width: '100%',
+    height: '520px',
+    border: '1px solid var(--border)',
+    borderRadius: '18px',
+  }}
+/>
+
+## Install
+
+```bash
+pnpm add orb-ui agora-agent-client-toolkit@2.10.0 agora-rtc-sdk-ng@4.24.8 agora-rtm@2.3.0
+```
+
+Versions were verified on October 6, 2026. The latest toolkit exports `AgoraVoiceAI` and retains
+`ConversationalAIAPI` as an alias. These are your application dependencies; orb-ui has no Agora
+runtime dependency. This integration uses RTM for activity and interruption events.
+
+## Backend contract for your application
+
+The optional live component below needs your own authenticated backend and Agora account. It
+makes no calls to an orb-ui hosted backend. Keep the App Certificate, REST credentials, and
+model-provider credentials server-only. Authorize and limit every session operation; issue
+short-lived RTC tokens scoped to the channel/UID and RTM tokens scoped to the authenticated UID.
+Never deploy a free token or agent proxy for anonymous visitors.
+
+| Endpoint                              | Application responsibility                                                                           |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `POST /api/agora/sessions`            | Allocate a channel and selected agent UID; return the response shape below with caller-scoped tokens |
+| `POST /api/agora/sessions/:id/start`  | Start the configured agent using the already allocated agent UID                                     |
+| `POST /api/agora/sessions/:id/tokens` | Reauthorize and return fresh `{ rtcToken, rtmToken }` for the same session                           |
+| `DELETE /api/agora/sessions/:id`      | Stop the backend agent and release the application session, idempotently                             |
+
+The server's agent start configuration must enable
+`advanced_features.enable_rtm: true`, `parameters.data_channel: "rtm"`, and
+`parameters.enable_error_message: true`. Without those settings, toolkit activity/error events
+may never arrive. Configure the LLM, speech services, turn detection, and agent's RTC/RTM
+credentials on the backend. Return `Cache-Control: no-store` for token responses.
+
+## Complete React session bridge
+
+This example requests microphone permission from the click gesture, subscribes to the selected
+agent's audio, and cleans up both successful and partially completed starts. Replace the
+application routes with your own implementation of the contract above.
+
+```tsx
+import { useEffect, useMemo } from 'react'
+import AgoraRTC, {
+  type IAgoraRTCRemoteUser,
+  type ILocalAudioTrack,
+  type IRemoteAudioTrack,
+} from 'agora-rtc-sdk-ng'
+import AgoraRTM, { type RTMClient } from 'agora-rtm'
+import { AgoraVoiceAI, TranscriptHelperMode } from 'agora-agent-client-toolkit'
+import { Orb } from 'orb-ui'
+import { createAgoraAdapter, type AgoraSession } from 'orb-ui/adapters'
+
+type SessionGrant = {
+  id: string
+  appId: string
+  channel: string
+  uid: string
+  agentUserId: string
+  rtcToken: string
+  rtmToken: string
+}
+
+async function jsonRequest<T>(url: string, signal: AbortSignal, method = 'POST'): Promise<T> {
+  const response = await fetch(url, {
+    method,
+    signal,
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  if (!response.ok) throw new Error('Your application could not authorize the Agora session.')
+  return response.json()
+}
+
+async function createSession(signal: AbortSignal): Promise<AgoraSession> {
+  const rtc = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
+  let microphone: ILocalAudioTrack | undefined
+  let remoteAudio: IRemoteAudioTrack | undefined
+  let rtm: RTMClient | undefined
+  let toolkit: AgoraVoiceAI | undefined
+  let grant: SessionGrant | undefined
+  let closed = false
+  let playbackError: unknown
+  let closing: Promise<void> | undefined
+
+  const check = () => {
+    if (closed || signal.aborted) throw new DOMException('Session cancelled.', 'AbortError')
+  }
+  const renew = async () => {
+    try {
+      check()
+      const tokens = await jsonRequest<{ rtcToken: string; rtmToken: string }>(
+        `/api/agora/sessions/${grant!.id}/tokens`,
+        signal,
+      )
+      check()
+      await Promise.all([rtc.renewToken(tokens.rtcToken), rtm!.renewToken(tokens.rtmToken)])
+    } catch (error) {
+      playbackError = error
+    }
+  }
+  const published = async (
+    user: IAgoraRTCRemoteUser,
+    mediaType: 'audio' | 'video' | 'datachannel',
+  ) => {
+    if (mediaType !== 'audio' || String(user.uid) !== grant?.agentUserId) return
+    try {
+      await rtc.subscribe(user, 'audio')
+      check()
+      remoteAudio = user.audioTrack
+      remoteAudio?.play()
+    } catch (error) {
+      user.audioTrack?.stop()
+      if (!closed && !signal.aborted) playbackError = error
+    }
+  }
+  const unpublished = (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+    if (mediaType === 'audio' && String(user.uid) === grant?.agentUserId) {
+      remoteAudio?.stop()
+      remoteAudio = undefined
+    }
+  }
+  const close = (): Promise<void> => {
+    if (closing) return closing
+    closed = true
+    signal.removeEventListener('abort', cancelCapture)
+    microphone?.close()
+    remoteAudio?.stop()
+    rtc.off('user-published', published)
+    rtc.off('user-unpublished', unpublished)
+    rtc.off('token-privilege-will-expire', renew)
+    rtm?.removeEventListener('tokenPrivilegeWillExpire', renew)
+    toolkit?.unsubscribe()
+    toolkit?.destroy()
+    // No AbortSignal here: cancellation must still stop the backend agent.
+    closing = Promise.allSettled([
+      rtc.leave(),
+      rtm?.logout(),
+      grant
+        ? fetch(`/api/agora/sessions/${grant.id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            keepalive: true,
+          }).then((response) => {
+            if (!response.ok) throw new Error('Agent shutdown was not confirmed.')
+          })
+        : undefined,
+    ]).then((results) => {
+      const failure = results.find((result) => result.status === 'rejected')
+      if (failure?.status === 'rejected') throw failure.reason
+    })
+    return closing
+  }
+  const cancelCapture = () => {
+    closed = true
+    microphone?.close()
+    remoteAudio?.stop()
+  }
+  signal.addEventListener('abort', cancelCapture, { once: true })
+
+  try {
+    // Start capture before any network await. Late permission results are closed.
+    const capture = AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' }).then(
+      (track) => {
+        microphone = track
+        if (closed || signal.aborted) {
+          track.close()
+          check()
+        }
+        return track
+      },
+    )
+    const values = await Promise.all([
+      jsonRequest<SessionGrant>('/api/agora/sessions', signal).then((value) => {
+        grant = value
+        return value
+      }),
+      capture,
+    ])
+    grant = values[0]
+    check()
+    rtm = new AgoraRTM.RTM(grant.appId, grant.uid)
+    await rtm.login({ token: grant.rtmToken })
+    check()
+    toolkit = await AgoraVoiceAI.init({
+      rtcEngine: rtc,
+      rtmEngine: rtm,
+      renderMode: TranscriptHelperMode.TEXT,
+    })
+    check()
+    rtc.on('user-published', published)
+    rtc.on('user-unpublished', unpublished)
+    rtc.on('token-privilege-will-expire', renew)
+    rtm.addEventListener('tokenPrivilegeWillExpire', renew)
+    await rtc.join(grant.appId, grant.channel, grant.rtcToken, grant.uid)
+    check()
+    await rtc.publish(microphone!)
+    toolkit.subscribeMessage(grant.channel)
+    await jsonRequest(`/api/agora/sessions/${grant.id}/start`, signal)
+    check()
+    return {
+      toolkit,
+      rtc,
+      agentUserId: grant.agentUserId,
+      close,
+      getMicrophoneTrack: () => microphone,
+      getAgentAudioTrack: () => {
+        if (playbackError) throw playbackError
+        return remoteAudio
+      },
+    }
+  } catch (error) {
+    await close().catch(() => undefined)
+    throw error
+  }
+}
+
+export function AgoraVoice() {
+  const adapter = useMemo(() => createAgoraAdapter({ createSession }), [])
+  useEffect(
+    () => () => {
+      void adapter.stop().catch(() => undefined)
+    },
+    [adapter],
+  )
+  return <Orb adapter={adapter} theme="circle" aria-label="Start or stop your Agora assistant" />
+}
+```
+
+Your session factory must resolve only after RTC has connected. The adapter listens to current
+independent activity events and the still-supported aggregate state event. The factory's
+`close()` must be idempotent and stop the backend agent as well as browser media; leaving RTC
+alone is insufficient. The toolkit is a singleton, so mount one owning session per application
+and pass existing sessions through this bridge rather than initializing competing toolkits.
+
+## Playback, turn taking, and reconnects
+
+| Event or audio condition                                               | Orb state                                       |
+| ---------------------------------------------------------------------- | ----------------------------------------------- |
+| Backend/permission/RTC setup, RTC reconnecting                         | `connecting`                                    |
+| Connected session and quiet assistant                                  | `listening`                                     |
+| Thinking flag or speaking flag before audible playback                 | `thinking`                                      |
+| Played agent track with measured audio, with a short syllable-gap hold | `speaking`                                      |
+| Confirmed agent interruption                                           | `listening`; clear output and discard old flags |
+| RTC disconnect, provider error, session timeout, permission failure    | `error`                                         |
+| Stop or last unsubscribe                                               | `idle`; close application resources             |
+
+`interrupt()` publishes a request using the toolkit. Successful publication does not confirm
+that the agent handled it, so the adapter waits for `AGENT_INTERRUPTED`. Aggregate turn IDs and
+timestamps reject stale state/interruption events; independent flags have no timestamps and
+rely on the SDK's event ordering. Other participant UIDs never influence the orb.
+
+The adapter requires an already-played remote track and measured output before displaying
+speaking. It clears meters during reconnect and keeps microphone metering active during
+assistant speech. RTC reconnection is handled by your existing client; a terminal disconnect
+requires a fresh `start()` and newly authorized application session.
+
+## Application verification
+
+The adapter passed synthetic lifecycle/audio tests and real SDK type fixtures. Credentialed
+Agora RTC/RTM sessions were **not run**. Test your backend contract, denied microphone
+permission, token expiry/renewal, agent subscription, repeated clicks, interruptions, RTC
+reconnect, and route unmount using your own development account before deployment. Confirm
+browser autoplay behavior and offer an explicit playback resume control using your application's
+remote track if the browser blocks audio. An agent speaking flag alone never proves sound was
+heard. Keep text transcripts available through the toolkit's `TRANSCRIPT_UPDATED` event.
+
+Sources: [Official Web toolkit API](https://docs.agora.io/en/api-reference/api-ref/conversational-ai/client-toolkit/web),
+[Agora toolkit source](https://github.com/AgoraIO-Community/Conversational-AI-Demo/tree/main/web),
+[RTC Web API](https://api-ref.agora.io/en/voice-sdk/web/4.x/index.html).

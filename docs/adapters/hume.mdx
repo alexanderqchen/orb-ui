@@ -1,0 +1,279 @@
+---
+title: Hume EVI Voice UI for React
+description: Observe an existing Hume EVI VoiceProvider with an accessible React voice orb, playback-based state, directional audio activity, and a safe local preview.
+---
+
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
+Hume's `VoiceProvider` already owns EVI's microphone, WebSocket, player, and message history.
+orb-ui adds the visual React layer by observing that existing session. You can render a controlled
+orb directly from `useVoice()`, or use the session bridge when your application coordinates more
+complex lifecycle and tool events.
+
+## Try the local preview
+
+The embedded session uses simulated states and synthetic volume levels. It spends no provider
+credits, records no microphone, and requires no Hume account. The controls let you inspect
+connection, response, interruption, and restart behavior before adding a live backend.
+
+<iframe
+  src="/demos/integrations/?provider=hume"
+  title="Simulated Hume EVI UI"
+  loading="lazy"
+  style={{ width: '100%', height: '680px', border: '0', borderRadius: '20px' }}
+></iframe>
+
+## Install
+
+```bash
+npm install orb-ui @humeai/voice-react@0.3.0-beta.6 hume@0.16.1
+```
+
+Compatibility was checked against the published **0.3.0-beta.6** React SDK and **0.16.1** Hume
+TypeScript SDK on October 6, 2026. The current React package is a beta. Pin and validate upgrades
+in your own app. Neither SDK is bundled into orb-ui.
+
+## Working controlled React example
+
+Wrap the call surface in your existing `VoiceProvider`. If your app already renders that provider,
+keep it and move only `HumeControls` beneath it. Do not mount another provider or create another
+microphone/player to drive the orb.
+
+`POST /api/hume/session` is your application's authenticated token endpoint, described below.
+The user starts and ends the session with ordinary keyboard-accessible buttons; the orb follows
+the existing player and directional frequency snapshots.
+
+```tsx
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { VoiceProvider, useMicFft, usePlayerFft, useVoice } from '@humeai/voice-react'
+import type { JSONMessage } from '@humeai/voice-react'
+import { Orb } from 'orb-ui'
+import { humeVoiceToOrbSignal } from 'orb-ui/adapters'
+import type { OrbSignal } from 'orb-ui/adapters'
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : 'The voice session could not continue.'
+}
+
+export function HumeVoiceExample() {
+  const [isThinking, setThinking] = useState(false)
+  const onMessage = (message: JSONMessage) => {
+    if ((message.type === 'user_message' && !message.interim) || message.type === 'tool_call') {
+      setThinking(true)
+    }
+    if (message.type === 'assistant_end' || message.type === 'user_interruption') setThinking(false)
+  }
+  return (
+    <VoiceProvider onMessage={onMessage} onInterruption={() => setThinking(false)}>
+      <HumeControls isThinking={isThinking} resetThinking={() => setThinking(false)} />
+    </VoiceProvider>
+  )
+}
+
+function HumeControls({
+  isThinking,
+  resetThinking,
+}: {
+  isThinking: boolean
+  resetThinking(): void
+}) {
+  const voice = useVoice()
+  const micFft = useMicFft()
+  const playerFft = usePlayerFft()
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
+  const request = useRef<AbortController>()
+  const locked = useRef(false)
+  const [pending, setPending] = useState(false)
+  const [problem, setProblem] = useState('')
+  useEffect(
+    () => () => {
+      request.current?.abort()
+      void voiceRef.current.disconnect().catch(() => undefined)
+    },
+    [],
+  )
+  const observed = humeVoiceToOrbSignal({ ...voice, micFft, playerFft, isThinking })
+  const signal: OrbSignal =
+    pending && observed.state === 'idle' ? { ...observed, state: 'connecting' } : observed
+  async function start() {
+    if (locked.current || voiceRef.current.status.value === 'connected') return
+    locked.current = true
+    setPending(true)
+    setProblem('')
+    resetThinking()
+    const abort = new AbortController()
+    request.current = abort
+    try {
+      const response = await fetch('/api/hume/session', {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal: abort.signal,
+      })
+      if (!response.ok) throw new Error('Your Hume session endpoint rejected the request.')
+      const token: { accessToken?: string; configId?: string } = await response.json()
+      if (!token.accessToken) throw new Error('No short-lived Hume access token was returned.')
+      if (abort.signal.aborted) return
+      await voiceRef.current.connect({
+        auth: { type: 'accessToken', value: token.accessToken },
+        configId: token.configId,
+      })
+      if (abort.signal.aborted) await voiceRef.current.disconnect()
+    } catch (error) {
+      if (!abort.signal.aborted) {
+        setProblem(errorText(error))
+        await voiceRef.current.disconnect().catch(() => undefined)
+      }
+    } finally {
+      locked.current = false
+      if (!abort.signal.aborted) setPending(false)
+      else if (request.current === abort) setPending(false)
+    }
+  }
+  async function stop() {
+    request.current?.abort()
+    resetThinking()
+    await voiceRef.current.disconnect().catch((error: unknown) => setProblem(errorText(error)))
+  }
+  return (
+    <section aria-label="Hume EVI voice session">
+      <Orb signal={signal} interactive={false} theme="circle" />
+      <p role="status">{signal.state}</p>
+      <button
+        type="button"
+        disabled={pending || voice.status.value === 'connected'}
+        onClick={() => void start()}
+      >
+        Start voice
+      </button>
+      <button
+        type="button"
+        disabled={!pending && voice.status.value === 'disconnected'}
+        onClick={() => void stop()}
+      >
+        End voice
+      </button>
+      {(problem || voice.error) && <p role="alert">{problem || voice.error?.message}</p>}
+    </section>
+  )
+}
+```
+
+### Your backend contract
+
+`POST /api/hume/session` authenticates the requesting developer or visitor and applies that
+caller's own usage budget. Use server-held Hume API and secret keys to mint a short-lived access
+token with Hume's `fetchAccessToken()`, and return `{ accessToken, configId }` to that caller only.
+Hume's OAuth token is time limited and authorizes its account; it is not a per-call or per-config
+capability. Use a caller-owned account/credential or a separately budgeted tenant, validate the
+allowed configuration server-side, and use the narrowest scope the provider supports. Keep
+responses uncached and out of logs. Never place API or secret keys in React, a public environment
+variable, a demo URL, or local storage.
+
+The endpoint belongs to the developer's application. The orb-ui preview does not provide an
+owner-funded token service or hosted proxy. Stop cancels pending token fetches; if cancellation
+occurs while Hume connects, the example disconnects that completed session before permitting a
+new start. Hume's existing provider remains responsible for audio cleanup.
+
+## Signal mapping
+
+| Existing Hume source                                  | Orb behavior                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `status.value === 'disconnected'`                     | Idle; no activity                                                              |
+| `status.value === 'connecting'`                       | Connecting; no activity                                                        |
+| `status.value === 'connected'`, `isPlaying === false` | Listening, or app-owned thinking state                                         |
+| `isPlaying === true`, output unmuted                  | Speaking, even if an `assistant_end` message has already arrived               |
+| `useMicFft()` / `usePlayerFft()`                      | Directional visual activity from the provider's existing analyzers             |
+| `error` / `status.value === 'error'`                  | Error with zero activity                                                       |
+| `isMuted` / `isAudioMuted`                            | Zero activity on the corresponding muted channel; muted output is not speaking |
+
+`humeVoiceToOrbSignal()` is a pure function. It creates no connection, subscribes to no global
+listeners, and does not request microphone permission. Its FFT input follows the React SDK's
+0–2 Bark frequency-band values; the bridge normalizes them into 0–1 visual activity. These values
+are frequency visualization data, not PCM RMS, calibrated loudness, or emotion scores.
+
+`isPlaying` is the supported player signal. `assistant_message`, `audio_output`, and a transcript
+are not evidence that the browser has played audio. The example's `isThinking` is an app-level
+waiting cue from a final user message or tool call, cleared on `assistant_end` or interruption;
+it does not claim to measure the language model's internal generation state. If your application
+has better tool/generation state, pass that instead.
+
+## Session bridge for existing owners
+
+`createHumeAdapter()` is useful when an app-owned controller needs a stable `OrbAdapter` and
+session-scoped callbacks. `createSession()` returns observation methods bound to one connection.
+Old callbacks become inert after stop, close, or a replacement session, so a late event cannot
+revive a stopped orb.
+
+```tsx
+import { createHumeAdapter } from 'orb-ui/adapters'
+
+const adapter = createHumeAdapter()
+// Call this when your existing owner starts a new connection.
+const session = adapter.createSession()
+
+// In the existing VoiceProvider callbacks:
+// onMessage={session.onMessage}
+// onError={session.onError}
+// onInterruption={session.onInterruption}
+// onClose={session.close}
+
+// Forward the latest useVoice()/FFT snapshot from that same provider:
+session.observe({
+  status: { value: 'connected' },
+  isPlaying: false,
+  micFft: [0.4, 0.6],
+  playerFft: [0, 0],
+})
+// <Orb adapter={adapter} interactive={false} theme="circle" />
+```
+
+Replace the example snapshot with the actual hook values on each relevant render/effect. Bind
+callbacks once for that connection and retain them with that owner; do not send a late callback
+through an unscoped global "current session" reference. Forward disconnected/error states and
+close the session on owner cleanup. Removing an orb subscription removes only its visual listener;
+it does not disconnect a shared Hume provider.
+
+For an interactive orb, the adapter accepts optional `connect(session, abortSignal)` and
+`disconnect()` callbacks. Both must delegate to the **same existing** `useVoice()` context. Resolve
+fresh tokens with the supplied signal, check cancellation before connecting, and bind the passed
+session's callbacks to that connection. The adapter coalesces repeated starts/stops, invalidates
+observations on stop, and invokes your disconnect callback on a failed connection. Explicitly call
+`adapter.stop()` from the owning component's unmount cleanup. The adapter does not open a second
+EVI client and does not silently reconnect or start another billed session.
+
+A final `user_message` or `tool_call` makes the session bridge think while playback is idle.
+`assistant_end` clears that cue but does not prematurely stop speaking. A `user_interruption`
+clears playback activity immediately, including before the next React snapshot; the provider
+still owns the actual queue interruption.
+
+## Browser behavior and recovery
+
+Run audio on HTTPS or localhost and start from a user gesture. Microphone rejection, browser
+codec/worklet failures, an expired token, or socket failure need visible copy beside the orb. Keep
+Hume's device and audio settings in your existing provider. When permissions change or a session
+fails, obtain a fresh token for an explicit retry and create a fresh session bridge if you use one.
+
+The working example keeps pending starts locked, supports End while connecting, and aborts token
+fetches plus disconnects the provider on unmount. It does not preserve token strings in local
+storage. Supply a transcript or text status so the conversation remains understandable with
+reduced motion, a screen reader, or muted playback.
+
+## Verification
+
+Synthetic fixtures test provider playback versus transcript events, muted channels, malformed
+FFT data, thinking/tool cues, interruption, reconnects, stale observations, errors, subscription
+cleanup, and optional start/stop lifecycle. The controlled React example and current provider
+callback types are typechecked. No credentialed live EVI session was run, so verify permission,
+codec, playback, and reconnect behavior in your own authorized staging account before treating
+the integration as production proven.
+
+## Official references
+
+- [Hume's current EVI Next.js quickstart](https://dev.hume.ai/voice/docs/speech-to-speech-evi/quickstart/nextjs)
+- [Hume React SDK source](https://github.com/HumeAI/empathic-voice-api-js/tree/main/packages/react)
+- [Hume React SDK releases](https://www.npmjs.com/package/@humeai/voice-react)
+- [Hume TypeScript SDK and access-token helper](https://www.npmjs.com/package/hume)
+- [Adapter overview](/adapters/overview) and [custom integration guide](/adapters/custom)

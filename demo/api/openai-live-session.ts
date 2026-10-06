@@ -1,8 +1,10 @@
+import { unavailableProviderProxy } from '../server/public-demo-policy.js'
+
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } })
 }
 
-/** A local dev server may supply its key; deployed playgrounds require the caller's own key. */
+/** Local development only; the deployed route always rejects provider requests. */
 export async function createLiveSession(request: Request, localApiKey?: string) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405)
   let body: Record<string, unknown>
@@ -61,4 +63,4 @@ export async function createLiveSession(request: Request, localApiKey?: string) 
   }
 }
 
-export default { fetch: (request: Request) => createLiveSession(request) }
+export default { fetch: unavailableProviderProxy }

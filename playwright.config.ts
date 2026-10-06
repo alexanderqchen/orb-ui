@@ -14,11 +14,19 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command:
-      'pnpm exec vite --config tests/e2e/fixture/vite.config.ts --host 127.0.0.1 --port 4173',
-    reuseExistingServer: true,
-    timeout: 120_000,
-    url: 'http://127.0.0.1:4173',
-  },
+  webServer: [
+    {
+      command:
+        'pnpm exec vite --config tests/e2e/fixture/vite.config.ts --host 127.0.0.1 --port 4173',
+      reuseExistingServer: true,
+      timeout: 120_000,
+      url: 'http://127.0.0.1:4173',
+    },
+    {
+      command: 'pnpm --filter orb-ui-demo preview --host 127.0.0.1 --port 4174',
+      reuseExistingServer: true,
+      timeout: 120_000,
+      url: 'http://127.0.0.1:4174',
+    },
+  ],
 })

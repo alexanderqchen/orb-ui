@@ -4,6 +4,24 @@ This roadmap is public planning, not a promise of dates or exact release content
 
 ## Near Term
 
+### Integration and recipe expansion — implemented, awaiting review
+
+Seven new canonical integrations cover Retell WebCall, Hume EVI, Deepgram Voice Agent, Agora
+Conversational AI, Azure Voice Live, Cartesia Managed Agents, and Amazon Nova 2 Sonic. SDK-based
+adapters and controlled bridges preserve app-owned media where appropriate. Nova includes a
+separate Node/Socket.IO/Bedrock application recipe rather than a claimed browser provider SDK.
+
+Eight React recipes cover push-to-talk composition, voice form confirmation, document Q&A with
+citations, guided onboarding with undo, language practice, interview rehearsal, spoken product
+search, and audio-reactive narration. Canonical pages include full examples and local fixture demos.
+Hosted provider proxies are disabled; live testing belongs in a developer-owned backend or local
+development harness.
+
+Remaining release gates: human review and approval, then coordinated package/documentation
+publication. Credential-based live verification and independent voice calibration for the new
+providers remain outstanding. Synthetic fixtures and SDK type compatibility do not establish live
+production reliability.
+
 ### Signal-based adapter API — complete
 
 The adapter signal model now reports state, input volume, output volume, and errors as one coherent update.

@@ -53,9 +53,9 @@
   "seo": {
     "metatags": {
       "og:image": "https://orb-ui.com/og-image-v3.png",
-      "og:image:alt": "orb-ui — Voice agent UI that feels alive, with its blue cloud orb.",
+      "og:image:alt": "orb-ui \u2014 Voice agent UI that feels alive, with its blue cloud orb.",
       "twitter:image": "https://orb-ui.com/og-image-v3.png",
-      "twitter:image:alt": "orb-ui — Voice agent UI that feels alive, with its blue cloud orb."
+      "twitter:image:alt": "orb-ui \u2014 Voice agent UI that feels alive, with its blue cloud orb."
     }
   },
   "integrations": {
@@ -89,7 +89,28 @@
           "adapters/openai-live",
           "adapters/openai-realtime",
           "adapters/gemini-live",
+          "adapters/retell",
+          "adapters/hume",
+          "adapters/deepgram",
+          "adapters/agora",
+          "adapters/azure-voice-live",
+          "adapters/cartesia",
+          "adapters/nova-sonic",
           "adapters/custom"
+        ]
+      },
+      {
+        "group": "Recipes",
+        "icon": "mic",
+        "pages": [
+          "recipes/push-to-talk",
+          "recipes/voice-form",
+          "recipes/document-qa",
+          "recipes/guided-onboarding",
+          "recipes/language-practice",
+          "recipes/interview-rehearsal",
+          "recipes/product-search",
+          "recipes/audio-narration"
         ]
       },
       {

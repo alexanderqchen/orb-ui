@@ -1,0 +1,213 @@
+---
+title: Deepgram Voice Agent UI for React
+description: Build a playback-aware Deepgram voice agent orb with the browser SDK or your existing React AgentProvider, with safe local simulations and explicit audio ownership.
+---
+
+> These APIs are in the review branch and are not yet in the published npm package. Build this checkout to try them; use the install commands below after the next approved release. Live provider credential tests have not been run.
+
+Connect Deepgram Voice Agent to an audio-reactive orb without adding a second microphone or
+speaker pipeline. Use `createDeepgramAdapter` for browser SDK resources, or
+`createDeepgramReactAdapter` inside an existing `AgentProvider`.
+
+## Try the local simulation
+
+This example uses simulated events and synthetic volume levels. It requests no microphone access,
+creates no Deepgram session, and spends no API credits. Start, interrupt, stop, and retry to
+explore the state transitions before connecting your own application.
+
+<iframe
+  src="/demos/integrations/?provider=deepgram"
+  title="Simulated Deepgram voice agent integration"
+  loading="lazy"
+  style={{
+    width: '100%',
+    height: '520px',
+    border: '1px solid var(--border)',
+    borderRadius: '18px',
+  }}
+/>
+
+## Install and choose an audio owner
+
+```bash
+pnpm add orb-ui @deepgram/agents@0.1.2
+# For an existing React provider:
+pnpm add @deepgram/react@0.2.0
+```
+
+The SDK versions were checked on October 6, 2026. They are application dependencies; orb-ui
+imports no Deepgram runtime. The examples below are optional live integrations using your
+application's backend and account. The public simulation above never calls a token endpoint.
+
+| Application                               | Adapter                      | Audio ownership                                              |
+| ----------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| Browser SDK in React or another framework | `createDeepgramAdapter`      | Adapter manages the injected session, microphone, and player |
+| Existing `AgentProvider`                  | `createDeepgramReactAdapter` | Deepgram provider manages audio; adapter observes its hooks  |
+
+## Browser SDK: complete React component
+
+Your own authenticated backend must issue a short-lived Deepgram grant token for an authorized
+caller. Set `Cache-Control: no-store`, constrain the caller's access and usage, and keep the
+long-lived API key server-only. Never put it in a `VITE_*` or `NEXT_PUBLIC_*` variable. Do not
+publish an anonymous token service that pays for other visitors' calls.
+
+```tsx
+import { useEffect, useMemo } from 'react'
+import { AgentMicrophone, AgentPlayer, AgentSession } from '@deepgram/agents'
+import { Orb } from 'orb-ui'
+import { createDeepgramAdapter } from 'orb-ui/adapters'
+
+export function DeepgramVoice({ agentId }: { agentId: string }) {
+  const adapter = useMemo(
+    () =>
+      createDeepgramAdapter({
+        createResources() {
+          const session = new AgentSession({
+            auth: {
+              tokenFactory: async () => {
+                const response = await fetch('/api/deepgram-token', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  cache: 'no-store',
+                })
+                if (!response.ok) throw new Error('Your application could not authorize this call.')
+                const { access_token } = await response.json()
+                if (typeof access_token !== 'string') throw new Error('Invalid token response.')
+                return access_token
+              },
+            },
+            agent: agentId,
+            audio: {
+              input: { encoding: 'linear16', sampleRate: 16_000 },
+              output: { encoding: 'linear16', sampleRate: 24_000 },
+            },
+            reconnect: { enabled: true, maxAttempts: 3 },
+          })
+          const microphone = new AgentMicrophone((chunk) => session.sendAudio(chunk), {
+            sampleRate: 16_000,
+            echoCancellation: true,
+            noiseSuppression: true,
+          })
+          const player = new AgentPlayer({ sampleRate: 24_000 })
+          return { session, microphone, player }
+        },
+      }),
+    [agentId],
+  )
+
+  useEffect(() => () => adapter.stop(), [adapter])
+
+  return (
+    <Orb
+      adapter={adapter}
+      theme="circle"
+      aria-label="Start or stop your Deepgram voice assistant"
+    />
+  )
+}
+```
+
+`start()` opens the microphone from the user gesture and connects the injected session. It
+resolves after both microphone capture and `SettingsApplied`. The matching 16 kHz input and
+24 kHz linear16 output keep the microphone, session, and PCM player in agreement. Each retry
+creates fresh resources. `stop()` and the last unsubscribe remove listeners, release capture,
+discard queued playback, and disconnect; late permission results are released too.
+
+## Existing React provider: observe hooks
+
+Keep your existing `AgentProvider`. This component reads `useAgentContext()` through a ref so
+state and meter callbacks stay current. Pass provider errors into `error`; the provider owns
+shutdown on its own unmount. An explicit component cleanup also stops an active call when the
+orb is removed while the provider remains mounted.
+
+```tsx
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AgentProvider, useAgentContext } from '@deepgram/react'
+import { Orb } from 'orb-ui'
+import { createDeepgramReactAdapter } from 'orb-ui/adapters'
+
+function ProviderOrb({ error }: { error?: unknown }) {
+  const context = useAgentContext()
+  const latest = useRef({ ...context, error })
+  latest.current = { ...context, error }
+  const adapter = useMemo(
+    () =>
+      createDeepgramReactAdapter({
+        getSnapshot: () => latest.current,
+        start: () => latest.current.start(),
+        stop: () => latest.current.stop(),
+      }),
+    [],
+  )
+  useEffect(() => () => adapter.stop?.(), [adapter])
+  return <Orb adapter={adapter} theme="circle" aria-label="Start or stop Deepgram" />
+}
+
+export function ExistingDeepgramProvider({ agentId }: { agentId: string }) {
+  const [error, setError] = useState<unknown>()
+  const config = useMemo(
+    () => ({
+      agent: agentId,
+      auth: {
+        tokenFactory: async () => {
+          setError(undefined)
+          const response = await fetch('/api/deepgram-token', {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+          })
+          if (!response.ok) throw new Error('Call authorization failed.')
+          const { access_token } = await response.json()
+          if (typeof access_token !== 'string') throw new Error('Invalid token response.')
+          return access_token
+        },
+      },
+    }),
+    [agentId],
+  )
+  return (
+    <AgentProvider config={config} autoStart={false} onError={setError} onSdkError={setError}>
+      <ProviderOrb error={error} />
+    </AgentProvider>
+  )
+}
+```
+
+This observer polls existing SDK meters; it never captures, queues, or disposes provider audio.
+Do not use the managed browser adapter for the same provider session.
+
+## State mapping and interruptions
+
+| Signal                                                     | Orb state                                             |
+| ---------------------------------------------------------- | ----------------------------------------------------- |
+| Start, connection attempt, automatic reconnect             | `connecting`, with cleared meters                     |
+| Settings applied and microphone ready                      | `listening`                                           |
+| Agent thinking or sending output before measured playback  | `thinking`                                            |
+| Measured output from the SDK player                        | `speaking`                                            |
+| Agent audio done while playback remains queued             | `speaking` until the queue drains                     |
+| User starts speaking                                       | Player interrupted; `listening`, output meter cleared |
+| Permission, agent, terminal connection, or startup failure | `error`                                               |
+| Stop or managed-adapter unmount                            | `idle`                                                |
+
+`AgentStartedSpeaking` indicates audio generation, so it cannot establish audible output by
+itself. The browser adapter starts speaking after a player sample and waits for its playback
+queue to drain. The React bridge combines a measured sample with Deepgram's playback-aware
+mode; muted output clears the speaking display. Input metering remains active during assistant
+speech for full-duplex interactions.
+
+## Verify in your application
+
+Synthetic event tests and real SDK type fixtures cover these mappings. Credentialed Deepgram
+sessions were **not run**. Test HTTPS microphone permission, denied permission, browser audio
+unlock, disconnect/reconnect, barge-in, stop during authorization, and route unmount in your own
+application before shipping. The current SDK player does not expose an audio-context resume
+failure event: confirm audible output on your target browsers and expose an application retry
+control if autoplay is blocked. A queued buffer alone never makes this adapter show speaking.
+
+For inline agent settings, Deepgram can restore conversation context on reconnect. An agent UUID
+cannot carry that same restored context; choose the form that fits your continuity requirements.
+The adapter observes the SDK's reconnect behavior rather than retrying credentials itself.
+
+Sources: [Browser SDK overview](https://developers.deepgram.com/docs/browser-agent-overview),
+[JavaScript SDK](https://developers.deepgram.com/docs/browser-agent-javascript),
+[React hooks and provider](https://developers.deepgram.com/docs/browser-agent-react).

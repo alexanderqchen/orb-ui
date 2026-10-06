@@ -1,0 +1,384 @@
+---
+title: Interview Rehearsal with Progress and Retry
+description: Build a React interview rehearsal UI with three questions, editable answers, transparent practice feedback, retries, and progress that advances only when the user saves.
+---
+
+Interview practice works best when the learner controls the pace. This recipe shows one
+question at a time, keeps the answer editable until review, and lets the learner retry before
+saving. The progress indicator counts saved answers rather than started or failed attempts.
+
+The local checklist looks for explicit story cues in the text. It is a transparent practice aid,
+not an AI judgment or hiring assessment. All listening, thinking, and coach speaking states in
+the preview are simulated; no recording is made.
+
+## Try the local preview
+
+<iframe
+  src="https://orb-ui.com/demos/recipes/?recipe=interview-rehearsal"
+  title="Interview rehearsal: story checklist, retries, saved answers, and progress"
+  width="100%"
+  height="640"
+  loading="lazy"
+  style={{ border: 0, borderRadius: '12px' }}
+/>
+
+[Open the preview in a separate page](https://orb-ui.com/demos/recipes/?recipe=interview-rehearsal).
+
+1. Edit the answer and select **Rehearse answer**.
+2. Review which story cues are included and which need more detail.
+3. Select **Retry this question** to improve the same answer, or **Save and next question** to advance.
+4. Complete three questions to see the saved rehearsal answers. **Start over** clears this page’s practice session.
+
+A retry preserves the draft and previously saved answers. A canceled or failed turn cannot
+advance the question. The answers exist only in React state and disappear when you leave or
+reload the page.
+
+## Set up the React example
+
+```bash
+npm install orb-ui
+```
+
+Save the component below as `interview-rehearsal.tsx`, import its default export, and render it in your React
+app. In Next.js App Router, add `'use client'` as the first line of this component. The example
+requires no environment variables, credentials, or provider SDK.
+
+The preview runs this same component. The source is checked by the demo's TypeScript build, and
+[the complete TSX file is available to download](https://orb-ui.com/examples/interview-rehearsal.tsx).
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { Orb, type OrbSignal } from 'orb-ui'
+
+const questions = [
+  {
+    prompt: 'Tell me about a project where you solved a difficult problem.',
+    sample: 'Our team had a slow onboarding flow. I led a redesign and tested it with five users.',
+    cues: ['problem', 'action', 'result'],
+    patterns: [
+      /slow|problem|challenge|difficult/i,
+      /\bI\b.*(?:led|built|changed|tested|designed)/i,
+      /result|increased|reduced|improved|%/i,
+    ],
+    suggestion: 'Add the outcome: what changed, and how did you measure it?',
+  },
+  {
+    prompt: 'Describe a disagreement and how you worked through it.',
+    sample:
+      'We disagreed about scope. I listened to both concerns and proposed a smaller test. We agreed on a plan.',
+    cues: ['disagreement', 'listening', 'resolution'],
+    patterns: [
+      /disagree|conflict|different|debate/i,
+      /listen|understand|concern/i,
+      /agreed|resolved|plan|compromise/i,
+    ],
+    suggestion: 'Show what you learned, and keep the other person’s perspective visible.',
+  },
+  {
+    prompt: 'Why are you interested in this role?',
+    sample:
+      'I enjoy making complex tools accessible. My experience in design fits the team, and I want to learn from your research practice.',
+    cues: ['motivation', 'relevant experience', 'growth'],
+    patterns: [
+      /enjoy|excited|interest|care/i,
+      /experience|skill|built|design/i,
+      /learn|grow|develop/i,
+    ],
+    suggestion: 'Tie one specific team need to evidence from your experience.',
+  },
+]
+
+interface Review {
+  answer: string
+  covered: boolean[]
+}
+
+export default function InterviewRehearsal() {
+  const [index, setIndex] = useState(0)
+  const [draft, setDraft] = useState(questions[0].sample)
+  const [review, setReview] = useState<Review | null>(null)
+  const [saved, setSaved] = useState<string[]>([])
+  const [attempt, setAttempt] = useState(1)
+  const [signal, setSignal] = useState<OrbSignal>({ state: 'idle' })
+  const [status, setStatus] = useState('Rehearse three questions at your own pace.')
+  const [failNext, setFailNext] = useState(false)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const busy = useRef(false)
+  const committed = useRef(false)
+  const question = questions[index]
+  const active = ['listening', 'thinking', 'speaking'].includes(signal.state)
+  const complete = saved.length === questions.length
+
+  function clearRun() {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    busy.current = false
+  }
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  function later(delay: number, callback: () => void) {
+    timers.current.push(setTimeout(callback, delay))
+  }
+
+  function rehearse() {
+    if (busy.current || !draft.trim() || complete) return
+    clearRun()
+    busy.current = true
+    const answer = draft.trim()
+    const fail = failNext
+    setFailNext(false)
+    committed.current = false
+    setReview(null)
+    setSignal({ state: 'listening', inputVolume: 0.46, outputVolume: 0 })
+    setStatus('Simulating your answer. No recording is created.')
+    later(1000, () => {
+      setSignal({ state: 'thinking', inputVolume: 0, outputVolume: 0 })
+      setStatus('Checking the local story checklist…')
+    })
+    later(1700, () => {
+      if (fail) {
+        busy.current = false
+        setSignal({ state: 'error', inputVolume: 0, outputVolume: 0 })
+        setStatus('Practice review failed. Your answer and previous questions are preserved.')
+        return
+      }
+      setReview({ answer, covered: question.patterns.map((pattern) => pattern.test(answer)) })
+      setSignal({ state: 'speaking', inputVolume: 0, outputVolume: 0.54 })
+      setStatus('Silent coach reply: review the checklist, then retry or save your answer.')
+      later(1000, () => {
+        busy.current = false
+        setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+        setStatus('Review ready. You choose when to move to the next question.')
+      })
+    })
+  }
+
+  function retry() {
+    clearRun()
+    committed.current = false
+    setReview(null)
+    setAttempt((value) => value + 1)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Same question, fresh attempt. Edit your answer and rehearse again.')
+  }
+
+  function saveAnswer() {
+    if (busy.current || committed.current || !review) return
+    committed.current = true
+    setSaved((answers) => [...answers, review.answer])
+    setReview(null)
+    setAttempt(1)
+    if (index < questions.length - 1) {
+      setIndex(index + 1)
+      setDraft(questions[index + 1].sample)
+      setStatus('Answer saved locally for this page. The next question is ready.')
+    } else {
+      setStatus('Practice complete. Read your saved answers or start another rehearsal.')
+    }
+  }
+
+  function cancel() {
+    clearRun()
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('Practice turn canceled. Your draft is unchanged.')
+  }
+
+  function reset() {
+    clearRun()
+    committed.current = false
+    setIndex(0)
+    setDraft(questions[0].sample)
+    setReview(null)
+    setSaved([])
+    setAttempt(1)
+    setFailNext(false)
+    setSignal({ state: 'idle', inputVolume: 0, outputVolume: 0 })
+    setStatus('New rehearsal ready.')
+  }
+
+  return (
+    <section className="recipe-demo" aria-label="Interview rehearsal">
+      <p>Local simulation · silent feedback · no microphone, recording, or AI calls</p>
+      <Orb signal={signal} theme="bars" size={112} interactive={false} />
+      <p className="recipe-status" role="status" aria-atomic="true">
+        {status}
+      </p>
+      <label>
+        Rehearsal progress <progress value={saved.length} max={questions.length} /> {saved.length}{' '}
+        of {questions.length} answers saved
+      </label>
+      {!complete && (
+        <>
+          <h3>
+            Question {index + 1} · attempt {attempt}
+          </h3>
+          <p>{question.prompt}</p>
+          <label className="recipe-field">
+            Your answer (editable transcript)
+            <textarea
+              rows={3}
+              maxLength={1500}
+              value={draft}
+              disabled={active || !!review}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          </label>
+          <div className="recipe-actions">
+            <button type="button" disabled={active || !!review || !draft.trim()} onClick={rehearse}>
+              Rehearse answer
+            </button>
+            <button type="button" disabled={active || !review} onClick={retry}>
+              Retry this question
+            </button>
+            <button type="button" disabled={active || !review} onClick={saveAnswer}>
+              {index === questions.length - 1 ? 'Save and finish' : 'Save and next question'}
+            </button>
+            <button type="button" disabled={!active} onClick={cancel}>
+              Cancel turn
+            </button>
+          </div>
+          <label>
+            <input
+              type="checkbox"
+              checked={failNext}
+              disabled={active || !!review}
+              onChange={(event) => setFailNext(event.target.checked)}
+            />{' '}
+            Simulate a review error next turn
+          </label>
+          {review && (
+            <article className="recipe-card" aria-label="Story feedback">
+              <h3>
+                Story checklist · {review.covered.filter(Boolean).length}/{question.cues.length}
+              </h3>
+              <ul>
+                {question.cues.map((cue, cueIndex) => (
+                  <li key={cue}>
+                    {review.covered[cueIndex] ? 'Included' : 'Add detail'}: {cue}
+                  </li>
+                ))}
+              </ul>
+              <p>{question.suggestion}</p>
+              <p>
+                This transparent keyword checklist is a practice aid, not an assessment of your
+                ability.
+              </p>
+            </article>
+          )}
+        </>
+      )}
+      {saved.length > 0 && (
+        <details open={complete}>
+          <summary>{complete ? 'Your rehearsal answers' : 'Saved answers'}</summary>
+          <ol>
+            {saved.map((answer, answerIndex) => (
+              <li key={answerIndex}>
+                <strong>{questions[answerIndex].prompt}</strong>
+                <p>{answer}</p>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      <button type="button" onClick={reset}>
+        Start over
+      </button>
+    </section>
+  )
+}
+```
+
+The `recipe-*` classes are application layout hooks, not a required `orb-ui` stylesheet. Here is a
+minimal responsive treatment to paste into your app’s CSS; replace it with your own design system
+as needed. Native controls and visible focus remain available without custom styling.
+
+```css
+.recipe-demo {
+  max-width: 48rem;
+  margin: auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+.recipe-status {
+  min-height: 3rem;
+}
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.recipe-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-block: 0.8rem;
+}
+.recipe-field input,
+.recipe-field textarea,
+.recipe-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+.recipe-card {
+  border: 1px solid #9ca3af;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-block: 0.75rem;
+}
+.recipe-demo button,
+.recipe-demo select {
+  min-height: 2.75rem;
+}
+.recipe-demo button {
+  cursor: pointer;
+}
+.recipe-demo button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.recipe-demo :focus-visible {
+  outline: 3px solid #6366f1;
+  outline-offset: 3px;
+}
+.recipe-demo mark {
+  color: #172554;
+  background: #dbeafe;
+}
+.recipe-demo progress {
+  max-width: 100%;
+}
+```
+
+## Connect your app’s voice or media source
+
+The checklist uses deterministic regular expressions and deliberately explains its limit in
+the feedback card. Missing a keyword is a prompt to add detail, not a score of the learner’s
+ability. The first sample lacks a measurable result; retry it with an outcome such as “The result
+reduced onboarding time by 20%” to inspect the checklist change.
+
+For a live practice interviewer, keep question navigation separate from provider turn events.
+Persist only an answer the user explicitly accepts. If evaluation arrives late, check both the
+question ID and the attempt ID before displaying it. Make retry idempotent: cancel pending
+playback and evaluation first, then reuse the question without duplicating saved answers.
+
+Use your existing [provider adapter](/adapters/overview) for session signals or
+[controlled mode](/adapters/custom) for an app-owned interview runtime. The same provider can
+serve this recipe and other voice surfaces; a new provider is not required for every use case.
+
+Public demos stay local. Any optional live session should use your visitor’s or developer’s own
+backend and provider account, with scoped, short-lived session credentials. Never put a provider
+secret in the browser or create a public owner-funded endpoint to power this example.
+
+## Verify the complete interaction
+
+- Cancel during each simulated state and verify the question and saved-answer count stay unchanged.
+- Fail a review, retry successfully, and verify earlier saved answers are still present.
+- Click save repeatedly and confirm a question is recorded only once.
+- Start over during a pending review; no old feedback should populate the first question.
+- Verify the progress label, textarea, retry controls, and completion summary using a keyboard and screen reader.
+
+These checks cover the recipe interaction. Live provider transcription, latency, reconnect,
+permissions, and audio alignment still need verification in your own environment. See the
+[Orb component reference](/reference/orb-component) for controlled signals and the
+[voice state guide](/themes/voice-states) for accessible lifecycle labels.

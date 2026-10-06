@@ -267,6 +267,150 @@
   ],
   "rewrites": [
     {
+      "source": "/demos/recipes/",
+      "destination": "/demos/recipes/index.html"
+    },
+    {
+      "source": "/demos/integrations/",
+      "destination": "/demos/integrations/index.html"
+    },
+    {
+      "source": "/docs/recipes",
+      "destination": "/docs/recipes/index.html"
+    },
+    {
+      "source": "/docs/adapters/retell",
+      "destination": "/docs/adapters/retell/index.html"
+    },
+    {
+      "source": "/docs/adapters/hume",
+      "destination": "/docs/adapters/hume/index.html"
+    },
+    {
+      "source": "/docs/adapters/deepgram",
+      "destination": "/docs/adapters/deepgram/index.html"
+    },
+    {
+      "source": "/docs/adapters/agora",
+      "destination": "/docs/adapters/agora/index.html"
+    },
+    {
+      "source": "/docs/adapters/azure-voice-live",
+      "destination": "/docs/adapters/azure-voice-live/index.html"
+    },
+    {
+      "source": "/docs/adapters/cartesia",
+      "destination": "/docs/adapters/cartesia/index.html"
+    },
+    {
+      "source": "/docs/adapters/nova-sonic",
+      "destination": "/docs/adapters/nova-sonic/index.html"
+    },
+    {
+      "source": "/docs/recipes/push-to-talk",
+      "destination": "/docs/recipes/push-to-talk/index.html"
+    },
+    {
+      "source": "/docs/recipes/voice-form",
+      "destination": "/docs/recipes/voice-form/index.html"
+    },
+    {
+      "source": "/docs/recipes/document-qa",
+      "destination": "/docs/recipes/document-qa/index.html"
+    },
+    {
+      "source": "/docs/recipes/guided-onboarding",
+      "destination": "/docs/recipes/guided-onboarding/index.html"
+    },
+    {
+      "source": "/docs/recipes/language-practice",
+      "destination": "/docs/recipes/language-practice/index.html"
+    },
+    {
+      "source": "/docs/recipes/interview-rehearsal",
+      "destination": "/docs/recipes/interview-rehearsal/index.html"
+    },
+    {
+      "source": "/docs/recipes/product-search",
+      "destination": "/docs/recipes/product-search/index.html"
+    },
+    {
+      "source": "/docs/recipes/audio-narration",
+      "destination": "/docs/recipes/audio-narration/index.html"
+    },
+    {
+      "source": "/docs/recipes/",
+      "destination": "/docs/recipes/index.html"
+    },
+    {
+      "source": "/docs/adapters/retell/",
+      "destination": "/docs/adapters/retell/index.html"
+    },
+    {
+      "source": "/docs/adapters/hume/",
+      "destination": "/docs/adapters/hume/index.html"
+    },
+    {
+      "source": "/docs/adapters/deepgram/",
+      "destination": "/docs/adapters/deepgram/index.html"
+    },
+    {
+      "source": "/docs/adapters/agora/",
+      "destination": "/docs/adapters/agora/index.html"
+    },
+    {
+      "source": "/docs/adapters/azure-voice-live/",
+      "destination": "/docs/adapters/azure-voice-live/index.html"
+    },
+    {
+      "source": "/docs/adapters/cartesia/",
+      "destination": "/docs/adapters/cartesia/index.html"
+    },
+    {
+      "source": "/docs/adapters/nova-sonic/",
+      "destination": "/docs/adapters/nova-sonic/index.html"
+    },
+    {
+      "source": "/docs/recipes/push-to-talk/",
+      "destination": "/docs/recipes/push-to-talk/index.html"
+    },
+    {
+      "source": "/docs/recipes/voice-form/",
+      "destination": "/docs/recipes/voice-form/index.html"
+    },
+    {
+      "source": "/docs/recipes/document-qa/",
+      "destination": "/docs/recipes/document-qa/index.html"
+    },
+    {
+      "source": "/docs/recipes/guided-onboarding/",
+      "destination": "/docs/recipes/guided-onboarding/index.html"
+    },
+    {
+      "source": "/docs/recipes/language-practice/",
+      "destination": "/docs/recipes/language-practice/index.html"
+    },
+    {
+      "source": "/docs/recipes/interview-rehearsal/",
+      "destination": "/docs/recipes/interview-rehearsal/index.html"
+    },
+    {
+      "source": "/docs/recipes/product-search/",
+      "destination": "/docs/recipes/product-search/index.html"
+    },
+    {
+      "source": "/docs/recipes/audio-narration/",
+      "destination": "/docs/recipes/audio-narration/index.html"
+    },
+    {
+      "source": "/demos/recipes",
+      "destination": "/demos/recipes/index.html"
+    },
+    {
+      "source": "/demos/integrations",
+      "destination": "/demos/integrations/index.html"
+    },
+    {
       "source": "/blog",
       "destination": "/blog/index.html"
     },

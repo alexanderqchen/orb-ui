@@ -43,12 +43,12 @@ describe('playground GPT-Live session endpoint', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
-  it('requires a caller key on the deployed handler and validates SDP before calling OpenAI', async () => {
+  it('disables the hosted proxy even when a visitor supplies a key', async () => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
-    expect((await handler.fetch(request({ sdp: 'offer' }))).status).toBe(400)
-    expect((await handler.fetch(request({ apiKey: 'test', sdp: 42 }))).status).toBe(400)
-    expect((await handler.fetch(request(null))).status).toBe(400)
+    expect((await handler.fetch(request({ sdp: 'offer' }))).status).toBe(403)
+    expect((await handler.fetch(request({ apiKey: 'test', sdp: 'offer' }))).status).toBe(403)
+    expect((await handler.fetch(request(null))).status).toBe(403)
     expect(fetch).not.toHaveBeenCalled()
   })
 
